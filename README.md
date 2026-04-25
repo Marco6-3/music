@@ -1,187 +1,192 @@
-# XCloud音乐桌面客户端
+# XCloud 音乐桌面端重构版
 
-这是一个双击即可运行的 XCloud 音乐桌面应用。它把公开前端页面、用户后端、SQLite 数据库和音乐 API 代理一起打包进 Electron，不需要额外部署 PHP 服务器。
+这是一个基于 Electron + Express + SQLite 的 XCloud 音乐桌面客户端重构项目。项目目标是把原本依赖远端页面和 PHP 后端的桌面应用，整理成一个可以本地运行、继续开发、打包发布的 Windows 桌面应用。
 
-## 一键启动
+当前版本已经包含：
 
-双击本目录下的 `start-xcloud-music.cmd`。
+- Electron 桌面壳和无边框窗口控制。
+- 本地 Express 后端，兼容原前端使用的 `php/*.php` 风格接口。
+- 本地 SQLite 数据库，用于用户、收藏、歌单和接口状态数据。
+- 多音源 Provider 架构，支持 `gdstudio` 与 `@meting/core` fallback。
+- 通过 Electron Node 模式运行后端脚本，避免 `better-sqlite3` 的 Node/Electron ABI 冲突。
+- 后端和音源探测脚本，用于快速验证搜索、播放 URL、歌词和封面链路。
 
-首次启动会自动安装依赖。`better-sqlite3` 是 Electron 原生模块，安装后会通过 `electron-builder install-app-deps` 自动按当前 Electron 版本重编译。
+## 环境要求
 
-也可以在终端运行：
+- Windows 10/11
+- Node.js
+- npm
 
-```bash
+依赖里包含 `better-sqlite3` 原生模块。桌面端运行以 Electron 的 Node ABI 为准，不建议直接用全局 `node` 导入 `src/server`。
+
+## 安装依赖
+
+```powershell
 npm install
+```
+
+安装后会通过 `electron-builder install-app-deps` 重建 Electron 需要的原生模块。
+
+## 启动应用
+
+桌面端启动：
+
+```powershell
 npm start
+```
+
+也可以双击项目根目录下的：
+
+```text
+start-xcloud-music.cmd
 ```
 
 只启动内置后端：
 
-```bash
+```powershell
 npm run server
 ```
 
-打包 Windows 应用：
+`npm run server` 会通过 `scripts/electron-node.js` 使用 Electron Node 模式启动，避免全局 Node 与 Electron 的 ABI 不一致。
 
-```bash
+## 验证音源
+
+验证音源 Provider 层：
+
+```powershell
+npm run probe:sources -- "周杰伦 晴天"
+```
+
+验证真实 Express 后端 `/api.php`：
+
+```powershell
+npm run probe:backend -- "周杰伦 晴天"
+```
+
+强制关闭 `gdstudio`，验证是否可以 fallback 到 Meting：
+
+```powershell
+npm run probe:backend -- --disable-gdstudio "周杰伦 晴天"
+npm run probe:sources -- --disable-gdstudio "周杰伦 晴天"
+```
+
+## 打包
+
+生成 unpacked Windows 目录：
+
+```powershell
 npm run dist
 ```
 
-构建结果会输出到：
+输出目录：
 
 ```text
-dist/win-unpacked/XCloud音乐.exe
+dist/win-unpacked/
 ```
 
-这个 `.exe` 可以直接双击运行，但要和 `dist/win-unpacked/` 目录内的运行时文件保持在一起。
+发布时不要只发送单独的 `.exe`。Electron 应用依赖同目录下的运行时文件，稳定发布边界是整个 `dist/win-unpacked/` 目录。
 
-如果需要生成 NSIS 安装包或单文件便携包，可以运行：
+生成安装包：
 
-```bash
+```powershell
 npm run installer
 ```
 
-注意：安装包/单文件便携包需要 electron-builder 下载 NSIS 资源；当前网络环境曾出现 GitHub 下载 EOF，默认 `dist` 因此使用更稳定的 unpacked 输出。
-
-## 技术选型
-
-| 层级 | 技术 | 说明 |
-|---|---|---|
-| 桌面壳 | Electron | 用 Chromium 渲染前端，Node.js 负责本地后端和系统能力 |
-| 后端 | Node.js + Express | 将 PHP 后端逻辑重写为 JavaScript，随桌面应用内置启动 |
-| 数据库 | better-sqlite3 | 嵌入式 SQLite，数据保存在用户本地目录 |
-| 文件上传 | multer | 处理头像上传 |
-| HTTP 请求 | axios | 请求网易云榜单、网易云歌单和第三方音乐 API |
-| 打包 | electron-builder | 打包为 Windows `.exe` 便携版或安装包 |
+安装包构建可能需要从 GitHub 下载 NSIS 等资源，网络不稳定时建议优先使用 `dist/win-unpacked/`。
 
 ## 工程结构
 
 ```text
 xcloud-music-rebuild/
 ├─ package.json
-├─ start-xcloud-music.cmd
+├─ package-lock.json
 ├─ README.md
-├─ ALL_SOURCE.md
-├─ webroot/
-│  ├─ index.html
-│  ├─ css/
-│  ├─ js/
-│  └─ public/
-├─ php-backend-source/
-│  └─ ... 原 PHP 后端源码备份
-├─ forensics/
-│  └─ public-snapshot/
+├─ start-xcloud-music.cmd
 ├─ scripts/
-│  └─ export-source.js
-└─ src/
-   ├─ main.js
-   ├─ preload.js
-   ├─ config.js
-   ├─ splash.html
-   ├─ renderer/
-   │  └─ desktop-shell.js
-   └─ server/
-      ├─ index.js
-      └─ database.js
+│  ├─ electron-node.js
+│  ├─ probe-backend.js
+│  ├─ probe-music-sources.js
+│  └─ run-server.js
+├─ src/
+│  ├─ main.js
+│  ├─ preload.js
+│  ├─ config.js
+│  ├─ splash.html
+│  ├─ renderer/
+│  └─ server/
+│     ├─ index.js
+│     ├─ database.js
+│     └─ source-providers/
+├─ webroot/
+├─ php-backend-source/
+└─ forensics/
 ```
 
-## 运行方式
+## 后端说明
 
-`src/main.js` 是 Electron 主进程：
+`src/server/index.js` 是内置 Express 后端，主要负责：
 
-- 启动单实例锁。
-- 启动内置 Express 后端。
-- 创建启动页和主窗口。
-- 加载 `http://127.0.0.1:41731/?from=xcloudapp`。
-- 注入无边框窗口控制能力。
+- 托管 `webroot/` 前端资源。
+- 提供账号、收藏、歌单、榜单、版本检查等接口。
+- 代理 `/api.php` 音乐接口。
+- 缓存音乐 API 返回结果。
+- 对 QQ 音乐榜单做可播放歌曲解析。
 
-`src/server/index.js` 是内置后端：
+`src/server/database.js` 是 SQLite 数据层，启动时会自动创建需要的表。
 
-- 服务 `webroot/index.html`、`css/`、`js/`、`public/`。
-- 不暴露 PHP 源码文件。
-- 提供原前端使用的 `php/*.php` 风格接口。
-- 代理 `/api.php` 到 `https://music-api.gdstudio.xyz/api.php`，并缓存结果。
-- 通过 axios 获取网易云榜单和歌单。
+## 音源架构
 
-`src/server/database.js` 是 SQLite 数据层：
+音源实现位于：
 
-- 自动创建 `users`、`favorites`、`playlists`、`playlist_songs`、`api_status` 表。
-- 使用 `better-sqlite3` 同步读写本地数据库。
-- 使用 scrypt 哈希保存密码。
-- 使用 HMAC token 保存登录态。
-- 生成随机 6 位验证码，10 分钟过期。
+```text
+src/server/source-providers/
+```
+
+当前包含：
+
+- `gdstudio`：第三方聚合音乐 API。
+- `meting`：基于 `@meting/core` 的本地多平台解析 Provider。
+- `dispatcher`：按配置进行 fallback 或 race 调度。
+
+配置位于 `src/config.js` 的 `musicSources` 字段。
+
+`/api.php` 响应头会返回实际命中的音源：
+
+```text
+X-Music-Source: gdstudio
+X-Music-Source: meting
+```
 
 ## 数据位置
 
-通过 Electron 启动时，数据库和上传文件保存在：
+Electron 桌面端运行时，用户数据保存在：
 
 ```text
 %APPDATA%/XCloud音乐/server-data/
 ```
 
-其中：
+单独运行后端时，默认使用项目内的：
 
-- `xcloud_music.db`：SQLite 数据库
-- `uploads/avatars/`：头像上传文件
-- `cache/`：音乐 API 缓存
-- `email_log.txt`：本地验证码日志
+```text
+data/
+```
 
-通过 `npm run server` 单独启动时，默认使用项目内 `data/` 目录。
+`data/` 已在 `.gitignore` 中忽略，不会提交到仓库。
 
-## 已实现接口
+## 主要脚本
 
-账号：
-
-- `POST /php/register_verification.php`
-- `POST /php/register.php`
-- `POST /php/login.php`
-- `POST /php/logout.php`
-- `POST /php/verify_token.php`
-- `POST /php/verify_email.php`
-- `POST /php/forgot_password.php`
-- `POST /php/change_password.php`
-- `POST /php/update_avatar.php`
-
-收藏：
-
-- `POST /php/favorite.php`
-- `POST /php/get_favorites.php`
-- `POST /php/sync_favorites.php`
-
-歌单：
-
-- `POST /php/playlist.php`
-- `POST /php/get_playlists.php`
-- `POST /php/get_playlist_id.php`
-- `POST /php/rename_playlist.php`
-- `POST /php/sync_playlists.php`
-
-内容和状态：
-
-- `GET /php/check_version.php`
-- `GET /php/toplist.php`
-- `GET /php/get_netease_playlist.php`
-- `GET /api.php`
-- `GET /api_check/check_api.php`
-- `GET /api_check/api_doubtful.php`
-
-## PHP 源码
-
-你提供的 PHP 后端源码保留在 `php-backend-source/`，用于对照和后续迁移参考。当前运行时不再依赖 PHP，也不会启动 PHP 内置服务器。
+| 命令 | 说明 |
+|---|---|
+| `npm start` | 启动 Electron 桌面应用 |
+| `npm run server` | 使用 Electron Node 模式启动本地后端 |
+| `npm run probe:sources` | 验证音源 Provider 层 |
+| `npm run probe:backend` | 验证真实 Express 后端 `/api.php` |
+| `npm run dist` | 构建 unpacked Windows 应用目录 |
+| `npm run installer` | 构建安装包 |
 
 ## 注意事项
 
-- 当前音乐搜索、播放 URL、歌词和封面仍依赖第三方音乐 API，上游不可用时会返回缓存或错误。
-- 邮件没有接入 SMTP，验证码会写入本地 `email_log.txt`。
-- `better-sqlite3` 是原生模块，换 Electron 版本后需要重新执行 `npm install` 或 `npx electron-builder install-app-deps`。
+- 音乐搜索、播放链接、歌词和封面仍依赖第三方音乐接口或公开平台接口，可用性会受上游影响。
+- `better-sqlite3` 是原生模块。切换 Electron 版本后，需要重新执行 `npm install` 或 `npx electron-builder install-app-deps`。
+- 当前邮件验证码没有接入 SMTP，会写入本地日志用于开发验证。
 - 生产发布前建议替换 token secret，并补充自动化测试。
-
-## 源码汇总
-
-运行：
-
-```bash
-npm run export-source
-```
-
-会重新生成 `ALL_SOURCE.md`。
