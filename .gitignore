@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+data/
+output/
+webroot/data/
+webroot/uploads/
+php-backend-source/data/
+php-backend-source/uploads/
+ALL_SOURCE.md
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

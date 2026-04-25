@@ -1,0 +1,1520 @@
+[
+  {
+    "file": "api_check_check_api.html",
+    "type": "fetch\\s*\\(",
+    "index": 3964,
+    "snippet": "tainer\"> <h1>API 可用性检查</h1> <div id=\"content\"> <div class=\"loading\">正在加载数据...</div> </div> </div> <script> async function loadAPIStatus() { try { const response = await fetch('api_doubtful.php'); if (!response.ok) { throw new Error('获取数据失败'); } const data = await response.json(); // 构建表格 let html = '<div class=\"table-wrapper\">'; html += '<table>'; html += '<thead>'; html += '<tr>'; html += '<th>音乐源</th>'; html += '<th>搜索功能</th>'; "
+  },
+  {
+    "file": "api_check_check_api.html",
+    "type": "\\.php",
+    "index": 3983,
+    "snippet": "h1>API 可用性检查</h1> <div id=\"content\"> <div class=\"loading\">正在加载数据...</div> </div> </div> <script> async function loadAPIStatus() { try { const response = await fetch('api_doubtful.php'); if (!response.ok) { throw new Error('获取数据失败'); } const data = await response.json(); // 构建表格 let html = '<div class=\"table-wrapper\">'; html += '<table>'; html += '<thead>'; html += '<tr>'; html += '<th>音乐源</th>'; html += '<th>搜索功能</th>'; html += '<th"
+  },
+  {
+    "file": "index.html",
+    "type": "\\.php",
+    "index": 23378,
+    "snippet": "atus-check-modal\" class=\"custom-modal\"> <div class=\"custom-modal-content2 status-check-content\"> <span class=\"custom-modal-close2\" id=\"status-check-close\">&times;</span> <iframe src=\"https://music.xcloudv.top/api_check/check_api.php\" width=\"100%\" height=\"314px\" frameborder=\"0\" style=\"border-radius: 8px; border: 1px solid var(--border-color);\"> </iframe> </div> </div> <!-- 定时器选择面板 --> <div id=\"timer-modal\" class=\"custom-modal\"> <div class=\"custom-modal-content timer-content\"> <button class=\"timer-close-btn\" id=\"timer-close-btn\"><i class=\"fas fa-times\"></i></button> <h3 id=\"timer-title\">定时结束播放<"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "fetch\\s*\\(",
+    "index": 10219,
+    "snippet": "9644b['append'](\"song_id\",_0x2ab['id']);_0xd9644b['append'](\"ecruos\".split(\"\").reverse().join(\"\"),\"xooj\".split(\"\").reverse().join(\"\"));const _0xa77c=await fetch(\"php/favorite.php\",{\"method\":\"POST\",'body':_0xd9644b});const _0xa10bda=await _0xa77c['json']();if(!_0xa10bda['success']){console['error'](\":败失藏收除删器务服从\".split(\"\").reverse().join(\"\"),_0x2ab['name'],_0xa10bda['messag\\"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "fetch\\s*\\(",
+    "index": 12994,
+    "snippet": "39ce['append'](\"di_resu\".split(\"\").reverse().join(\"\"),_0xaee79b);_0xd39ce['append'](\"playlist_name\",playlistName);const _0x7336b=await fetch(\"php/get_playlist_id.php\",{'method':'POST',\"body\":_0xd39ce});const _0x54c5db=await _0x7336b['json']();if(_0x54c5db['success']&&_0x54c5db['playlist_id']){_0x8ad21b=_0x54c5db['playlist_id'];}}catch(error){c"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "fetch\\s*\\(",
+    "index": 14419,
+    "snippet": ");_0x365ce['append'](\"song_id\",_0xbf3e1f['id']);_0x365ce['append'](\"ecruos\".split(\"\").reverse().join(\"\"),\"joox\");const _0x1db38f=await fetch(\"php/playlist.php\",{\"method\":\"POST\",\"body\":_0x365ce});var _0xg88ec=(437920^437922)+(433954^433955);const _0xae5fca=await _0x1db38f['json']();_0xg88ec=474742^474741;if(!_0xae5fca['success']){console['error'](\"从服务器歌单删除歌曲失败:\",playlistName,_0xbf3e1f['nam\\u00"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 9668,
+    "snippet": ";const _0x94b=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0x11e4a=(225380^225378)+(724386^724386);if(_0x94b){for(const _0x2ab of _0xd077cf){try{var _0xac6f=(449322^449326)+(155971^155978);const _0xd9644b=new FormData();_0xac6f=(728051^728054)+(305554^305555);_0xd9644b['append'](\"user_id\",_0x94b);_0xd9644b['append'](\"action\",\"remove\");_0xd9644b['append'](\"song_id\",_0x2ab['id']);_0xd9644b['append'](\"ecruos\".split(\"\").reverse().join(\"\"),\"xooj\".split(\"\").reverse()"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 12675,
+    "snippet": "5m'](\"playlists\",JSON['stringify'](_0x174e));if(_0xaee79b){var _0xcefbfe;let _0x8ad21b=null;_0xcefbfe=(459769^459772)+(605381^605389);try{var _0x07bf;const _0xd39ce=new FormData();_0x07bf=(676103^676111)+(135749^135756);_0xd39ce['append'](\"di_resu\".split(\"\").reverse().join(\"\"),_0xaee79b);_0xd39ce['append'](\"playlist_name\",playlistName);const _0x7336b=await fetch(\"php/get_playlist_id.php\",{'method':'POST',\"body\":"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 13762,
+    "snippet": "tch(error){console['error'](\":败失 DI 单歌取获\".split(\"\").reverse().join(\"\"),playlistName,error);}if(_0x8ad21b){for(const _0xbf3e1f of _0xa1414c){try{var _0xcg91fd=(968809^968809)+(970778^970780);const _0x365ce=new FormData();_0xcg91fd='llkfqm';_0x365ce['append'](\"action\",\"evomer\".split(\"\").reverse().join(\"\"));_0x365ce['append'](\"user_id\",_0xaee79b);_0x365ce['append'](\"di_tsilyalp\".split(\"\").reverse().join(\"\"),_0x8ad21b);_0x365ce['append'](\"song_id\",_0xbf3e1f['id']);"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "localStorage",
+    "index": 590,
+    "snippet": "Faded\",_0x4c9b);}else{_0x4c9b();}async function _0x4c9b(){var _0x5e2b;const _0x74e=_0xg23f3g();_0x5e2b=\"bhfiep\".split(\"\").reverse().join(\"\");if(_0x74e){_0xd9b();}}function _0xg23f3g(){try{const _0x7ad=JSON['parse'](localStorage['getItem'](\"favorites\")||\"[]\");var _0x1e48ef;const _0xgg2aa=_0x7ad['some'](song=>song['source']===\"xooj\".split(\"\").reverse().join(\"\"));_0x1e48ef='peofdl';if(_0xgg2aa){console['log'](\"曲歌的源 XOOJ 有中藏收现发\".split(\"\").reverse().join(\"\"));return!![];}const _0x7fd2fe=JSON['p\\"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "localStorage",
+    "index": 1136,
+    "snippet": ");_0x1e48ef='peofdl';if(_0xgg2aa){console['log'](\"曲歌的源 XOOJ 有中藏收现发\".split(\"\").reverse().join(\"\"));return!![];}const _0x7fd2fe=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");for(const[playlistName,songs]of Object['entries'](_0x7fd2fe)){const _0x32c6e=songs['some'](song=>song['source']===\"xooj\".split(\"\").reverse().join(\"\"));if(_0x32c6e){console['log'](`发现歌单\"${playlistName}\"中有 JOOX 源的歌曲`);return!![];}}return false;}catch(error){console['err\\u0"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "localStorage",
+    "index": 8668,
+    "snippet": "4ion\"){showToast(\"删除过程中出现错误，请稍后重试\",\"error\",165727^169175);}}}async function _0x22e4fd(){try{const _0xedca=JSON['parse'](localStorage['getItem'](\"setirovaf\".split(\"\").reverse().join(\"\"))||\"][\".split(\"\").reverse().join(\"\"));const _0xd077cf=_0xedca['filter'](song=>song['source']===\"joox\");if(_0xd077cf['length']===(416968^416968)){return 342707^342707;}const _0x47bf3f=_0xedca['filter'](song=>song['source']!==\"joox\")"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "localStorage",
+    "index": 9189,
+    "snippet": "oox\");if(_0xd077cf['length']===(416968^416968)){return 342707^342707;}const _0x47bf3f=_0xedca['filter'](song=>song['source']!==\"joox\");localStorage['setItem'](\"setirovaf\".split(\"\").reverse().join(\"\"),JSON['stringify'](_0x47bf3f));var _0x11e4a=(201576^201568)+(426972^426975);const _0x94b=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0x11e4a=(225380^225378)+(724386^724386);if(_0x94b){for(const _0x2ab of _0xd077cf){try{var _0xac6f=(449322^449326)+(155971^155978);const _0xd9644b=new FormData();_0xac6f=(728051^728054)+(3"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "localStorage",
+    "index": 9422,
+    "snippet": "joox\");localStorage['setItem'](\"setirovaf\".split(\"\").reverse().join(\"\"),JSON['stringify'](_0x47bf3f));var _0x11e4a=(201576^201568)+(426972^426975);const _0x94b=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0x11e4a=(225380^225378)+(724386^724386);if(_0x94b){for(const _0x2ab of _0xd077cf){try{var _0xac6f=(449322^449326)+(155971^155978);const _0xd9644b=new FormData();_0xac6f=(728051^728054)+(305554^305555);_0xd9644b['append'](\"user_id\",_0x94b);_0xd9644b['append'](\"action\",\"remo\\u"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "localStorage",
+    "index": 11343,
+    "snippet": "['error'](\":败失曲歌 XOOJ 的中藏收除删\".split(\"\").reverse().join(\"\"),error);return 205451^205451;}}async function _0x149e(){try{var _0x38f7af;const _0x174e=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");_0x38f7af='fblacc';let _0x80c=938990^938990;var _0xcd2fb=(912004^912012)+(257856^257861);const _0xaee79b=localStorage['getItem'](\"user_id\");_0xcd2fb=\"lkhngn\".split(\"\").reverse().join(\"\");for(const[playlistName,songs]of Object['entries'](_0x174e)){var _0x549e1b;const "
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "localStorage",
+    "index": 11596,
+    "snippet": "0065'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");_0x38f7af='fblacc';let _0x80c=938990^938990;var _0xcd2fb=(912004^912012)+(257856^257861);const _0xaee79b=localStorage['getItem'](\"user_id\");_0xcd2fb=\"lkhngn\".split(\"\").reverse().join(\"\");for(const[playlistName,songs]of Object['entries'](_0x174e)){var _0x549e1b;const _0xa1414c=songs['filter'](song=>song['source']===\"xooj\".split(\"\").reverse().join(\"\"));_0x549e1b=(409357^409359)+(544010^544011);if(_0xa1414c['length']===(355044^35"
+  },
+  {
+    "file": "js_delete_joox.js",
+    "type": "localStorage",
+    "index": 12366,
+    "snippet": "(355044^355044)){continue;}var _0x1g9ea;const _0xcg_0xb7b=songs['filter'](song=>song['source']!==\"joox\");_0x1g9ea=(133390^133384)+(378480^378487);_0x174e[playlistName]=_0xcg_0xb7b;localStorage['setItem'](\"playlists\",JSON['stringify'](_0x174e));if(_0xaee79b){var _0xcefbfe;let _0x8ad21b=null;_0xcefbfe=(459769^459772)+(605381^605389);try{var _0x07bf;const _0xd39ce=new FormData();_0x07bf=(676103^676111)+(135749^135756);_0xd39ce['append'](\"di_resu\".split(\"\").reverse().join(\"\"),_0xaee79b);_0xd39ce['append'](\"p\\"
+  },
+  {
+    "file": "js_email_verification.js",
+    "type": "fetch\\s*\\(",
+    "index": 17469,
+    "snippet": "it(\"\").reverse().join(\"\"));_0x9gf79e='eiokjd';sendBtn['disabled']=!![];sendBtn['innerText']=\"...中送发\".split(\"\").reverse().join(\"\");fetch(\"../php/verify_email.php\",{\"method\":\"POST\",'headers':{\"Content-Type\":'application/x-www-form-urlencoded'},\"body\":`action=send_code&user_id=${this['userId']}${this['newEmail']?\"=liame_pmet&\".split(\"\").reverse().join"
+  },
+  {
+    "file": "js_email_verification.js",
+    "type": "fetch\\s*\\(",
+    "index": 20454,
+    "snippet": "split(\"\").reverse().join(\"\");if(this['newEmail']){requestParams['append'](\"new_email\",this['newEmail']);}fetch(\"php.liame_yfirev/php/..\".split(\"\").reverse().join(\"\"),{'method':'POST','headers':{\"Content-Type\":'application/x-www-form-urlencoded'},\"body\":requestParams})['then'](response=>response['json']())['then'](data=>{if(data['success']){this['showSucce\\u0"
+  },
+  {
+    "file": "js_email_verification.js",
+    "type": "new\\s+URLSearchParams\\s*\\(",
+    "index": 19968,
+    "snippet": "\").reverse().join(\"\"));verifyBtn['disabled']=!![];verifyBtn['innerText']=\"验证中...\";var _0x33f=(540301^540303)+(115765^115772);const requestParams=new URLSearchParams({'action':\"verify_code\",\"user_id\":this['userId'],\"code\":verificationCode});_0x33f=\"bdqegk\".split(\"\").reverse().join(\"\");if(this['newEmail']){requestParams['append'](\"new_email\",this['newEmail']);}fetch(\"php.liame_yfirev/php/..\".sp"
+  },
+  {
+    "file": "js_email_verification.js",
+    "type": "localStorage",
+    "index": 21208,
+    "snippet": "u0075ccess'](\"！功成证验箱邮\".split(\"\").reverse().join(\"\"));if(data['auto_login']&&data['token']&&data['user']){localStorage['setItem'](\"auth_token\",data['token']);localStorage['setItem'](\"user_id\",data['user']['id']);localStorage['setItem'](\"username\",data['user']['username']);setTimeo"
+  },
+  {
+    "file": "js_email_verification.js",
+    "type": "localStorage",
+    "index": 21370,
+    "snippet": "6Fgin']&&data['token']&&data['user']){localStorage['setItem'](\"auth_token\",data['token']);localStorage['setItem'](\"user_id\",data['user']['id']);localStorage['setItem'](\"username\",data['user']['username']);setTimeout(()=>{this['hide']();location['reload']();},934261^935589);}else{setTimeout(()=>{this['hid\\u006"
+  },
+  {
+    "file": "js_email_verification.js",
+    "type": "localStorage",
+    "index": 21524,
+    "snippet": "'](\"auth_token\",data['token']);localStorage['setItem'](\"user_id\",data['user']['id']);localStorage['setItem'](\"username\",data['user']['username']);setTimeout(()=>{this['hide']();location['reload']();},934261^935589);}else{setTimeout(()=>{this['hide']();location['reload']();},272102^273758);}}else{this['showError'](data['\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 12269,
+    "snippet": "u0073']=async function(url,filename){try{console['log'](\"Starting download from URL:\",url);const _0xccc=await fetch(url);if(!_0xccc['ok']){throw new Error(`HTTP error! status: ${_0xccc['status']}`);}const _0x6b_0x814=_0xccc['headers']['get'](\"htgnel-tnetnoc\".split(\"\").reverse().join(\"\"));const _0x2161be=_0x6b_0x814?parseInt(_0x6b_0x814,385693^385687):432213^432213;window['downloadProgressManager']['sta\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 113759,
+    "snippet": "}));if(song['id']&&(!song['pic_id']||song['album']===\"辑专知未\".split(\"\").reverse().join(\"\")||song['album']==='')){try{showLoader();const searchRes=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${song['source']}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}`);const searchData=await searchRes['json']();if(Array['isArray'](searchData)&&searchData['length']>(323741^323741)){const matchedInfo=searchData[937964^937964];song['album']=matched"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 130196,
+    "snippet": "lse if(song['source']===\"netease\"||song['source']===\"kuwo\"&&song['pic_id']){var _0x4_0xd6e;const picResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=pic&source=${song['source']}&id=${song['pic_id']}&size=300`);_0x4_0xd6e=(838802^838811)+(784734^784727);const picJson=await picResponse['json']();if(picJson&&picJson['url']){picData={\"url\":picJson['url']};}else{picData={\"url\":''};}}else{var _0x2fc=(977141^977137)+(158921^158927);const picResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=pi"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 130662,
+    "snippet": "4^784727);const picJson=await picResponse['json']();if(picJson&&picJson['url']){picData={\"url\":picJson['url']};}else{picData={\"url\":''};}}else{var _0x2fc=(977141^977137)+(158921^158927);const picResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=pic&source=${song['source']}&id=${song['id']}&size=300`);_0x2fc=(261225^261229)+(981663^981660);picData=await picResponse['json']();}}catch(error){console['error'](\"获取图片URL失败:\",error);picData={\"url\":''};}var _0x467f1c;let albumArtUrl='';_0x467f1c=(281558^281556)+(574575^574574);if(picData['url']){albumArtUrl=picData["
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 132231,
+    "snippet": "le']['display']=\"kcolb\".split(\"\").reverse().join(\"\");}}var _0xf47e8c=(363546^363538)+(345921^345928);let audioData;_0xf47e8c=116848^116857;try{var _0x7b9c8d=(751154^751158)+(113473^113476);const audioResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${song['source']}&id=${song['id']}&br=${this['getAudioQuality']()}`);_0x7b9c8d=(266531^266534)+(429095^429095);audioData=await audioResponse['json']();}catch(error){console['error'](\"主API播放失败，尝试搜索其他sour"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 151034,
+    "snippet": "u91CD试\",\"rorre\".split(\"\").reverse().join(\"\"));}hideLoader();}finally{setTimeout(()=>{this['isLoadingSong']=null;},159140^158800);}return;}try{showLoader();var _0xf116b;const searchRes=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${song['source']}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}`);_0xf116b='oiigjp';var _0xbfee;const searchData=await searchRes['json']();_0xbfee=(985879^985873)+(245364^245364);if(Array['isArray'](searchData)&&searchData['length']>(418125"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 154494,
+    "snippet": "161^961163)+(536626^536624);formData1['append'](\"user_id\",userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),plistName);const idResponse=await fetch(\"php.di_tsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{'method':'POST','body':formData1});var _0xcc5e=(644040^644043)+(504538^504537);const idData=await idResponse['json']();_0xcc5e=\"ilboip\".split(\"\").reverse().join(\"\");if(idData['success']&&idData['playlist_id']){var _0xbgeabb=(329527^329525)+(948739^948738);const playlistSongs=playlists[plistName];_"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 157199,
+    "snippet": "u0065nd'](\"eltit_lanigiro\".split(\"\").reverse().join(\"\"),originalName);formData2['append'](\"original_artist\",originalArtist);const response=await fetch(\"php/playlist.php\",{\"method\":\"POST\",'body':formData2});const result=await response['json']();console['log'](`同步歌曲到歌单 ${plistName} 结果:`,result);break;}}}}if(window['musicSearch']){window['musicSearch']['initPla\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 161777,
+    "snippet": "5me']*(690465^690501);}}this['updateVolumeIcon']();}async loadLyric(song){try{let lyricText,tlyricText;var _0xaf7f2b=(485134^485128)+(396508^396506);const response=await fetch(`https://music-api.gdstudio.xyz/api.php?types=lyric&source=${song['source']}&id=${song['id']}`);_0xaf7f2b=269055^269049;const data=await response['json']();lyricText=data['lyric'];tlyricText=data['tlyric'];if(lyricText){if(tlyricText&&tlyricText['trim']()){this['lyrics']=this['parseDualLy\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 184329,
+    "snippet": "log'](`尝试搜索其他source: ${alternativeSources['join'](\", \")}`);for(const altSource of alternativeSources){try{console['log'](`尝试搜索 ${altSource} 的歌曲: ${searchQuery}`);var _0xd9a;const searchResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${altSource}&name=${encodeURIComponent(searchQuery)}&pages=1`);_0xd9a='cpekhj';const searchData=await searchResponse['json']();if(Array['isArray'](searchData)&&searchData['length']>(649622^649622)){var _0xeg_0xe52=(301527^301522)+(647979^647976);const matchedSong=searchData[229271^229271];_0xeg_0xe52=629186^629194;console['lo\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 185043,
+    "snippet": "a[229271^229271];_0xeg_0xe52=629186^629194;console['log'](`找到匹配歌曲: ${matchedSong['name']} - ${matchedSong['artist']}`);try{var _0x81412e=(754553^754552)+(595147^595138);const audioResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${altSource}&id=${matchedSong['id']}&br=${this['getAudioQuality']()}`);_0x81412e=(108890^108890)+(561457^561465);var _0x283c;const audioData=await audioResponse['json']();_0x283c=(611902^611894)+(959435^959434);if(audioData['url']){console['log'](`使用主API成功获取 ${altSource} 的音频URL`);showToast(`播放失败，已切换到 ${altSource===\"esaet"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 191121,
+    "snippet": "nd'](\"album\",song['album']||'');formData['append'](\"song_cover\",song['pic_id']||'');await fetch(\"php/favorite.php\",{'method':'POST','body':formData});}else if(type===\"playlist\"&&playlistName){const formData1=new FormData();formData1['append'](\"user_id\",userId);formData1['append'](\"playlist_n\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 191740,
+    "snippet": "5ser_id\",userId);formData1['append'](\"playlist_name\",playlistName);var _0xa64db=(840185^840188)+(235142^235140);const idResponse=await fetch(\"php.di_tsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{\"method\":\"POST\",'body':formData1});_0xa64db=\"jpggfk\".split(\"\").reverse().join(\"\");const idData=await idResponse['json']();if(idData['success']&&idData['playlist_id']){const formData2=new FormData();formData2['append'](\"action\",\"upd\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 193134,
+    "snippet": "0070pend'](\"mubla\".split(\"\").reverse().join(\"\"),song['album']||'');formData2['append'](\"revoc_gnos\".split(\"\").reverse().join(\"\"),song['pic_id']||'');await fetch(\"php/playlist.php\",{'method':'POST','body':formData2});}}}catch(error){console['error'](\":败失器务服到息信曲歌新更步同\".split(\"\").reverse().join(\"\"),error);}}setCurrentPlaylist(type,data,index,name){this['currentPlaylist']=type;"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 223002,
+    "snippet": "der();const songInfo=JSON['parse'](decodeURIComponent(songInfoEncoded));if(songInfo&&songInfo['id']&&songInfo['source']){let song;var _0xed4e=(851684^851684)+(877743^877737);const response=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${songInfo['source']}&id=${songInfo['id']}&br=320`);_0xed4e=(644551^644558)+(576048^576057);var _0x11aa2e;const data=await response['json']();_0x11aa2e=(119027^119024)+(787861^787856);if(data&&data['url']){song={'id':songInfo['id'],'name':songInfo['name'],\"artist\":songInfo['artist'],\"album\":"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 226434,
+    "snippet": "){if(song['source']===\"esaeten\".split(\"\").reverse().join(\"\")||song['source']===\"owuk\".split(\"\").reverse().join(\"\")){const picIdToUse=song['pic_id']||song['id'];fetch(`https://music-api.gdstudio.xyz/api.php?types=pic&source=${song['source']}&id=${picIdToUse}&size=300`)['then'](response=>response['json']())['then'](data=>{if(data&&data['url']){coverImg['src']=data['url'];}else{coverImg['src']=\"public/default-cover.j\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 238033,
+    "snippet": ":败失据数曲歌取提\".split(\"\").reverse().join(\"\"),error);return null;}}bindExpandedPlayerEvents(){}async getDownloadUrlWithFallback(song){let downloadUrl;try{var _0x10_0xd39=(790087^790083)+(231655^231652);const urlResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${song['source']}&id=${song['id']}&br=${this['getAudioQuality']()}`);_0x10_0xd39=(115847^115843)+(299685^299692);var _0x98b;const urlData=await urlResponse['json']();_0x98b=(660953^660959)+(373263^373257);if(!urlData['url']){throw new Error(\"获取音频URL失败\");}downloa"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 239633,
+    "snippet": "u0065\"?\"kuwo\":\"esaeten\".split(\"\").reverse().join(\"\");_0xd_0x065='pbneod';console['log'](`尝试搜索 ${altSource} 源的歌曲进行下载...`);try{var _0x89b=(630696^630699)+(790029^790028);const searchResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${altSource}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}&limit=5`);_0x89b=807548^807541;const searchData=await searchResponse['json']();if(searchData&&Array['isArray'](searchData)&&searchData['length']>(159531^159531)){var _0x8ff=(573976^573979)+(345397^345405);const matchedSong=searchData['f"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 240707,
+    "snippet": "4404];_0x8ff=\"pdfinc\".split(\"\").reverse().join(\"\");console['log'](`找到替代歌曲: ${matchedSong['name']} - ${matchedSong['artist']}`);var _0x35ff=(911112^911118)+(299781^299782);const urlResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${altSource}&id=${matchedSong['id']}&br=${this['getAudioQuality']()}`);_0x35ff=(643705^643708)+(706152^706152);const urlData=await urlResponse['json']();if(!urlData['url']){throw new Error(\"败失LRU频音取获\".split(\"\").reverse().join(\"\"));}var _0x1e_0x445;const downloadUrl=urlData['url'];_0x1e_0x445"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 255804,
+    "snippet": "),\"ofni\".split(\"\").reverse().join(\"\"),276382^274510);showLoader();try{const audioQuality=this['getAudioQuality']();var _0x624adg=(329734^329731)+(476021^476017);const urlResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${song['source']}&id=${song['id']}&br=${audioQuality}`);_0x624adg=\"cdojbe\".split(\"\").reverse().join(\"\");var _0xae56g=(868173^868168)+(434746^434748);const urlData=await urlResponse['json']();_0xae56g=(325679^325671)+(835868^835871);if(!urlData['url']){throw new Error(\"败失LRU频音取获\".split(\"\").reverse().join(\"\"));}resolve(urlData['url']);}c"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 258085,
+    "snippet": "0065move']();resolve(null);}});});}async reloadCurrentSongWithNewQuality(currentTime,wasPlaying){if(!this['currentSong'])return;try{showLoader();let audioData;const audioResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${this['currentSong']['source']}&id=${this['currentSong']['id']}&br=${this['audioQuality']}`);audioData=await audioResponse['json']();this['_currentBr']=audioData['br'"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 266183,
+    "snippet": "push'](\"kuwo\");}for(const source of sourcePriority){console['log'](`尝试主API ${source} 源搜索: ${song['name']} - ${song['artist']}`);const searchResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${source}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}&limit=5`);var _0xffb2e;const searchData=await searchResponse['json']();_0xffb2e=(484061^484057)+(405735^405729);if(Array['isArray'](searchData)&&searchData['length']>(461891^461891)){var _0x7673ee=(629764^629767)+(369401^369393);const matchedSo"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 268395,
+    "snippet": "0lice'](sourceIndex,264984^264985);}}for(const source of sourcePriority){console['log'](`尝试主API ${source} 源搜索: ${song['name']} - ${song['artist']}`);try{const searchRes=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${source}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}`);const searchData=await searchRes['json']();if(Array['isArray'](searchData)&&searchData['length']>(929688^929688)){var _0xa14c1a;const matchedSong=searchData[800317^800317];_0xa14c1a='nmlbhb';matchedSong['o\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 303161,
+    "snippet": "=query;this['lastSearchSource']=this['currentSource'];showLoader();try{let data;var _0x1g0b1b;const response=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${this['currentSource']}&name=${encodeURIComponent(query)}&pages=${this['currentPage']}`);_0x1g0b1b=(242526^242525)+(445133^445131);data=await response['json']();const currentPath=window['location']['hash']['substri\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 362845,
+    "snippet": "075ser_id\",userId);formData['append'](\"playlist_name\",playlistName);var _0x97dadd=(876741^876741)+(988513^988515);const response=await fetch(\"php.tsilyalp/php\".split(\"\").reverse().join(\"\"),{\"method\":'POST','body':formData});_0x97dadd='ecqdcc';const data=await response['json']();if(!data['success']){console['error'](\":败失单歌建创器务服在\".split(\"\").reverse().join(\"\"),data['message']);}}catch(error){console['error'](\":\\u8D"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 367298,
+    "snippet": "0070end'](\"revoc_gnos\".split(\"\").reverse().join(\"\"),song['pic_id']);formData['append'](\"album\",song['album']||'');const response=await fetch(\"php.etirovaf/php\".split(\"\").reverse().join(\"\"),{\"method\":'POST',\"body\":formData});var _0x6bcf8d=(392415^392413)+(640258^640263);const data=await response['json']();_0x6bcf8d=(147726^147723)+(130706^130704);if(!data['success']){console['error'](\"同步收藏到服务器失败:\",data['message']);}}showToast(\"已添加到收藏\",\"sseccus\".split(\""
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 369677,
+    "snippet": "0072emove\");formData['append'](\"song_id\",songId);formData['append'](\"source\",songSource);const response=await fetch(\"php.etirovaf/php\".split(\"\").reverse().join(\"\"),{'method':\"POST\",\"body\":formData});const data=await response['json']();if(!data['success']){console['error'](\":败失器务服到藏收除移步同\".split(\"\").reverse().join(\"\"),data['message']);}}showToast(\"已从收藏中移除\",\"su"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 373091,
+    "snippet": "FormData();formData1['append'](\"user_id\",userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),playlistName);var _0xg79e5b;const idResponse=await fetch(\"php.di_tsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{'method':\"POST\",\"body\":formData1});_0xg79e5b=831887^831880;const idData=await idResponse['json']();let playlistId;if(idData['success']&&idData['playlist_id']){playlistId=idData['playlist_id'];}else{var _0xb71cdf=(902243^902244)+(544856^544848)"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 374065,
+    "snippet": "['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData2['append'](\"playlist_name\",playlistName);const createResponse=await fetch(\"php.tsilyalp/php\".split(\"\").reverse().join(\"\"),{'method':'POST','body':formData2});const createData=await createResponse['json']();if(createData['success']&&createData['playlist']&&createData['playlist']['id']){playlistId=createData['playlist']['id'];}}if(playlistId){"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 376130,
+    "snippet": "06Eg_cover\",song['pic_id']);formData3['append'](\"album\",song['album']||'');var _0x15_0x61d;const addResponse=await fetch(\"php/playlist.php\",{\"method\":\"POST\",\"body\":formData3});_0x15_0x61d=(734082^734091)+(579449^579449);var _0xf3a9bf=(961602^961610)+(225934^225934);const addData=await addResponse['json']();_0xf3a9bf=(755636^755639)+(908837^908832);if(!addData['success']){console['error'](\"同步歌曲到服务器歌单\\u5"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 378636,
+    "snippet": "16)+(220325^220333);formData1['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),playlistName);var _0xc4e;const idResponse=await fetch(\"php/get_playlist_id.php\",{\"method\":\"POST\",'body':formData1});_0xc4e=(645620^645616)+(478418^478420);var _0xfc8d;const idData=await idResponse['json']();_0xfc8d='olbmpg';if(idData['success']&&idData['playlist_id']){var "
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 379907,
+    "snippet": "9st_id']);formData2['append'](\"song_id\",songId);formData2['append'](\"source\",songSource);const response=await fetch(\"php/playlist.php\",{'method':\"POST\",'body':formData2});const data=await response['json']();if(!data['success']){console['error'](\":败失曲歌除移单歌器务服从\".split(\"\").reverse().join(\"\"),data['message']"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 397845,
+    "snippet": "(\"\").reverse().join(\"\"),userId);formData['append'](\"old_name\",oldName);formData['append'](\"eman_wen\".split(\"\").reverse().join(\"\"),newName);const response=await fetch(\"php/rename_playlist.php\",{'method':\"POST\",'body':formData});var _0xbfe1a=(125534^125530)+(657522^657523);const data=await response['json']();_0xbfe1a=\"oofemg\".split(\"\").reverse().join(\"\");if(data['success']){}else{console['error'](\"同步\\u6B"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 400995,
+    "snippet": "append'](\"user_id\",userId);formData1['append'](\"playlist_name\",playlistName);const idResponse=await fetch(\"php/get_playlist_id.php\",{'method':'POST','body':formData1});const responseText=await idResponse['text']();if(responseText['includes'](\"gninraW\".split(\"\").reverse().join(\"\"))||responseText['includes'](\"Error\")||responseText"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 402514,
+    "snippet": "plit(\"\").reverse().join(\"\"),userId);formData2['append'](\"playlist_id\",idData['playlist_id']);const deleteResponse=await fetch(\"php/playlist.php\",{\"method\":\"POST\",\"body\":formData2});const deleteText=await deleteResponse['text']();try{const deleteData=JSON['parse'](deleteText);if(!deleteData['success']){console['log'](\"从服务器删除歌单失败，但本地删除成功:\",deleteData"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 409256,
+    "snippet": "u0065']['trim']();if(!query)return;this['isLoading']=!![];this['currentPage']++;showLoader();try{let data;var _0xe9e6c;const response=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${this['currentSource']}&name=${encodeURIComponent(query)}&pages=${this['currentPage']}`);_0xe9e6c=\"dndmkm\".split(\"\").reverse().join(\"\");data=await response['json']();if(Array['isArray'](data)&&data['length']>(616276^616276)){data['fo\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 427467,
+    "snippet": "69ng']=!![];this['saveSearchState']();this['isInSearchMode']=false;showLoader();try{const response=await fetch(`php/toplist.php?type=${type}`);var _0xf5f=(713514^713517)+(131898^131901);const data=await response['json']();_0xf5f=(941255^941250)+(643786^643790);if(data['code']===(148892^148820)&&Array['isArray'](data['data'])&&data['data']['length']>(978747^978747)){this['currentToplistDat\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 463978,
+    "snippet": "4'](\"action\",\"send_code\");formData['append'](\"liame\".split(\"\").reverse().join(\"\"),email);var _0x7781d=(300925^300923)+(988572^988575);const response=await fetch(\"php.noitacifirev_retsiger/php\".split(\"\").reverse().join(\"\"),{'method':'POST','body':formData});_0x7781d=\"iqphfp\".split(\"\").reverse().join(\"\");var _0x0a9c=(423539^423546)+(715336^715339);const data=await response['json']();_0x0a9c=(181553^181553)+(173645^173645);if(data['success']){showToast(data['message'],\"success\");let countdown=47133"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 469325,
+    "snippet": "73sword\",password);formData['append'](\"rebmemer\".split(\"\").reverse().join(\"\"),this['rememberLogin']?\"1\":\"0\");const response=await fetch(\"php.nigol/php\".split(\"\").reverse().join(\"\"),{'method':\"POST\",'body':formData});var _0xd0396d;const data=await response['json']();_0xd0396d=(397769^397772)+(562608^562613);if(data['success']){if(data['need_email_verification']){hideLoader();this['hide\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 477168,
+    "snippet": "u0065rror\");}finally{hideLoader();}}async fetchUserPlaylists(userId){try{const formData=new FormData();formData['append'](\"user_id\",userId);var _0xc4b74e;const response=await fetch(\"php.stsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{'method':\"POST\",\"body\":formData});_0xc4b74e=160337^160339;return await response['json']();}catch(error){console['error'](\"获取用户歌单失败:\",error);return{\"success\":false,\"message\":\"获取用户歌单失败\"};}}async handleRegister(){var _0x484d;const username=document['getEl\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 479847,
+    "snippet": "064'](\"verification_code\",verificationCode);formData['append'](\"password\",password);const response=await fetch(\"php.retsiger/php\".split(\"\").reverse().join(\"\"),{\"method\":\"POST\",'body':formData});var _0xf2_0xed6=(736605^736600)+(625308^625300);const data=await response['json']();_0xf2_0xed6=914800^914807;if(data['success']){this['currentUser']=data['user'];this['updateUserUI']();this['h\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 481351,
+    "snippet": "4Item'](\"nekot_htua\".split(\"\").reverse().join(\"\"));_0xg8f=\"ijphin\".split(\"\").reverse().join(\"\");const formData=new FormData();formData['append'](\"token\",token||'');const response=await fetch(\"php.tuogol/php\".split(\"\").reverse().join(\"\"),{'method':'POST','body':formData});var _0xaefc2c;const data=await response['json']();_0xaefc2c='glfnbg';this['currentUser']=null;this['clearAuthStorage']();this['updateUserU\\u004"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 483820,
+    "snippet": ");_0x131eda=(552107^552109)+(661799^661795);formData['append'](\"nekot\".split(\"\").reverse().join(\"\"),token);formData['append'](\"user_id\",userId);const response=await fetch(\"php/verify_token.php\",{'method':\"POST\",'body':formData});var _0x391g;const data=await response['json']();_0x391g=680838^680847;if(data['success']){if(data['need_email_verificatio"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 486799,
+    "snippet": "0072']['id'];var _0x22bce=(678701^678698)+(327242^327247);const formData=new FormData();_0x22bce=146391^146391;formData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);var _0x3787d;const favoritesResponse=await fetch(\"php.setirovaf_teg/php\".split(\"\").reverse().join(\"\"),{'method':\"POST\",\"body\":formData});_0x3787d=764617^764617;var _0x7eg=(291703^291701)+(979461^979461);const favoritesData=await favoritesResponse['json']();_0x7eg=\"ekpnla\".split(\"\").reverse().join(\"\");if(favoritesData['success']&&Array['isArray'](favoritesData['favorites'])){c"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 489088,
+    "snippet": "61lues']());localStorage['setItem'](\"favorites\",JSON['stringify'](mergedFavorites));}const playlistsResponse=await fetch(\"php.stsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{\"method\":\"POST\",'body':formData});const playlistsData=await playlistsResponse['json']();if(playlistsData['success']&&playlistsData['playlists']){let localPlaylists=JSON['parse'](localStorage['getItem'](\"playlists\")|"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 508093,
+    "snippet": "0pend'](\"ratava\".split(\"\").reverse().join(\"\"),uploadedFile);}else{formData['append'](\"default_avatar\",selectedAvatar);}const response=await fetch(\"php/update_avatar.php\",{\"method\":\"POST\",'body':formData});var _0xa309a;const result=await response['json']();_0xa309a=(371657^371662)+(811726^811726);if(result['success']){this['currentUser']['avatar']=result['ava"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 510167,
+    "snippet": "r _0xa733a=(890055^890050)+(418632^418624);const favFormData=new FormData();_0xa733a=(990713^990704)+(663651^663648);favFormData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);try{var _0x4d_0x624;const favResponse=await fetch(\"php/get_favorites.php\",{\"method\":'POST',\"body\":favFormData});_0x4d_0x624='gfhkfi';const favData=await favResponse['json']();const serverFavorites=favData['success']&&favData['favorites']?favData['favorites']:[];const serverFavMap=new"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 511867,
+    "snippet": "u006Ed'](\"user_id\",userId);syncFavForm['append'](\"favorites\",JSON['stringify'](newFavorites));await fetch(\"php/sync_favorites.php\",{'method':\"POST\",\"body\":syncFavForm});}}catch(error){console['error'](\"同步收藏出错:\",error);}try{const playlistsFormData=new FormData();playlistsFormData['append'](\"user_id\",userId);const playlistsResponse=awa"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 512390,
+    "snippet": "72ror'](\"同步收藏出错:\",error);}try{const playlistsFormData=new FormData();playlistsFormData['append'](\"user_id\",userId);const playlistsResponse=await fetch(\"php.stsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{\"method\":\"POST\",\"body\":playlistsFormData});var _0x79736f;const playlistsData=await playlistsResponse['json']();_0x79736f=(370545^370548)+(788232^788233);var _0x3f_0x2af=(234683^234682)+(838297^838296);const serverPlaylists=playlistsData['success']&&playlistsData['playlists']?playlistsData['playlist\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 514732,
+    "snippet": "006Caylists\",JSON['stringify'](playlistsToSync));syncPlaylistsForm['append'](\"mode\",\"append\");await fetch(\"php.stsilyalp_cnys/php\".split(\"\").reverse().join(\"\"),{'method':'POST',\"body\":syncPlaylistsForm});}}catch(error){console['error'](\"同步歌单出错:\",error);}if(window['musicSearch']){const currentHash=window['location']['hash'];if(currentHash===\"stsilyalp#\".split(\"\").reverse().join(\"\")){window['mus\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 543063,
+    "snippet": "065nt_password\",currentPassword);formData['append'](\"new_password\",newPassword);var _0xb760ea;const response=await fetch(\"php/change_password.php\",{'method':\"POST\",'body':formData});_0xb760ea=(798931^798935)+(374525^374521);const data=await response['json']();if(data['success']){showToast(data['message'],\"sseccus\".split(\"\").reverse().join(\"\"));changePassword"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 552156,
+    "snippet": "68eck_time\",this['lastCheckTime']['toString']());var _0x21c8g=(407416^407419)+(299594^299596);const response=await fetch(\"php/check_version.php?t=\"+Date['now']());_0x21c8g=(435455^435448)+(530259^530261);var _0xe2855d;const data=await response['json']();_0xe2855d=170757^170759;var _0xaae6f;const currentNotification=document['querySelector'](\"noitacifiton-etadpu.\".split(\"\").reverse().join(\"\"));_0xaae6f=139710^139"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 562156,
+    "snippet": "73er_id\",userId);formData['append'](\"playlist_name\",this['playlistName']);await fetch(\"php/playlist.php\",{'method':\"POST\",\"body\":formData});}catch(error){console['error'](\"创建服务器歌单失败:\",error);}}return!![];}showImportDialog(){if(!window['authManager']||!window['authManager']['c\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 581527,
+    "snippet": ";if(directPlaylistId){requestParams['set'](\"id\",directPlaylistId);}else{requestParams['set'](\"knil\".split(\"\").reverse().join(\"\"),rawImportText);}var _0x5ad23a=(371740^371733)+(544255^544251);const playlistResponse=await fetch(`php/get_netease_playlist.php?${requestParams['toString']()}`);_0x5ad23a=159318^159314;const playlistData=await playlistResponse['json']();if(playlistData['code']===(227296^227112)&&playlistData['playlist']){if(importTarget['value']===\"new\"&&!playlistNameInput['value']['trim']()){this['pla\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 586970,
+    "snippet": "0064'](\"user_id\",userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),this['playlistName']);const idResponse=await fetch(\"php/get_playlist_id.php\",{'method':'POST',\"body\":formData1});var _0xb37b=(934102^934100)+(861255^861254);const idData=await idResponse['json']();_0xb37b=622029^622021;playlistId=idData['playlist_id'];}catch(error){console['error'](\"获取歌单ID"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 590302,
+    "snippet": "\"user_id\",userIdForSync);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),this['playlistName']);const idResponse=await fetch(\"php.di_tsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{\"method\":'POST','body':formData1});const idData=await idResponse['json']();const playlistId=idData['playlist_id'];if(playlistId){if(importMethod===\"knil-esaeten\".split(\"\").reverse().join(\"\")){var _0x480f=(441076^441076)+(601944^601948);const formData3=new FormData();_0x480f=(519364^519360)+(508290^508291);formData3['append'](\"\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 592161,
+    "snippet": "f=(345948^345940)+(115157^115153);formData3['append'](\"songs\",JSON['stringify'](songsData));try{var _0x4cd=(946508^946510)+(964610^964615);const response=await fetch(\"php.tsilyalp/php\".split(\"\").reverse().join(\"\"),{'method':'POST','body':formData3});_0x4cd=(976481^976485)+(791203^791205);const result=await response['json']();if(!result['success']){console['error'](\"网易云歌单批量同步失败:\",result['message']);}else{console['log'](\"网易\\u4E9"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 594192,
+    "snippet": "']||\"未知专辑\"};});_0x6656ad=(585719^585726)+(475039^475036);formData3['append'](\"songs\",JSON['stringify'](songsData));try{const response=await fetch(\"php/playlist.php\",{'method':\"POST\",'body':formData3});var _0x24a=(837791^837783)+(655203^655204);const result=await response['json']();_0x24a=(423959^423966)+(833031^833026);if(!result['success']){console['error'](\"文本导入批量同步失败:\","
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 596251,
+    "snippet": "c_gnos\".split(\"\").reverse().join(\"\"),'');singleFormData['append'](\"album\",item['song']['album']||\"辑专知未\".split(\"\").reverse().join(\"\"));await fetch(\"php/playlist.php\",{'method':\"POST\",'body':singleFormData});}catch(e){console['error'](\"单首歌曲同步失败:\",e);}}}}catch(fetchError){console['error'](\":败失求请步同入导本文\".split(\"\").reverse().join(\"\"),fetchError);}}}}catch(error){consol"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 620470,
+    "snippet": "2or\");return;}if(_0x698fce>(244909^244909))return;_0x1d458b['disabled']=!![];_0x1d458b['textContent']=\"...中送发\".split(\"\").reverse().join(\"\");fetch(\"php/forgot_password.php\",{\"method\":'POST','body':new URLSearchParams({'action':\"send_code\",\"email\":_0x28635g})})['then'](res=>res['json']())['then'](data=>{showToast(data['message'],data['suc\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "fetch\\s*\\(",
+    "index": 623542,
+    "snippet": "'](\"drowssap-wen-pf\".split(\"\").reverse().join(\"\"))['value'];_0xfdef=(124144^124150)+(745443^745442);if(!_0x22a0e||!_0x8a_0x88d||!_0x9a4b){showToast(\"请填写完整信息\",\"error\");return;}fetch(\"php/forgot_password.php\",{'method':\"POST\",'body':new URLSearchParams({\"action\":\"reset_password\",'email':_0x22a0e,'code':_0x8a_0x88d,\"new_password\":_0x9a4b})})['then'](res=>res['js\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+URLSearchParams\\s*\\(",
+    "index": 222294,
+    "snippet": "64'](card);if(songData){this['shareSong'](songData);}else{showToast(\"无法获取歌曲信息\",\"error\");}}}}});}async handleShareLink(){var _0x94598d;const urlParams=new URLSearchParams(window['location']['search']);_0x94598d=739863^739863;var _0xa54be;const shareType=urlParams['get'](\"share\");_0xa54be=\"kkioml\".split(\"\").reverse().join(\"\");const songInfoEncoded=urlParams['get'](\"ofni\".split(\"\").reverse().join(\"\"));if(shareType===\"song\"&&songInfoEncoded){try{showLoader();const songInfo=JSON['parse'](decodeURICom"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+URLSearchParams\\s*\\(",
+    "index": 581246,
+    "snippet": "5e']['trim']();if(!playlistName){playlistName='';}}else{playlistName=importTarget['value'];}this['playlistName']=playlistName;try{const requestParams=new URLSearchParams();if(directPlaylistId){requestParams['set'](\"id\",directPlaylistId);}else{requestParams['set'](\"knil\".split(\"\").reverse().join(\"\"),rawImportText);}var _0x5ad23a=(371740^371733)+(544255^544251);const playlistResponse=await fetch(`php/get_netease_playlist.php?${requestParams['toString']()}`);_0x5ad23a=159318^159314;const playlistData=await playlistResponse['json']();if(playlistData['co\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+URLSearchParams\\s*\\(",
+    "index": 620661,
+    "snippet": "5nt']=\"...中送发\".split(\"\").reverse().join(\"\");fetch(\"php/forgot_password.php\",{\"method\":'POST','body':new URLSearchParams({'action':\"send_code\",\"email\":_0x28635g})})['then'](res=>res['json']())['then'](data=>{showToast(data['message'],data['success']?\"success\":\"rorre\".split(\"\").reverse().join(\"\"));if(data['success']){_0x698fce=498783^498787;_0x1"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+URLSearchParams\\s*\\(",
+    "index": 623783,
+    "snippet": "6Fr\");return;}fetch(\"php/forgot_password.php\",{'method':\"POST\",'body':new URLSearchParams({\"action\":\"reset_password\",'email':_0x22a0e,'code':_0x8a_0x88d,\"new_password\":_0x9a4b})})['then'](res=>res['json']())['then'](data=>{showToast(data['message'],data['success']?\"sseccus\".split(\"\").reverse().join(\"\"):\"error\");if(data"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 154203,
+    "snippet": "7ify'](playlists));}const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{for(const plistName in playlists){var _0x4c_0x4c8=(264562^264571)+(753970^753979);const formData1=new FormData();_0x4c_0x4c8=(961161^961163)+(536626^536624);formData1['append'](\"user_id\",userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),plistName);const idResponse=await fetch(\"php.di_tsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{'method':'POST','body':formData1});var _0xcc5e=(644040^644043)+(504538^504537);const idData=await idResponse['j\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 155361,
+    "snippet": "61me']===song['name']&&s['artist']===song['artist']&&s['source']===song['source']){var _0x39d;const formData2=new FormData();_0x39d=(156306^156315)+(930289^930288);formData2['append'](\"noitca\".split(\"\").reverse().join(\"\"),\"update_song_info\");formData2['append'](\"user_id\",userId);formData2['append'](\"di_tsilyalp\".split(\"\").reverse().join(\"\"),idData['playlist_id']);form"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 190294,
+    "snippet": "userId=localStorage['getItem'](\"user_id\");if(!userId)return;try{if(type===\"favorites\"){var _0x75d=(342487^342483)+(698248^698252);const formData=new FormData();_0x75d=(694463^694462)+(662883^662891);formData['append'](\"user_id\",userId);formData['append'](\"action\",\"update\");formData['append'](\"song_id\",song['id']);formData['append'](\"ecruos\".split(\"\").reverse().join(\"\"),song['sour\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 191409,
+    "snippet": "02Ffavorite.php\",{'method':'POST','body':formData});}else if(type===\"playlist\"&&playlistName){const formData1=new FormData();formData1['append'](\"user_id\",userId);formData1['append'](\"playlist_name\",playlistName);var _0xa64db=(840185^840188)+(235142^235140);const idResponse=await fetch(\"php.di_tsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{\"method\":\"POST\",'body':formData1});_0xa64db=\"jpggfk\".split(\"\").reverse().join(\"\");const"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 192135,
+    "snippet": ");_0xa64db=\"jpggfk\".split(\"\").reverse().join(\"\");const idData=await idResponse['json']();if(idData['success']&&idData['playlist_id']){const formData2=new FormData();formData2['append'](\"action\",\"update_song\");formData2['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData2['append'](\"playlist_id\",idData['playlist_id']);formData2['append'](\"\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 362349,
+    "snippet": "ON['stringify'](playlists));const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{var _0x2d74a=(222647^222645)+(919906^919907);const formData=new FormData();_0x2d74a=(886957^886956)+(289250^289248);formData['append'](\"action\",\"etaerc\".split(\"\").reverse().join(\"\"));formData['append'](\"user_id\",userId);formData['append'](\"playlist_name\",playlistName);var _0x97dadd=(876741^876741)+(988513^988515);const response=await fetch(\"php.tsilyalp/php\""
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 365966,
+    "snippet": "gify'](favorites));var _0x4ad=(611355^611355)+(221088^221090);const userId=localStorage['getItem'](\"user_id\");_0x4ad=904049^904052;if(userId){var _0xb4a2d;const formData=new FormData();_0xb4a2d=(398240^398249)+(463750^463747);formData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData['append'](\"noitca\".split(\"\").reverse().join(\"\"),\"add\");formData['append'](\"song_id\",song['id']);formData['append'](\"source\",song['source']);formData["
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 369209,
+    "snippet": "orites\",JSON['stringify'](newFavorites));const userId=localStorage['getItem'](\"user_id\");if(userId){const formData=new FormData();formData['append'](\"user_id\",userId);formData['append'](\"action\",\"remove\");formData['append'](\"song_id\",songId);formData['append'](\"source\",songSource);const response=await fetch(\"php.etirovaf/php\".split(\"\").reverse().join(\"\""
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 372827,
+    "snippet": "0079lists\",JSON['stringify'](playlists));const userId=localStorage['getItem'](\"user_id\");if(userId){try{const formData1=new FormData();formData1['append'](\"user_id\",userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),playlistName);var _0xg79e5b;const idResponse=await fetch(\"php.di_tsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{'method':\"POST\",\"body\":formData1});_0xg79e5b=831887^831880;const idData=await idResponse['json']();let playlistId;if(idData["
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 373628,
+    "snippet": "0063ess']&&idData['playlist_id']){playlistId=idData['playlist_id'];}else{var _0xb71cdf=(902243^902244)+(544856^544848);const formData2=new FormData();_0xb71cdf=568364^568364;formData2['append'](\"action\",\"create\");formData2['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData2['append'](\"playlist_name\",playlistName);const createResponse=await fetch(\"php.tsilyalp/php\".split(\"\").reverse().join(\"\"),{'meth\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 374644,
+    "snippet": "0073t']&&createData['playlist']['id']){playlistId=createData['playlist']['id'];}}if(playlistId){var _0x16e=(509395^509396)+(946622^946615);const formData3=new FormData();_0x16e=963928^963932;formData3['append'](\"action\",\"add\");formData3['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData3['append'](\"playlist_id\",playlistId);formData3['append'](\"di_gnos\".split(\"\").reverse().join(\"\"),song['id']);formData3['app\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 378340,
+    "snippet": "N['stringify'](playlists));const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{var _0x912gf=(557578^557570)+(788386^788387);const formData1=new FormData();_0x912gf=(306718^306716)+(220325^220333);formData1['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),playlistName);var _0xc4e;const idResponse=await fetch(\"php/get_playlist_id.php\",{\"method\":\"POST\",'body':formData1});_"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 379214,
+    "snippet": "u006Fn']();_0xfc8d='olbmpg';if(idData['success']&&idData['playlist_id']){var _0x48fc7f=(678812^678813)+(240158^240159);const formData2=new FormData();_0x48fc7f=910794^910792;formData2['append'](\"action\",\"remove\");formData2['append'](\"user_id\",userId);formData2['append'](\"playlist_id\",idData['playlist_id']);formData2['append'](\"\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 397506,
+    "snippet": "DoveChild'](modal);});}async syncPlaylistRename(oldName,newName){const userId=localStorage['getItem'](\"user_id\");if(!userId)return;try{const formData=new FormData();formData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData['append'](\"old_name\",oldName);formData['append'](\"eman_wen\".split(\"\").reverse().join(\"\"),newName);const response=await fetch(\"php/rename_playlist.php\",{'metho\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 400670,
+    "snippet": "079'](playlists));var _0x74g=(318729^318732)+(390448^390454);const userId=localStorage['getItem'](\"user_id\");_0x74g=(728399^728392)+(808314^808312);if(userId){try{var _0x3ef;const formData1=new FormData();_0x3ef=(297960^297963)+(519228^519228);formData1['append'](\"user_id\",userId);formData1['append'](\"playlist_name\",playlistName);const idResponse=await fetch(\"php/get_playlist_id.php\",{'method':'POST','"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 402049,
+    "snippet": "uFF0C仅执行本地删除操作\");}else{try{const idData=JSON['parse'](responseText);if(idData&&idData['playlist_id']){showLoader();try{const formData2=new FormData();formData2['append'](\"action\",\"delete\");formData2['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData2['append'](\"playlist_id\",idData['playlist_id']);const deleteResponse=await fetch(\"php/play"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 463617,
+    "snippet": "u0063ode\");sendBtn['disabled']=!![];sendBtn['innerText']=\"发送中...\";try{var _0xd39ba=(256015^256009)+(944475^944478);const formData=new FormData();_0xd39ba=(984870^984878)+(178532^178534);formData['append'](\"action\",\"send_code\");formData['append'](\"liame\".split(\"\").reverse().join(\"\"),email);var _0x7781d=(300925^300923)+(988572^988575);const response=await fetch(\"php.noitacifirev_retsiger/php\".split(\"\").reverse().join(\"\"),{'method':'POST','body':formData});_0x7781"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 468874,
+    "snippet": "u0064\")['value'];_0xbcbe1e=(760479^760479)+(633383^633376);if(!username||!password){showToast(\"用户名和密码不能为空\",\"rorre\".split(\"\").reverse().join(\"\"));return;}try{showLoader();const formData=new FormData();formData['append'](\"username\",username);formData['append'](\"password\",password);formData['append'](\"rebmemer\".split(\"\").reverse().join(\"\"),this['rememberLogin']?\"1\":\"0\");const response=await fetch(\"php.nigol/php\".split(\"\").reverse().join(\"\"),{'me\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 477016,
+    "snippet": "D25:\",error);showToast(\"接连器务服查检请，败失求请录登\".split(\"\").reverse().join(\"\"),\"error\");}finally{hideLoader();}}async fetchUserPlaylists(userId){try{const formData=new FormData();formData['append'](\"user_id\",userId);var _0xc4b74e;const response=await fetch(\"php.stsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{'method':\"POST\",\"body\":formData});_0xc4b74e=160337^160339;return await response['json']();}catch(error){console['error'](\"获取用户歌单失败:\",error);return{\"success\":false,\"mess"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 479330,
+    "snippet": "57段都必须填写\",\"error\");return;}if(password!==confirmPassword){showToast(\"两次输入的密码不一致\",\"error\");return;}try{showLoader();const formData=new FormData();formData['append'](\"username\",username);formData['append'](\"email\",email);formData['append'](\"verification_code\",verificationCode);formData['append'](\"password\",password);const response=await fet"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 481222,
+    "snippet": "();}}async handleLogout(){try{showLoader();var _0xg8f=(285657^285648)+(229489^229495);const token=localStorage['getItem'](\"nekot_htua\".split(\"\").reverse().join(\"\"));_0xg8f=\"ijphin\".split(\"\").reverse().join(\"\");const formData=new FormData();formData['append'](\"token\",token||'');const response=await fetch(\"php.tuogol/php\".split(\"\").reverse().join(\"\"),{'method':'POST','body':formData});var _0xaefc2c;const data=await response['json']();_0xaefc2c='glfnbg';this['currentUser']=null;this['clearAut\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 483547,
+    "snippet": "=localStorage['getItem'](\"username\");_0x642b1c=(743841^743842)+(433860^433869);if(token&&userId&&username){showLoader();try{var _0x131eda=(633262^633259)+(268989^268986);const formData=new FormData();_0x131eda=(552107^552109)+(661799^661795);formData['append'](\"nekot\".split(\"\").reverse().join(\"\"),token);formData['append'](\"user_id\",userId);const response=await fetch(\"php/verify_token.php\",{'method':\"POST\",'body':formData});var _0x391g;c"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 486622,
+    "snippet": "currentUser']['id'])return;try{const userId=this['currentUser']['id'];var _0x22bce=(678701^678698)+(327242^327247);const formData=new FormData();_0x22bce=146391^146391;formData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);var _0x3787d;const favoritesResponse=await fetch(\"php.setirovaf_teg/php\".split(\"\").reverse().join(\"\"),{'method':\"POST\",\"body\":formData});_0x3787d=764617^764617;var _0x7eg=(291703^291701)+(979461^979461);const favoritesData=await favoritesResponse['json']();_0x7eg=\"ekpnla\".split(\"\").reverse().join(\"\");if(favoritesDa"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 507600,
+    "snippet": "u0061dAsDataURL'](file);});saveBtn['addEventListener'](\"click\",async()=>{try{showLoader();const formData=new FormData();formData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),this['currentUser']['id']);if(uploadedFile){formData['append'](\"ratava\".split(\"\").reverse().join(\"\"),uploadedFile);}else{formData['append'](\"default_avatar\",selectedAvatar);}const response=await fetch(\"php\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 509968,
+    "snippet": "073er'])return;try{var _0xa5b=(433582^433580)+(218698^218696);const userId=this['currentUser']['id'];_0xa5b=575578^575571;var _0xa733a=(890055^890050)+(418632^418624);const favFormData=new FormData();_0xa733a=(990713^990704)+(663651^663648);favFormData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);try{var _0x4d_0x624;const favResponse=await fetch(\"php/get_favorites.php\",{\"method\":'POST',\"body\":favFormData});_0x4d_0x624='gfhkfi';const favData=await favResponse['json']();const serverFavorites=favData['\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 511554,
+    "snippet": "18^198222);const key=`${item['source']}_${item['id']}`;_0xb10aca=864282^864287;return!serverFavMap['has'](key);});if(newFavorites['length']>(940579^940579)){const syncFavForm=new FormData();syncFavForm['append'](\"user_id\",userId);syncFavForm['append'](\"favorites\",JSON['stringify'](newFavorites));await fetch(\"php/sync_favorites.php\",{'method':\"POST\""
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 512234,
+    "snippet": "65s.php\",{'method':\"POST\",\"body\":syncFavForm});}}catch(error){console['error'](\"同步收藏出错:\",error);}try{const playlistsFormData=new FormData();playlistsFormData['append'](\"user_id\",userId);const playlistsResponse=await fetch(\"php.stsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{\"method\":\"POST\",\"body\":playlistsFormData});var _0x79736f;const playlistsData=await playlistsResponse['json']();_0x79736f=(370545^370548)+(788232^788233);var _0x3f_0x2af=(234683^234682)+(838297^838296);const serverPlaylists=playlistsData['succ\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 514255,
+    "snippet": "928a=483398^483399;if(songsToAdd['length']>(909108^909108)){playlistsToSync[playlistName]=songsToAdd;needSync=!![];}}else{playlistsToSync[playlistName]=localSongs;needSync=!![];}}if(needSync){var _0x820a2a;const syncPlaylistsForm=new FormData();_0x820a2a=592313^592315;syncPlaylistsForm['append'](\"user_id\",userId);syncPlaylistsForm['append'](\"playlists\",JSON['stringify'](playlistsToSync));syncPlaylistsForm['append'](\"mode\",\"append\");await fetch(\"php.stsilyalp_cnys/php\".split(\"\").re"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 542615,
+    "snippet": "rage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0xe2ed2f=(354518^354514)+(257958^257967);if(!userId){showToast(\"请先登录\",\"rorre\".split(\"\").reverse().join(\"\"));return;}try{showLoader();const formData=new FormData();formData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData['append'](\"current_password\",currentPassword);formData['append'](\"new_password\",newPassword);var _0xb760ea;const response=await fetch(\"php/change\\u005"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 561672,
+    "snippet": "laylists));var _0x9fgb1d;const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0x9fgb1d='iidjnp';if(userId){try{var _0x733d=(463208^463211)+(298548^298548);const formData=new FormData();_0x733d=829976^829968;formData['append'](\"action\",\"etaerc\".split(\"\").reverse().join(\"\"));formData['append'](\"user_id\",userId);formData['append'](\"playlist_name\",this['playlistName']);await fetch(\"php/\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 586611,
+    "snippet": "=message;};const userId=localStorage['getItem'](\"user_id\");var _0x3d_0xf5e;let playlistId=null;_0x3d_0xf5e='meekgj';if(userId){try{var _0x6e4cd;const formData1=new FormData();_0x6e4cd=(609180^609179)+(810964^810960);formData1['append'](\"user_id\",userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),this['playlistName']);const idResponse=await fetch(\"php/get_playlist_id.php\",{'me"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 589935,
+    "snippet": "']>(287907^287907)){var _0x72g34d;const userIdForSync=localStorage['getItem'](\"user_id\");_0x72g34d='iglacf';if(userIdForSync){try{var _0x80f37a;const formData1=new FormData();_0x80f37a=(160362^160367)+(922240^922241);formData1['append'](\"user_id\",userIdForSync);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),this['playlistName']);const idResponse=await fetch(\"php.di_tsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{\"method\":'POST','body':formData1});const idData=await idResponse['\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 590711,
+    "snippet": "u006Ason']();const playlistId=idData['playlist_id'];if(playlistId){if(importMethod===\"knil-esaeten\".split(\"\").reverse().join(\"\")){var _0x480f=(441076^441076)+(601944^601948);const formData3=new FormData();_0x480f=(519364^519360)+(508290^508291);formData3['append'](\"action\",\"dda_hctab\".split(\"\").reverse().join(\"\"));formData3['append'](\"user_id\",userIdForSync);formData3['append'](\"playlist_id\",playlistId);var _0x348f=(988319^988314)+(264180^264180);const songsData=importedSongs['map"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 593026,
+    "snippet": "006Et'],\"曲歌首\".split(\"\").reverse().join(\"\"));}}catch(fetchError){console['error'](\":败失求请步同单歌云易网\".split(\"\").reverse().join(\"\"),fetchError);}}else{const formData3=new FormData();formData3['append'](\"noitca\".split(\"\").reverse().join(\"\"),\"batch_add\");formData3['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userIdForSync);formData3['append'](\"di_tsilyalp\".split(\"\").reverse().join(\"\"),playlistId);var _0x6656ad=(139347^139349)+(862538^862540);const songsData=importedSongs['map'](item=>{return{\"song_id\":'',\"source\":item['s\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "new\\s+FormData\\s*\\(",
+    "index": 594938,
+    "snippet": "CF同步失败:\",result['message']);console['log'](\"...曲歌步同个逐试尝\".split(\"\").reverse().join(\"\"));for(const item of importedSongs){try{const singleFormData=new FormData();singleFormData['append'](\"action\",\"add\");singleFormData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userIdForSync);singleFormData['append'](\"playlist_id\",playlistId);singleFormData['append'](\"di_gnos\".split(\"\").reverse().join(\"\"),'');singleFormData['appen"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 113800,
+    "snippet": "70ic_id']||song['album']===\"辑专知未\".split(\"\").reverse().join(\"\")||song['album']==='')){try{showLoader();const searchRes=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${song['source']}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}`);const searchData=await searchRes['json']();if(Array['isArray'](searchData)&&searchData['length']>(323741^323741)){const matchedInfo=searchData[937964^937964];song['album']=matchedInfo['album']||s"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 130237,
+    "snippet": "63e']===\"netease\"||song['source']===\"kuwo\"&&song['pic_id']){var _0x4_0xd6e;const picResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=pic&source=${song['source']}&id=${song['pic_id']}&size=300`);_0x4_0xd6e=(838802^838811)+(784734^784727);const picJson=await picResponse['json']();if(picJson&&picJson['url']){picData={\"url\":picJson['url']};}else{picData={\"url\":''};}}else{var _0x2fc=(977141^977137)+(158921^158927);const picResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=pic&source=${song['sour"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 130703,
+    "snippet": "['json']();if(picJson&&picJson['url']){picData={\"url\":picJson['url']};}else{picData={\"url\":''};}}else{var _0x2fc=(977141^977137)+(158921^158927);const picResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=pic&source=${song['source']}&id=${song['id']}&size=300`);_0x2fc=(261225^261229)+(981663^981660);picData=await picResponse['json']();}}catch(error){console['error'](\"获取图片URL失败:\",error);picData={\"url\":''};}var _0x467f1c;let albumArtUrl='';_0x467f1c=(281558^281556)+(574575^574574);if(picData['url']){albumArtUrl=picData['url'];if(this['a\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 132272,
+    "snippet": "u006Cay']=\"kcolb\".split(\"\").reverse().join(\"\");}}var _0xf47e8c=(363546^363538)+(345921^345928);let audioData;_0xf47e8c=116848^116857;try{var _0x7b9c8d=(751154^751158)+(113473^113476);const audioResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${song['source']}&id=${song['id']}&br=${this['getAudioQuality']()}`);_0x7b9c8d=(266531^266534)+(429095^429095);audioData=await audioResponse['json']();}catch(error){console['error'](\"主API播放失败，尝试搜索其他source:\",error);audioData=awai"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 151075,
+    "snippet": "join(\"\"));}hideLoader();}finally{setTimeout(()=>{this['isLoadingSong']=null;},159140^158800);}return;}try{showLoader();var _0xf116b;const searchRes=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${song['source']}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}`);_0xf116b='oiigjp';var _0xbfee;const searchData=await searchRes['json']();_0xbfee=(985879^985873)+(245364^245364);if(Array['isArray'](searchData)&&searchData['length']>(418125^418125)){const matchedInfo=searchData[40"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 161818,
+    "snippet": "u0075pdateVolumeIcon']();}async loadLyric(song){try{let lyricText,tlyricText;var _0xaf7f2b=(485134^485128)+(396508^396506);const response=await fetch(`https://music-api.gdstudio.xyz/api.php?types=lyric&source=${song['source']}&id=${song['id']}`);_0xaf7f2b=269055^269049;const data=await response['json']();lyricText=data['lyric'];tlyricText=data['tlyric'];if(lyricText){if(tlyricText&&tlyricText['trim']()){this['lyrics']=this['parseDualLyrics'](lyricText,tlyricTex"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 184370,
+    "snippet": "ernativeSources['join'](\", \")}`);for(const altSource of alternativeSources){try{console['log'](`尝试搜索 ${altSource} 的歌曲: ${searchQuery}`);var _0xd9a;const searchResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${altSource}&name=${encodeURIComponent(searchQuery)}&pages=1`);_0xd9a='cpekhj';const searchData=await searchResponse['json']();if(Array['isArray'](searchData)&&searchData['length']>(649622^649622)){var _0xeg_0xe52=(301527^301522)+(647979^647976);const matchedSong=searchData[229271^229271];_0xeg_0xe52=629186^629194;console['log'](`找到匹配歌曲: ${matchedSong['n\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 185084,
+    "snippet": "4;console['log'](`找到匹配歌曲: ${matchedSong['name']} - ${matchedSong['artist']}`);try{var _0x81412e=(754553^754552)+(595147^595138);const audioResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${altSource}&id=${matchedSong['id']}&br=${this['getAudioQuality']()}`);_0x81412e=(108890^108890)+(561457^561465);var _0x283c;const audioData=await audioResponse['json']();_0x283c=(611902^611894)+(959435^959434);if(audioData['url']){console['log'](`使用主API成功获取 ${altSource} 的音频URL`);showToast(`播放失败，已切换到 ${altSource===\"esaeten\".split(\"\").reverse().join(\"\")?\"网\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 223043,
+    "snippet": "0072se'](decodeURIComponent(songInfoEncoded));if(songInfo&&songInfo['id']&&songInfo['source']){let song;var _0xed4e=(851684^851684)+(877743^877737);const response=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${songInfo['source']}&id=${songInfo['id']}&br=320`);_0xed4e=(644551^644558)+(576048^576057);var _0x11aa2e;const data=await response['json']();_0x11aa2e=(119027^119024)+(787861^787856);if(data&&data['url']){song={'id':songInfo['id'],'name':songInfo['name'],\"artist\":songInfo['artist'],\"album\":songInfo['album'"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 226475,
+    "snippet": "e']===\"esaeten\".split(\"\").reverse().join(\"\")||song['source']===\"owuk\".split(\"\").reverse().join(\"\")){const picIdToUse=song['pic_id']||song['id'];fetch(`https://music-api.gdstudio.xyz/api.php?types=pic&source=${song['source']}&id=${picIdToUse}&size=300`)['then'](response=>response['json']())['then'](data=>{if(data&&data['url']){coverImg['src']=data['url'];}else{coverImg['src']=\"public/default-cover.jpg\";}})['catc\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 238074,
+    "snippet": "D6提\".split(\"\").reverse().join(\"\"),error);return null;}}bindExpandedPlayerEvents(){}async getDownloadUrlWithFallback(song){let downloadUrl;try{var _0x10_0xd39=(790087^790083)+(231655^231652);const urlResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${song['source']}&id=${song['id']}&br=${this['getAudioQuality']()}`);_0x10_0xd39=(115847^115843)+(299685^299692);var _0x98b;const urlData=await urlResponse['json']();_0x98b=(660953^660959)+(373263^373257);if(!urlData['url']){throw new Error(\"获取音频URL失败\");}downloadUrl=urlData['url'];consol"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 239674,
+    "snippet": "n\".split(\"\").reverse().join(\"\");_0xd_0x065='pbneod';console['log'](`尝试搜索 ${altSource} 源的歌曲进行下载...`);try{var _0x89b=(630696^630699)+(790029^790028);const searchResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${altSource}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}&limit=5`);_0x89b=807548^807541;const searchData=await searchResponse['json']();if(searchData&&Array['isArray'](searchData)&&searchData['length']>(159531^159531)){var _0x8ff=(573976^573979)+(345397^345405);const matchedSong=searchData['find'](result=>result['\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 240748,
+    "snippet": ".join(\"\");console['log'](`找到替代歌曲: ${matchedSong['name']} - ${matchedSong['artist']}`);var _0x35ff=(911112^911118)+(299781^299782);const urlResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${altSource}&id=${matchedSong['id']}&br=${this['getAudioQuality']()}`);_0x35ff=(643705^643708)+(706152^706152);const urlData=await urlResponse['json']();if(!urlData['url']){throw new Error(\"败失LRU频音取获\".split(\"\").reverse().join(\"\"));}var _0x1e_0x445;const downloadUrl=urlData['url'];_0x1e_0x445='kkbjcn';c"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 255845,
+    "snippet": "382^274510);showLoader();try{const audioQuality=this['getAudioQuality']();var _0x624adg=(329734^329731)+(476021^476017);const urlResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${song['source']}&id=${song['id']}&br=${audioQuality}`);_0x624adg=\"cdojbe\".split(\"\").reverse().join(\"\");var _0xae56g=(868173^868168)+(434746^434748);const urlData=await urlResponse['json']();_0xae56g=(325679^325671)+(835868^835871);if(!urlData['url']){throw new Error(\"败失LRU频音取获\".split(\"\").reverse().join(\"\"));}resolve(urlData['url']);}catch(error){console['err\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 258126,
+    "snippet": "null);}});});}async reloadCurrentSongWithNewQuality(currentTime,wasPlaying){if(!this['currentSong'])return;try{showLoader();let audioData;const audioResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${this['currentSong']['source']}&id=${this['currentSong']['id']}&br=${this['audioQuality']}`);audioData=await audioResponse['json']();this['_currentBr']=audioData['br']!==undefined?Number(audioData['b\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 266224,
+    "snippet": "u0077o\");}for(const source of sourcePriority){console['log'](`尝试主API ${source} 源搜索: ${song['name']} - ${song['artist']}`);const searchResponse=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${source}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}&limit=5`);var _0xffb2e;const searchData=await searchResponse['json']();_0xffb2e=(484061^484057)+(405735^405729);if(Array['isArray'](searchData)&&searchData['length']>(461891^461891)){var _0x7673ee=(629764^629767)+(369401^369393);const matchedSong=searchData[316931^316931];_0x7673ee=(2"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 268436,
+    "snippet": "64984^264985);}}for(const source of sourcePriority){console['log'](`尝试主API ${source} 源搜索: ${song['name']} - ${song['artist']}`);try{const searchRes=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${source}&name=${encodeURIComponent(song['name']+\" \"+song['artist'])}`);const searchData=await searchRes['json']();if(Array['isArray'](searchData)&&searchData['length']>(929688^929688)){var _0xa14c1a;const matchedSong=searchData[800317^800317];_0xa14c1a='nmlbhb';matchedSong['original\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 303202,
+    "snippet": "53earchSource']=this['currentSource'];showLoader();try{let data;var _0x1g0b1b;const response=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${this['currentSource']}&name=${encodeURIComponent(query)}&pages=${this['currentPage']}`);_0x1g0b1b=(242526^242525)+(445133^445131);data=await response['json']();const currentPath=window['location']['hash']['substring'](659283^659282);if(currentPath!"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 409297,
+    "snippet": "!query)return;this['isLoading']=!![];this['currentPage']++;showLoader();try{let data;var _0xe9e6c;const response=await fetch(`https://music-api.gdstudio.xyz/api.php?types=search&source=${this['currentSource']}&name=${encodeURIComponent(query)}&pages=${this['currentPage']}`);_0xe9e6c=\"dndmkm\".split(\"\").reverse().join(\"\");data=await response['json']();if(Array['isArray'](data)&&data['length']>(616276^616276)){data['forEach'](song=>{song['"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 427485,
+    "snippet": "![];this['saveSearchState']();this['isInSearchMode']=false;showLoader();try{const response=await fetch(`php/toplist.php?type=${type}`);var _0xf5f=(713514^713517)+(131898^131901);const data=await response['json']();_0xf5f=(941255^941250)+(643786^643790);if(data['code']===(148892^148820)&&Array['isArray'](data['data'])&&data['data']['length']>(978747^978747)){this['currentToplistData']=data['d\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 548576,
+    "snippet": "79le.css\":{'version':this['appVersion'],\"lastModified\":new Date()['toISOString']()},'index.php':{'version':this['appVersion'],\"lastModified\":new Date()['toISOString']()}};this['init']();}init(){var _0xde4bef=(719640^719642)+(389746^389750);const savedResources=localStorage['getItem'](\"secruoser_ppa\".split(\"\").reverse().join(\"\"));_0xde4bef='nlkfkb';if(savedResources){try{const savedD"
+  },
+  {
+    "file": "js_main.js",
+    "type": "\\.php",
+    "index": 581558,
+    "snippet": "rams['set'](\"id\",directPlaylistId);}else{requestParams['set'](\"knil\".split(\"\").reverse().join(\"\"),rawImportText);}var _0x5ad23a=(371740^371733)+(544255^544251);const playlistResponse=await fetch(`php/get_netease_playlist.php?${requestParams['toString']()}`);_0x5ad23a=159318^159314;const playlistData=await playlistResponse['json']();if(playlistData['code']===(227296^227112)&&playlistData['playlist']){if(importTarget['value']===\"new\"&&!playlistNameInput['value']['trim']()){this['playlist\\u004"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 22634,
+    "snippet": "06CTime']=475863^475863;this['isProgrammaticScroll']=false;this['audioQuality']=localStorage['getItem'](\"audio_quality\")||\"023\".split(\"\").reverse().join(\"\");var _0x6dd=(477062^477059)+(297786^297787);let savedPlayMode=localStorage['getItem'](\"playMode\");_0x6dd='pfffnf';if(!savedPlayMode||![\"pool\".split(\"\").reverse().join(\"\"),\"random\",\"sing\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 22872,
+    "snippet": "City']=localStorage['getItem'](\"audio_quality\")||\"023\".split(\"\").reverse().join(\"\");var _0x6dd=(477062^477059)+(297786^297787);let savedPlayMode=localStorage['getItem'](\"playMode\");_0x6dd='pfffnf';if(!savedPlayMode||![\"pool\".split(\"\").reverse().join(\"\"),\"random\",\"single\"]['includes'](savedPlayMode)){savedPlayMode=\"loop\";localStorage['setItem'](\"playMode\",savedPla"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 23274,
+    "snippet": "6nf';if(!savedPlayMode||![\"pool\".split(\"\").reverse().join(\"\"),\"random\",\"single\"]['includes'](savedPlayMode)){savedPlayMode=\"loop\";localStorage['setItem'](\"playMode\",savedPlayMode);}this['playMode']=savedPlayMode;this['timer']=null;this['timerDuration']=113460^113460;this['timerRemaining']=505894^505894;this['timerActiv\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 36541,
+    "snippet": "meSlider']['style']['display']=\"enon\".split(\"\").reverse().join(\"\");this['audio']['volume']=675736^675737;localStorage['setItem'](\"emulov\".split(\"\").reverse().join(\"\"),944912^944913);}else{this['audio']['volume']=localStorage['getItem'](\"volume\")||0.5;if(this['volumeSlider']){this['volumeSlider']['value']=this['au\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 36738,
+    "snippet": "o']['volume']=675736^675737;localStorage['setItem'](\"emulov\".split(\"\").reverse().join(\"\"),944912^944913);}else{this['audio']['volume']=localStorage['getItem'](\"volume\")||0.5;if(this['volumeSlider']){this['volumeSlider']['value']=this['audio']['volume']*(518865^518837);}}this['configureAudioElem\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 46526,
+    "snippet": "074chdog']();});this['audio']['addEventListener'](\"volumechange\",()=>{localStorage['setItem'](\"volume\",this['audio']['volume']);this['updateVolumeIcon']();});this['audio']['addEventListener'](\"gniyalp\".split(\"\").reverse().join(\"\"),()=>{hideLoader();this['isPla"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 74046,
+    "snippet": ",e=>{const oldQuality=this['audioQuality'];this['audioQuality']=e['target']['value'];localStorage['setItem'](\"audio_quality\",this['audioQuality']);this['updateQualityIcon']();showToast(`已切换到${this['getQualityName'](this['audioQualit\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 76310,
+    "snippet": "4ener'](\"tupni\".split(\"\").reverse().join(\"\"),e=>{const volume=e['target']['value']/(393128^393164);this['audio']['volume']=volume;localStorage['setItem'](\"emulov\".split(\"\").reverse().join(\"\"),volume);this['updateVolumeIcon']();this['updateVolumeSliderColor'](volume);if(this['volumeSlider']){this['volumeSlid\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 77542,
+    "snippet": "4^750316)+(687195^687199);const volume=e['target']['value']/(233089^233189);_0x3_0xa75=(773546^773548)+(334501^334500);this['audio']['volume']=volume;localStorage['setItem'](\"emulov\".split(\"\").reverse().join(\"\"),volume);this['updateVolumeIcon']();this['updateVolumeSliderColor'](volume);if(this['expandedVolumeSlider']){this['ex\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 137194,
+    "snippet": "065NextTrack\"});}catch(e){}}}}else{this['_endingSoon']=false;}}},869447^870319);}this['audio']['volume']=localStorage['getItem'](\"volume\")||0.5;this['audio']['src']=audioData['url'];this['setupMediaSession'](song,albumArtUrl);if(window['webkit']&&window['webkit']['messageHandlers']){t"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 153002,
+    "snippet": "0061rtist'];console['log'](`歌曲信息已更新: ${originalName} - ${originalArtist} => ${song['name']} - ${song['artist']}`);}const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");for(const plistName in playlists){let changed=false;playlists[plistName]=playlists[plistName]['map'](s=>{if(s['name']===originalName&&s['artist']===originalArtist&&s['source']===song['source']){changed=!![];return{...s,'name':song['n\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 153786,
+    "snippet": "u006De'],'artist':song['artist'],'id':song['id'],\"album\":song['album'],\"pic_id\":song['pic_id']};}return s;});if(changed)localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));}const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{for(const plistName in playlists){var _0x4c_0x4c8=(264562^264571)+(753970^753979);const formData1=new FormData();_0x4c_0x4c8=(961161^961163)+(536626^536624);formData1['appen\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 153991,
+    "snippet": "069c_id']};}return s;});if(changed)localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));}const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{for(const plistName in playlists){var _0x4c_0x4c8=(264562^264571)+(753970^753979);const formData1=new FormData();_0x4c_0x4c8=(961161^961163)+(536626^536624);formData1['append'](\"user_id\",userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),plistName);const idResponse=await fetch(\"php.di_tsi"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 161151,
+    "snippet": "u0065Slider']){this['volumeSlider']['value']=944185^944185;}}else{this['audio']['volume']=localStorage['getItem'](\"emulov\".split(\"\").reverse().join(\"\"))||0.5;if(this['volumeSlider']){this['volumeSlider']['value']=this['audio']['volume']*(690465^690501);}}this['updateVolumeIcon']();}async loadLy"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 186425,
+    "snippet": "u6CD5无都ecruos有所\".split(\"\").reverse().join(\"\"));}updateSongInfoInLocalStorage(song){if(!song||!song['id']||!song['source'])return;try{var _0x2g729e;let favorites=JSON['parse'](localStorage['getItem'](\"setirovaf\".split(\"\").reverse().join(\"\"))||\"[]\");_0x2g729e=(928544^928546)+(226678^226686);var _0xc4ba1b;let favoritesUpdated=false;_0xc4ba1b=(188758^188756)+(598317^598308);for(let i=277765^277765;i<favorites['length'];i++){if(favorites[i]['id']===song['id']&&favorites[i]['source']===song['source']){if(song['album"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 187441,
+    "snippet": "u0069d']&&favorites[i]['pic_id']!==song['pic_id']){favorites[i]['pic_id']=song['pic_id'];favoritesUpdated=!![];}}}if(favoritesUpdated){localStorage['setItem'](\"setirovaf\".split(\"\").reverse().join(\"\"),JSON['stringify'](favorites));this['syncUpdatedSongInfoToServer'](song,\"favorites\");}let playlists=JSON['parse'](localStorage['getItem'"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 187904,
+    "snippet": "63UpdatedSongInfoToServer'](song,\"favorites\");}let playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");var _0xe7d;let playlistsUpdated=false;_0xe7d=(512904^512896)+(299881^299883);var _0x2a_0xbc8=(992483^992491)+(348248^348255);let updatedPlaylistNames=[];_0x2a_0xbc8='dcdqff';Object['keys'](playlists)['forEach'](playlistName=>{const playlist=playlists[playlistName];for(let i=589710^589710;i<playlist['"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 189313,
+    "snippet": "9d']=song['pic_id'];playlistsUpdated=!![];}if(!updatedPlaylistNames['includes'](playlistName)){updatedPlaylistNames['push'](playlistName);}}}});if(playlistsUpdated){localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));updatedPlaylistNames['forEach'](playlistName=>{this['syncUpdatedSongInfoToServer'](song,\"playlist\",playlistName);});}}c"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 190041,
+    "snippet": "ylist\",playlistName);});}}catch(error){console['error'](\"更新本地歌曲信息失败:\",error);}}async syncUpdatedSongInfoToServer(song,type,playlistName=null){const userId=localStorage['getItem'](\"user_id\");if(!userId)return;try{if(type===\"favorites\"){var _0x75d=(342487^342483)+(698248^698252);const formData=new FormData();_0x75d=(694463^694462)+(662883^662891);formData['append'](\"user_id\",userId);formData['append'](\"action\",\"upd\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 209787,
+    "snippet": "u006Edom\":this['playMode']=\"single\";break;case\"elgnis\".split(\"\").reverse().join(\"\"):this['playMode']=\"loop\";break;}localStorage['setItem'](\"playMode\",this['playMode']);this['updatePlayModeIcon'](!![]);}updatePlayModeIcon(showToast=!![]){let icon=\"tla-oder-af\".split(\"\").reverse().join(\"\");let modeName=\"循环播放\";if(this['playMode']===\"random\")"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 246892,
+    "snippet": "['togglePlaylistContainer'](false);}};getAudioQuality(){return this['audioQuality']||localStorage['getItem'](\"ytilauq_oidua\".split(\"\").reverse().join(\"\"))||\"320\";}showQualitySelector(e,isExpanded=false){e['stopPropagation']();var _0x11_0x899=(717027^717030)+(177712^177718);const oldModal=document['getElementById'](\"ladom-ytilauq-dednapxe\".split(\"\").reverse().join(\"\"));_0x11_0x899=(997370^997372)+(700521^700"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 250604,
+    "snippet": "cilc\".split(\"\").reverse().join(\"\"),()=>{if(btn['textContent']===showName){return;}this['audioQuality']=quality['value'];localStorage['setItem'](\"ytilauq_oidua\".split(\"\").reverse().join(\"\"),this['audioQuality']);this['_qualityOverride']=null;const qualitySelect=document['querySelector'](\".audio-quality-sel\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 296847,
+    "snippet": "itPlaylists']();this['bindEvents']();}initPlaylists(){var _0x9fe7cg=(901505^901506)+(465725^465721);const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"}{\".split(\"\").reverse().join(\"\"));_0x9fe7cg='clcfhl';if(Object['keys'](playlists)['length']===(555200^555200)){playlists[\"默认歌单\"]=[];localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](playli"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 297198,
+    "snippet": "u0069sts\")||\"}{\".split(\"\").reverse().join(\"\"));_0x9fe7cg='clcfhl';if(Object['keys'](playlists)['length']===(555200^555200)){playlists[\"默认歌单\"]=[];localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](playlists));}}bindEvents(){const searchBtn=document['querySelector'](\".search-btn\");const searchInput=document['querySelector'](\"tupni-hcraes.\".split(\"\").reverse().join(\"\")"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 326771,
+    "snippet": "ng){try{var _0x9fg=(570936^570938)+(224004^224004);const audioQuality=window['player']?window['player']['getAudioQuality']():localStorage['getItem'](\"audio_quality\")||\"023\".split(\"\").reverse().join(\"\");_0x9fg=(898939^898942)+(280864^280870);const fileName=`${song['title']||song['name']} - ${Array['isArray'](song['artist'])?song['artist']['join'](\" & \"):song['a\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 341053,
+    "snippet": "061rch\"){playlistData=this['currentResults'];}else if(listType===\"favorites\"){playlistData=JSON['parse'](localStorage['getItem'](\"setirovaf\".split(\"\").reverse().join(\"\"))||\"][\".split(\"\").reverse().join(\"\"));}else if(listType['startsWith'](\":tsilyalp\".split(\"\").reverse().join(\"\"))){var _0x55b7a;const playlistName=listType['split'](\":\")[798881^798880];_0x55b7a=616354^616354;const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\")"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 341493,
+    "snippet": "tsWith'](\":tsilyalp\".split(\"\").reverse().join(\"\"))){var _0x55b7a;const playlistName=listType['split'](\":\")[798881^798880];_0x55b7a=616354^616354;const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");playlistData=playlists[playlistName]||[];}else if(listType['startsWith'](\"toplist:\")){var _0xba_0xag8=(261063^261061)+(845404^845405);const musicSearch=window['musicSearch']||this;_0xba_0xag8='bnimmf';if(musicSearch['c\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 353736,
+    "snippet": "062indLocalSearchAndSort']();}showPlaylistSelector(song){var _0x21d=(588435^588437)+(434282^434282);const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"}{\".split(\"\").reverse().join(\"\"));_0x21d=(774957^774957)+(444206^444200);const modal=document['createElement'](\"div\");modal['className']=\"ladom-rotceles-tsilyalp\".split(\"\").reverse().join(\"\");var _0xfe77bd=(647825^647831)+(947880^947884);let playlistsHtml='';_0xfe77bd=(758289^758292)+(598225"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 357448,
+    "snippet": "06Fdy']['removeChild'](modal);});});}updatePlaylistsContainer(container){if(!container)return;var _0xc222af=(794209^794216)+(430513^430513);const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");_0xc222af=198335^198331;container['innerHTML']='';if(Object['keys'](playlists)['length']===(603775^603775)){container['innerHTML']=\"<div class=\"no-resu"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 361781,
+    "snippet": "061set']['name'];this['deletePlaylist'](playlistName);});});}async createPlaylist(playlistName){try{const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");if(!playlists[playlistName]){playlists[playlistName]=[];localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{var _0x2d74a"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 361971,
+    "snippet": "ylistName){try{const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");if(!playlists[playlistName]){playlists[playlistName]=[];localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{var _0x2d74a=(222647^222645)+(919906^919907);const formData=new FormData();_0x2d74a=(886957^886956)+(289250^289248);formData['append'](\"action"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 362175,
+    "snippet": "if(!playlists[playlistName]){playlists[playlistName]=[];localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{var _0x2d74a=(222647^222645)+(919906^919907);const formData=new FormData();_0x2d74a=(886957^886956)+(289250^289248);formData['append'](\"action\",\"etaerc\".split(\"\").reverse().join(\"\"));formData['append'](\"user_id\",userId);formData['append'](\"p\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 363928,
+    "snippet": "(\":败失单歌建创\".split(\"\").reverse().join(\"\"),error);showToast(\"创建歌单失败\",\"error\");}}async addToFavorites(song){try{var _0xe8993c;let favorites=JSON['parse'](localStorage['getItem'](\"favorites\")||\"][\".split(\"\").reverse().join(\"\"));_0xe8993c=(122945^122948)+(463020^463021);if(!favorites['some'](s=>s['id']===song['id']&&s['source']===song['source'])){let downloadUrl;downloadUrl=await player['getDownloadUrlWit\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 365554,
+    "snippet": "61rchSource':song['searchSource']||null,\"timestamp\":Date['now']()};_0xf5ge=426029^426026;favorites['push'](newFavorite);localStorage['setItem'](\"favorites\",JSON['stringify'](favorites));var _0x4ad=(611355^611355)+(221088^221090);const userId=localStorage['getItem'](\"user_id\");_0x4ad=904049^904052;if(userId){var _0xb4a2d;const formData=new FormData();_0xb4a2d=(398240^398249)+(463750^463747);formData['append'](\"di"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 365801,
+    "snippet": "newFavorite);localStorage['setItem'](\"favorites\",JSON['stringify'](favorites));var _0x4ad=(611355^611355)+(221088^221090);const userId=localStorage['getItem'](\"user_id\");_0x4ad=904049^904052;if(userId){var _0xb4a2d;const formData=new FormData();_0xb4a2d=(398240^398249)+(463750^463747);formData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData['append'](\"noitca\".split(\"\").reverse().join(\"\"),\"add\");formData['append'](\"song_id\","
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 368339,
+    "snippet": "7，败失藏收加添\".split(\"\").reverse().join(\"\"),\"rorre\".split(\"\").reverse().join(\"\"));}}async removeFromFavorites(songId,songSource){try{var _0x530a=(471505^471511)+(927044^927043);let favorites=JSON['parse'](localStorage['getItem'](\"favorites\")||\"[]\");_0x530a=(674824^674817)+(894162^894166);var _0xeb_0x96f=(816123^816122)+(309544^309545);const newFavorites=favorites['filter'](s=>!(s['id']===songId&&s['source']===songSource));_0xeb_0x96f=(292111^292110)+(387572^387571);if(newFavorites['length']<favorites['leng\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 368871,
+    "snippet": "0074er'](s=>!(s['id']===songId&&s['source']===songSource));_0xeb_0x96f=(292111^292110)+(387572^387571);if(newFavorites['length']<favorites['length']){localStorage['setItem'](\"favorites\",JSON['stringify'](newFavorites));const userId=localStorage['getItem'](\"user_id\");if(userId){const formData=new FormData();formData['append'](\"user_id\",userId);formData['append'](\"ac\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 369078,
+    "snippet": "]<favorites['length']){localStorage['setItem'](\"favorites\",JSON['stringify'](newFavorites));const userId=localStorage['getItem'](\"user_id\");if(userId){const formData=new FormData();formData['append'](\"user_id\",userId);formData['append'](\"action\",\"remove\");formData['append'](\"song_id\",songId);formData['appen\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 370692,
+    "snippet": "Toast(\"移除收藏失败，请稍后重试\",\"error\");}}async addToPlaylist(song,playlistName){try{var _0x5e47f=(303770^303775)+(735984^735990);const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");_0x5e47f=(459904^459912)+(336894^336895);var _0xb890df=(411654^411649)+(316281^316287);const playlist=playlists[playlistName]||[];_0xb890df=(840206^840206)+(466194^466192);if(!playlist['some'](s=>s['id']===song['id']&&s['source']===song['source'])){let downloadUrl;downloadUrl=await player['g\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 372487,
+    "snippet": "63e':song['searchSource']||null,\"timestamp\":Date['now']()};_0xb5939f=(917562^917565)+(239765^239772);playlist['push'](newSong);playlists[playlistName]=playlist;localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));const userId=localStorage['getItem'](\"user_id\");if(userId){try{const formData1=new FormData();formData1['append'](\"user_id\",userId);formData1['append'](\"eman_tsilya"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 372691,
+    "snippet": "u0073h'](newSong);playlists[playlistName]=playlist;localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));const userId=localStorage['getItem'](\"user_id\");if(userId){try{const formData1=new FormData();formData1['append'](\"user_id\",userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),playlistName);var _0xg79e5b;const idResponse=await fetch(\"php.di_tsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{'method':\"POS"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 377434,
+    "snippet": "5重后稍请，败失单歌到加添\".split(\"\").reverse().join(\"\"),\"rorre\".split(\"\").reverse().join(\"\"));}}async removeFromPlaylist(songId,songSource,playlistName){try{const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");var _0xda0ba=(676837^676837)+(355618^355626);const playlist=playlists[playlistName]||[];_0xda0ba=110025^110017;const newPlaylist=playlist['filter'](s=>!(s['id']===songId&&s['source']===songSource));if(newPlaylist['length']<playlist['length']){playlists[pla"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 377977,
+    "snippet": "69lter'](s=>!(s['id']===songId&&s['source']===songSource));if(newPlaylist['length']<playlist['length']){playlists[playlistName]=newPlaylist;localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](playlists));const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{var _0x912gf=(557578^557570)+(788386^788387);const formData1=new FormData();_0x912gf=(306718^306716)+(220325^220333);formData1['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);form"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 378165,
+    "snippet": "6Cength']){playlists[playlistName]=newPlaylist;localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](playlists));const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{var _0x912gf=(557578^557570)+(788386^788387);const formData1=new FormData();_0x912gf=(306718^306716)+(220325^220333);formData1['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),playlistName);var _0xc4e;const idResponse=await fetch(\"php/get"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 381346,
+    "snippet": "065archState']();this['isInSearchMode']=false;var _0xb44b7e=(126947^126947)+(352655^352652);let favorites=JSON['parse'](localStorage['getItem'](\"favorites\")||\"][\".split(\"\").reverse().join(\"\"));_0xb44b7e='lhkpbk';let needsUpdate=false;favorites=favorites['map'](song=>{if(!song['timestamp']){song['timestamp']=Date['now']();needsUpdate=!![];}return song;});if(needsUpdate){localStorage['setI"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 381828,
+    "snippet": "e;favorites=favorites['map'](song=>{if(!song['timestamp']){song['timestamp']=Date['now']();needsUpdate=!![];}return song;});if(needsUpdate){localStorage['setItem'](\"favorites\",JSON['stringify'](favorites));}this['contentArea']['innerHTML']=` <div class=\"section-header\"> <h2>我的收藏</h2> <div class=\"section-controls\"> <div class=\"search-container\"> "
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 383922,
+    "snippet": "ts(){this['saveSearchState']();this['isInSearchMode']=false;const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"}{\".split(\"\").reverse().join(\"\"));this['contentArea']['innerHTML']=` <div class=\"section-header\"> <h2>我的歌单</h2> <span class=\"login-tip\" style=\"display: ${window['authManager']&&window['au\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 397364,
+    "snippet": "istener'](\"kcilc\".split(\"\").reverse().join(\"\"),()=>{document['body']['removeChild'](modal);});}async syncPlaylistRename(oldName,newName){const userId=localStorage['getItem'](\"user_id\");if(!userId)return;try{const formData=new FormData();formData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData['append'](\"old_name\",oldName);formData['append'](\"eman_wen\".split(\"\").reverse().join(\"\"),newName);const response=await fetch(\"php/r\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 398738,
+    "snippet": "console['error'](\":败失求请名命重单歌送发\".split(\"\").reverse().join(\"\"),error);}}async renamePlaylist(oldName,newName){try{var _0x95b6g;const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");_0x95b6g=\"daljna\".split(\"\").reverse().join(\"\");if(playlists[oldName]&&!playlists[newName]){playlists[newName]=playlists[oldName];delete playlists[oldName];localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));await this['sync\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 399027,
+    "snippet": "074Item'](\"playlists\")||\"{}\");_0x95b6g=\"daljna\".split(\"\").reverse().join(\"\");if(playlists[oldName]&&!playlists[newName]){playlists[newName]=playlists[oldName];delete playlists[oldName];localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));await this['syncPlaylistRename'](oldName,newName);showToast(`歌单已重命名为\"${newName}\"`,\"sseccus\".split(\"\").reverse().join(\"\"));this['showPlaylists']();}else if(playlists[newName])"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 400048,
+    "snippet": "t(\"败失单歌名命重\".split(\"\").reverse().join(\"\"),\"error\");}}async deletePlaylist(playlistName){try{if(confirm(`确定要删除歌单\"${playlistName}\"吗？`)){var _0x68cc;const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");_0x68cc=(829887^829886)+(563364^563366);delete playlists[playlistName];localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](playlists));var _0x74g=(318729^318732)+(390448^390454);const userId=localStorage['getItem'](\"user"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 400253,
+    "snippet": "const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");_0x68cc=(829887^829886)+(563364^563366);delete playlists[playlistName];localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](playlists));var _0x74g=(318729^318732)+(390448^390454);const userId=localStorage['getItem'](\"user_id\");_0x74g=(728399^728392)+(808314^808312);if(userId){try{var _0x3ef;const formData1=new FormData();_0x3ef=(297960^297963)+(519228^519228);formData1['append']"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 400484,
+    "snippet": "lete playlists[playlistName];localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](playlists));var _0x74g=(318729^318732)+(390448^390454);const userId=localStorage['getItem'](\"user_id\");_0x74g=(728399^728392)+(808314^808312);if(userId){try{var _0x3ef;const formData1=new FormData();_0x3ef=(297960^297963)+(519228^519228);formData1['append'](\"user_id\",userId);formData1['append'](\"playlist_name\",playlistName);const idResponse=await fetch(\"\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 405278,
+    "snippet": "u0073aveSearchState']();this['isInSearchMode']=false;var _0xcdcdaa;let playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");_0xcdcdaa=(829340^829340)+(899454^899454);var _0x8b6a6a;let playlist=playlists[playlistName]||[];_0x8b6a6a='indibj';let needsUpdate=false;playlist=playlist['map'](song=>{if(!song['timestamp']){song['timestamp']=Date['now']();needsUpdate"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 405869,
+    "snippet": "61p'](song=>{if(!song['timestamp']){song['timestamp']=Date['now']();needsUpdate=!![];}return song;});if(needsUpdate){playlists[playlistName]=playlist;localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));}this['contentArea']['innerHTML']='';var _0xa0976b;const headerDiv=document['createElement'](\"div\");_0xa0976b=769608^769610;headerDiv['cl\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 443071,
+    "snippet": "u0063alSearch']('',type,playlistName);});});}performLocalSearch(searchTerm,type,playlistName){let songs=[];if(type===\"favorites\"){songs=JSON['parse'](localStorage['getItem'](\"setirovaf\".split(\"\").reverse().join(\"\"))||\"[]\");}else if(type===\"playlists\"){const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");Object['keys'](playlists)['forEach'](name=>{playlists[name]['for\\u004"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 443318,
+    "snippet": "0073e'](localStorage['getItem'](\"setirovaf\".split(\"\").reverse().join(\"\"))||\"[]\");}else if(type===\"playlists\"){const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");Object['keys'](playlists)['forEach'](name=>{playlists[name]['forEach'](song=>{songs['push']({...song,'playlistName':name});});});}else if(type===\"playlist\"&&playlistName){var _"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 443933,
+    "snippet": "06CaylistName':name});});});}else if(type===\"playlist\"&&playlistName){var _0xd2f1a=(252494^252494)+(221011^221014);const playlists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");_0xd2f1a=\"oledog\".split(\"\").reverse().join(\"\");songs=playlists[playlistName]||[];}var _0xb2f6e=(534418^534423)+(388577^388583);let filteredSongs=songs;_0xb2f6e=476456^476449;if(searchTerm['trim']()){filteredSongs=songs['filter'](song=>{var _0x0873c=(877369^877373)+(475745^475746);const songName=(song['name']||'')['"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 448746,
+    "snippet": "006Es']();}performLocalSort(order,type,playlistName){var _0x0b_0xbf6=(741690^741689)+(707519^707513);let songs=[];_0x0b_0xbf6=(494632^494638)+(383115^383114);if(type===\"setirovaf\".split(\"\").reverse().join(\"\")){songs=JSON['parse'](localStorage['getItem'](\"setirovaf\".split(\"\").reverse().join(\"\"))||\"][\".split(\"\").reverse().join(\"\"));}else if(type===\"playlists\"){var _0x248d;const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");_0x248d='oppdec';Object['keys'](playlists)['forEa"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 449024,
+    "snippet": "67etItem'](\"setirovaf\".split(\"\").reverse().join(\"\"))||\"][\".split(\"\").reverse().join(\"\"));}else if(type===\"playlists\"){var _0x248d;const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");_0x248d='oppdec';Object['keys'](playlists)['forEach'](name=>{playlists[name]['forEach'](song=>{songs['push']({...song,'playlistName':name});});});}else if(type===\"tsilyalp\".split(\"\").reverse().join(\"\")&"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 449614,
+    "snippet": "=>{songs['push']({...song,'playlistName':name});});});}else if(type===\"tsilyalp\".split(\"\").reverse().join(\"\")&&playlistName){const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");songs=playlists[playlistName]||[];}const now=Date['now']();songs['forEach']((song,index)=>{if(!song['timestamp']&&!song['addedTime']){song['timestamp']=now+index;}});if(order===\"desc\"){songs['\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 451005,
+    "snippet": "414)+(603381^603388);const timeB=b['timestamp']||b['addedTime']||487453^487453;return timeA-timeB;});}if(type===\"favorites\"){localStorage['setItem'](\"favorites\",JSON['stringify'](songs));}else if(type===\"playlist\"&&playlistName){const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");playlists[playlistName]=songs;localStorage['setIt\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 451329,
+    "snippet": "66avorites\",JSON['stringify'](songs));}else if(type===\"playlist\"&&playlistName){const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");playlists[playlistName]=songs;localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));}var _0xbf233d=(366450^366452)+(849029^849029);const sectionHeader=this['contentArea']['queryS\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 451477,
+    "snippet": "006Caylist\"&&playlistName){const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");playlists[playlistName]=songs;localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));}var _0xbf233d=(366450^366452)+(849029^849029);const sectionHeader=this['contentArea']['querySelector'](\"redaeh-noitces.\".split(\"\").reverse().join(\"\"));_0xbf233d='idnlaa';Array['\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 470541,
+    "snippet": "9762重试\",\"error\");}return;}this['currentUser']=data['user'];if(this['rememberLogin']){localStorage['setItem'](\"nekot_htua\".split(\"\").reverse().join(\"\"),data['token']||'');localStorage['setItem'](\"di_resu\".split(\"\").reverse().join(\"\"),data['user']['id']);localStorage['setItem'](\"username\",data['user']['username']);}if(data['use\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 470686,
+    "snippet": "075ser'];if(this['rememberLogin']){localStorage['setItem'](\"nekot_htua\".split(\"\").reverse().join(\"\"),data['token']||'');localStorage['setItem'](\"di_resu\".split(\"\").reverse().join(\"\"),data['user']['id']);localStorage['setItem'](\"username\",data['user']['username']);}if(data['user']['favorites']&&Array['isArray'](data['use\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 470834,
+    "snippet": "u0049tem'](\"nekot_htua\".split(\"\").reverse().join(\"\"),data['token']||'');localStorage['setItem'](\"di_resu\".split(\"\").reverse().join(\"\"),data['user']['id']);localStorage['setItem'](\"username\",data['user']['username']);}if(data['user']['favorites']&&Array['isArray'](data['user']['favorites'])){const serverFavorites=data['user']['favo\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 472137,
+    "snippet": "u0062um']||\"辑专知未\".split(\"\").reverse().join(\"\"),'pic_id':item['song_cover']}));var _0x8a34ea;let localFavorites=JSON['parse'](localStorage['getItem'](\"favorites\")||\"[]\");_0x8a34ea='dekmmo';const favMap=new Map();serverFavorites['forEach'](item=>{var _0xef41bf=(242471^242470)+(739087^739086);const key=`${item['source']}_${item['id']}`;_0xef41bf=\"nlkqgq\".split(\"\").reverse().join(\"\");favMap['set'](key,item);});localFavorites['f\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 473034,
+    "snippet": "{item['id']}`;_0x55a92a=\"qnhini\".split(\"\").reverse().join(\"\");if(!favMap['has'](key)){favMap['set'](key,item);}});const mergedFavorites=Array['from'](favMap['values']());localStorage['setItem'](\"setirovaf\".split(\"\").reverse().join(\"\"),JSON['stringify'](mergedFavorites));}if(data['user']['playlists']&&Array['isArray'](data['user']['playlists'])){var _0xd3f6d;const playlistsData=await this['fetchUse\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 473898,
+    "snippet": "0072']['id']);_0xd3f6d=(424809^424809)+(227463^227462);if(playlistsData['success']&&playlistsData['playlists']){let localPlaylists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"}{\".split(\"\").reverse().join(\"\"));Object['keys'](playlistsData['playlists'])['forEach'](playlistName=>{if(!localPlaylists[playlistName]){localPlaylists[playlistName]=playlistsData['playlists'][playlistName];}else{var _0xe8c35d;const localSongs=localPlaylists[playlistName]"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 475205,
+    "snippet": "u006Furce']}_${item['id']}`;if(!songMap['has'](key)){songMap['set'](key,item);}});localPlaylists[playlistName]=Array['from'](songMap['values']());}});localStorage['setItem'](\"playlists\",JSON['stringify'](localPlaylists));}}this['updateUserUI']();this['hideModal']();showToast(\"...据数步同在正，功成录登\".split(\"\").reverse().join(\"\"),\"success\");await this['\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 481060,
+    "snippet": ");showToast(\"注册请求失败，请检查服务器连接\",\"rorre\".split(\"\").reverse().join(\"\"));}finally{hideLoader();}}async handleLogout(){try{showLoader();var _0xg8f=(285657^285648)+(229489^229495);const token=localStorage['getItem'](\"nekot_htua\".split(\"\").reverse().join(\"\"));_0xg8f=\"ijphin\".split(\"\").reverse().join(\"\");const formData=new FormData();formData['append'](\"token\",token||'');const response=await fetch(\"php.tuogol/php\".split(\"\").reverse().join(\"\"),{'method':'POST','body':formData});var _0xaefc2c;const data=await response['json']();_0xaefc2c='g\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 482977,
+    "snippet": "64ateUserUI']();setTimeout(()=>{window['location']['reload']();},646011^645267);}finally{hideLoader();}}async checkCurrentUser(){try{const token=localStorage['getItem'](\"nekot_htua\".split(\"\").reverse().join(\"\"));var _0x4e68c;const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0x4e68c=439352^439357;var _0x642b1c=(428360^428364)+(827531^827522);const username=localStorage['getItem'](\"username\");_0x642b1c=(743841^743842)+(433860^433869);if(token&&userId&&username){showLoader();try{var _0x131e"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 483105,
+    "snippet": "u006E']['reload']();},646011^645267);}finally{hideLoader();}}async checkCurrentUser(){try{const token=localStorage['getItem'](\"nekot_htua\".split(\"\").reverse().join(\"\"));var _0x4e68c;const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0x4e68c=439352^439357;var _0x642b1c=(428360^428364)+(827531^827522);const username=localStorage['getItem'](\"username\");_0x642b1c=(743841^743842)+(433860^433869);if(token&&userId&&username){showLoader();try{var _0x131eda=(633262^633259)+(268989^268986);const formData=new FormData();_0x131eda=(552107^552109)+(661799^661795);formData['a\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 483288,
+    "snippet": "u006D'](\"nekot_htua\".split(\"\").reverse().join(\"\"));var _0x4e68c;const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0x4e68c=439352^439357;var _0x642b1c=(428360^428364)+(827531^827522);const username=localStorage['getItem'](\"username\");_0x642b1c=(743841^743842)+(433860^433869);if(token&&userId&&username){showLoader();try{var _0x131eda=(633262^633259)+(268989^268986);const formData=new FormData();_0x131eda=(552107^552109)+(661799^661795);formData['append'](\"nekot\".split(\"\").reverse().join(\"\"),token);formData['append'](\"user_id\",userId);const res"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 488055,
+    "snippet": "'song_album']||\"辑专知未\".split(\"\").reverse().join(\"\"),\"pic_id\":item['song_cover']}));let localFavorites=JSON['parse'](localStorage['getItem'](\"setirovaf\".split(\"\").reverse().join(\"\"))||\"][\".split(\"\").reverse().join(\"\"));var _0xe59fd;const favMap=new Map();_0xe59fd=(779412^779421)+(132206^132207);serverFavorites['forEach'](item=>{const key=`${item['source']}_${item['id']}`;favMap['set'](key,item);});localFavorites['forEach'](item=>{var _0x4c91bg;const key=`${item['s\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 488860,
+    "snippet": "5']}_${item['id']}`;_0x4c91bg=(398720^398722)+(937086^937078);if(!favMap['has'](key)){favMap['set'](key,item);}});const mergedFavorites=Array['from'](favMap['values']());localStorage['setItem'](\"favorites\",JSON['stringify'](mergedFavorites));}const playlistsResponse=await fetch(\"php.stsilyalp_teg/php\".split(\"\").reverse().join(\"\"),{\"method\":\"POST\",'body':formData});const playlistsData=await playlistsResponse['json']();if(playlistsData['success']&&playlistsData['\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 489491,
+    "snippet": "ylistsData=await playlistsResponse['json']();if(playlistsData['success']&&playlistsData['playlists']){let localPlaylists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");var _0x18_0x31c;const serverPlaylists=playlistsData['playlists'];_0x18_0x31c=898295^898293;Object['keys'](serverPlaylists)['forEach'](playlistName=>{if(!localPlaylists[playlistName]){localPlaylists[playlistName]=serverPlaylists[playlistName];}else{const localSongs=localPlaylists[playli"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 490689,
+    "snippet": "u006Furce']}_${item['id']}`;if(!songMap['has'](key)){songMap['set'](key,item);}});localPlaylists[playlistName]=Array['from'](songMap['values']());}});localStorage['setItem'](\"playlists\",JSON['stringify'](localPlaylists));}}catch(error){console['error'](\":败失据数户用载加\".split(\"\").reverse().join(\"\"),error);}}clearAuthStorage(){localStorage['removeItem'](\"auth_token\");localStorage['\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 491051,
+    "snippet": "ts\",JSON['stringify'](localPlaylists));}}catch(error){console['error'](\":败失据数户用载加\".split(\"\").reverse().join(\"\"),error);}}clearAuthStorage(){localStorage['removeItem'](\"auth_token\");localStorage['removeItem'](\"di_resu\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"emanresu\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"favorites\");localStor"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 491192,
+    "snippet": "Fr'](\":败失据数户用载加\".split(\"\").reverse().join(\"\"),error);}}clearAuthStorage(){localStorage['removeItem'](\"auth_token\");localStorage['removeItem'](\"di_resu\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"emanresu\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"favorites\");localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),\"{}\");}updateUserUI(){if(typeof checkAnd"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 491309,
+    "snippet": "){localStorage['removeItem'](\"auth_token\");localStorage['removeItem'](\"di_resu\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"emanresu\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"favorites\");localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),\"{}\");}updateUserUI(){if(typeof checkAndUpdateLoginTips===\"noitcnuf\".split(\"\").reverse().join(\"\")){checkAndUpdateLoginTips();}else{const sectionHeaders=docum"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 491427,
+    "snippet": "006Fken\");localStorage['removeItem'](\"di_resu\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"emanresu\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"favorites\");localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),\"{}\");}updateUserUI(){if(typeof checkAndUpdateLoginTips===\"noitcnuf\".split(\"\").reverse().join(\"\")){checkAndUpdateLoginTips();}else{const sectionHeaders=document['querySelectorAll'](\".s\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 491562,
+    "snippet": "n(\"\"));localStorage['removeItem'](\"emanresu\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"favorites\");localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),\"{}\");}updateUserUI(){if(typeof checkAndUpdateLoginTips===\"noitcnuf\".split(\"\").reverse().join(\"\")){checkAndUpdateLoginTips();}else{const sectionHeaders=document['querySelectorAll'](\".section-header\");sectionHeaders['forEac\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 511041,
+    "snippet": "t key=`${item['source']}_${item['song_id']}`;_0x46351d=(585406^585402)+(948466^948468);serverFavMap['set'](key,!![]);});const localFavorites=JSON['parse'](localStorage['getItem'](\"setirovaf\".split(\"\").reverse().join(\"\"))||\"][\".split(\"\").reverse().join(\"\"));const newFavorites=localFavorites['filter'](item=>{var _0xb10aca=(502609^502613)+(198218^198222);const key=`${item['source']}_${item['id']}`;_0xb10aca=864282^864287;return!serverFavMap['has'](key);});if(newFavorites['length']>(940579^940579)){const syncFavForm=new For"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 513048,
+    "snippet": "'playlists']?playlistsData['playlists']:{};_0x3f_0x2af='ohphob';var _0x2f_0xa1d;const localPlaylists=JSON['parse'](localStorage['getItem'](\"playlists\")||\"{}\");_0x2f_0xa1d=(546097^546098)+(750936^750936);var _0xc51g1g;const playlistsToSync={};_0xc51g1g=(225212^225204)+(399719^399714);let needSync=false;for(const playlistName in localPlaylists){var _0x6c7c;const localSongs=localPlaylists[playlistName]||[];_0x6c7c=699491^699489;if(serverPlaylists[playlistName]){const serverSongs=serverPlaylists[playlistName]||[];const serverSongMap=new Map();"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 516296,
+    "snippet": "u003A\",error);}}syncServerDataToLocal(userData){if(!userData)return;if(userData['favorites']&&Array['isArray'](userData['favorites'])){localStorage['setItem'](\"setirovaf\".split(\"\").reverse().join(\"\"),JSON['stringify'](userData['favorites']));}if(userData['playlists']&&typeof userData['playlists']===\"object\"){localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 516716,
+    "snippet": "'](userData['favorites']));}if(userData['playlists']&&typeof userData['playlists']===\"object\"){localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](userData['playlists']));}}}class MobileMenu{constructor(){this['menuBtn']=document['querySelector'](\"ntb-unem-elibom.\".split(\"\").reverse().join(\"\"));this['sidebar']=document['\\u"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 542347,
+    "snippet": "0065rror\");return;}if(newPassword!==confirmNewPassword){showToast(\"两次输入的新密码不一致\",\"rorre\".split(\"\").reverse().join(\"\"));return;}var _0xe2ed2f=(678895^678888)+(378425^378427);const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0xe2ed2f=(354518^354514)+(257958^257967);if(!userId){showToast(\"请先登录\",\"rorre\".split(\"\").reverse().join(\"\"));return;}try{showLoader();const formData=new FormData();formData['append'](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData['append'](\"current_passwor\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 547442,
+    "snippet": "2请IPA\".split(\"\").reverse().join(\"\")));}apiRateLimit['addRequest']();}return originalFetch(url,options);};class AppUpdater{constructor(){this['appVersion']=localStorage['getItem'](\"current_app_version\")||\"2.7.1\".split(\"\").reverse().join(\"\");this['checkInterval']=(489255^489259)*(594536^594516)*(738940^738880)*(155279^154983);this['lastCheckTime']=439400^439400;this['resourc\\u006"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 548907,
+    "snippet": "u0070Version'],\"lastModified\":new Date()['toISOString']()}};this['init']();}init(){var _0xde4bef=(719640^719642)+(389746^389750);const savedResources=localStorage['getItem'](\"secruoser_ppa\".split(\"\").reverse().join(\"\"));_0xde4bef='nlkfkb';if(savedResources){try{const savedData=JSON['parse'](savedResources);this['resources']=savedData;}catch(error){console['error'](\"解析资源版本信息失败:\",error);}}var _0x93057c;const lastCheckTime=localStorage['ge\\u007"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 549396,
+    "snippet": "'](savedResources);this['resources']=savedData;}catch(error){console['error'](\"解析资源版本信息失败:\",error);}}var _0x93057c;const lastCheckTime=localStorage['getItem'](\"last_check_time\");_0x93057c=539165^539163;if(lastCheckTime){this['lastCheckTime']=parseInt(lastCheckTime);}this['checkForUpdates']();this['scheduleUpdateChe\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 551796,
+    "snippet": "rts2[i]||667302^667302;if(num1<num2)return-(827202^827203);if(num1>num2)return 976910^976911;}return 475571^475571;}async checkForUpdates(){try{this['lastCheckTime']=Date['now']();localStorage['setItem'](\"last_check_time\",this['lastCheckTime']['toString']());var _0x21c8g=(407416^407419)+(299594^299596);const response=await fetch(\"php/check_version.php?t=\"+Date['\\"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 553461,
+    "snippet": "1489^971489)){this['appVersion']=data['version'];this['resources']=data['resources'];localStorage['setItem'](\"app_resources\",JSON['stringify'](this['resources']));this['showUpdateNotification']();}}catch(error){console['error'](\":败失新更查检\".split(\"\").re"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 556759,
+    "snippet": "068es\"in window){caches['keys']()['then'](cacheNames=>{return Promise['all'](cacheNames['map'](cacheName=>{return caches['delete'](cacheName);}));});}localStorage['setItem'](\"current_app_version\",this['appVersion']);localStorage['removeItem'](\"secruoser_ppa\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"emit_kcehc_tsal\".split(\"\").reverse().join(\"\"));const version=this['a"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 557005,
+    "snippet": "Name);}));});}localStorage['setItem'](\"current_app_version\",this['appVersion']);localStorage['removeItem'](\"secruoser_ppa\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"emit_kcehc_tsal\".split(\"\").reverse().join(\"\"));const version=this['appVersion']||Date['now']();var _0x9c638d;const cssLinks=document['querySelectorAll'](\"]\\\"teehselyts\\\"=ler["
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 557128,
+    "snippet": "u0061pp_version\",this['appVersion']);localStorage['removeItem'](\"secruoser_ppa\".split(\"\").reverse().join(\"\"));localStorage['removeItem'](\"emit_kcehc_tsal\".split(\"\").reverse().join(\"\"));const version=this['appVersion']||Date['now']();var _0x9c638d;const cssLinks=document['querySelectorAll'](\"]\\\"teehselyts\\\"=ler[knil\".split(\"\").reverse().join(\"\"));_0x9c638d=897573^897572;cssLinks['forEach'](link=>{i"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 560513,
+    "snippet": "odedText['match'](new RegExp(\")+d\\\\(=di]&?[\".split(\"\").reverse().join(\"\"),'i'));_0x0g585e=200001^200007;return idMatch?idMatch[947709^947708]:'';}async createImportPlaylist(){const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");var _0xge_0x363;let finalPlaylistName=this['playlistName'];_0xge_0x363=(689435^689438)+(368116^368117);var _0xf5184f=(218713^218718)+(953534^953533);let counter=900733^900732;_0xf5184f=996209^996217;while(playlists[finalPlaylistName]){finalPlaylistName=`${this['playlistName']} (${c"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 561248,
+    "snippet": "9stName']} (${counter})`;counter++;}this['playlistName']=finalPlaylistName;playlists[this['playlistName']]=[];localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](playlists));var _0x9fgb1d;const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0x9fgb1d='iidjnp';if(userId){try{var _0x733d=(463208^463211)+(298548^298548);const formData=new FormData();_0x733d=829976^829968;formData['append'](\"a\\u0"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 561450,
+    "snippet": "079listName']]=[];localStorage['setItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON['stringify'](playlists));var _0x9fgb1d;const userId=localStorage['getItem'](\"di_resu\".split(\"\").reverse().join(\"\"));_0x9fgb1d='iidjnp';if(userId){try{var _0x733d=(463208^463211)+(298548^298548);const formData=new FormData();_0x733d=829976^829968;formData['append'](\"action\",\"etaerc\".split(\"\").reverse().join(\"\"));formData['append'](\"user_id\",userId);formData['app\\u00"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 566868,
+    "snippet": "ass=\"cancel-import-btn\">取消</button> </div> </div> `;document['body']['appendChild'](modal);const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");var _0x1d24a;const playlistNames=Object['keys'](playlists);_0x1d24a=(580930^580935)+(216514^216518);const importTarget=modal['querySelector'](\"#import-target\");playlistNames['forEach'](name=>{var _0x9gbf5d=(24393"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 586375,
+    "snippet": "616^426608;const progress=current/total*(152348^152440);progressFill['style']['width']=`${progress}%`;progressStatus['textContent']=message;};const userId=localStorage['getItem'](\"user_id\");var _0x3d_0xf5e;let playlistId=null;_0x3d_0xf5e='meekgj';if(userId){try{var _0x6e4cd;const formData1=new FormData();_0x6e4cd=(609180^609179)+(810964^810960);formData1['append'](\"user_id\",userId);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),this['play"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 587871,
+    "snippet": "rentIndex=604869^604869;_0x50b0aa=(443869^443868)+(950232^950225);var _0xb8c68c=(702303^702300)+(419582^419578);const importedSongs=[];_0xb8c68c='qipkch';const failedSongs=[];const playlists=JSON['parse'](localStorage['getItem'](\"stsilyalp\".split(\"\").reverse().join(\"\"))||\"{}\");if(!playlists[this['playlistName']])playlists[this['playlistName']]=[];for(const song of songsToImport){currentIndex++;try{const songInfo=`${song['name']} - ${song['artist']}`;var _0x3a19f=(842195^842203)+(894612^894608);const playl"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 589430,
+    "snippet": "]}`,\"reason\":error['message']});updateProgress(currentIndex,totalSongs,`导入失败: ${song['name']} - ${song['artist']} (${error['message']})`);}}localStorage['setItem'](\"playlists\",JSON['stringify'](playlists));if(importedSongs['length']>(287907^287907)){var _0x72g34d;const userIdForSync=localStorage['getItem'](\"user_id\");_0x72g34d='iglacf';if(userIdForSync){try{var _0x80f37a;const formData1=new FormData();"
+  },
+  {
+    "file": "js_main.js",
+    "type": "localStorage",
+    "index": 589729,
+    "snippet": "u0074em'](\"playlists\",JSON['stringify'](playlists));if(importedSongs['length']>(287907^287907)){var _0x72g34d;const userIdForSync=localStorage['getItem'](\"user_id\");_0x72g34d='iglacf';if(userIdForSync){try{var _0x80f37a;const formData1=new FormData();_0x80f37a=(160362^160367)+(922240^922241);formData1['append'](\"user_id\",userIdForSync);formData1['append'](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),this['playlis\\u00"
+  },
+  {
+    "file": "js_util.js",
+    "type": "fetch\\s*\\(",
+    "index": 5269,
+    "snippet": "075ality']():localStorage['getItem'](\"audio_quality\")||\"023\".split(\"\").reverse().join(\"\");_0xbce=879715^879722;const _0x7b_0x13a=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${song['source']}&id=${song['id']}&br=${_0xde_0x721}`);const _0x3db=await _0x7b_0x13a['json']();if(!_0x3db['url']){throw new Error(\"获取音频URL失败\");}console['log'](\"Util download URL from mai\\u006"
+  },
+  {
+    "file": "js_util.js",
+    "type": "\\.php",
+    "index": 5310,
+    "snippet": "alStorage['getItem'](\"audio_quality\")||\"023\".split(\"\").reverse().join(\"\");_0xbce=879715^879722;const _0x7b_0x13a=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${song['source']}&id=${song['id']}&br=${_0xde_0x721}`);const _0x3db=await _0x7b_0x13a['json']();if(!_0x3db['url']){throw new Error(\"获取音频URL失败\");}console['log'](\"Util download URL from main API:\",_0x3db['"
+  },
+  {
+    "file": "js_util.js",
+    "type": "localStorage",
+    "index": 5047,
+    "snippet": "ong){try{var _0xbce=(698889^698880)+(652612^652621);const _0xde_0x721=window['player']?window['player']['getAudioQuality']():localStorage['getItem'](\"audio_quality\")||\"023\".split(\"\").reverse().join(\"\");_0xbce=879715^879722;const _0x7b_0x13a=await fetch(`https://music-api.gdstudio.xyz/api.php?types=url&source=${song['source']}&id=${song['id']}&br=${_0xde_0x721}`);const _0x3db=await _0x7b_0x13a['json']();if(!_0x3db['url']){throw new Error(\"获取音频\\u00"
+  }
+]

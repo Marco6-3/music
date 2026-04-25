@@ -1,0 +1,302 @@
+﻿[
+    {
+        "file":  "api_check_check_api.html",
+        "type":  "fetch\\s*\\(",
+        "index":  3964,
+        "snippet":  "tainer\"\u003e \u003ch1\u003eAPI 可用性检查\u003c/h1\u003e \u003cdiv id=\"content\"\u003e \u003cdiv class=\"loading\"\u003e正在加载数据...\u003c/div\u003e \u003c/div\u003e \u003c/div\u003e \u003cscript\u003e async function loadAPIStatus() { try { const response = await fetch(\u0027api_doubtful.php\u0027); if (!response.ok) { throw new Error(\u0027获取数据失败\u0027); } const data = await response.json(); // 构建表格 let html = \u0027\u003cdiv class=\"table-wrapper\"\u003e\u0027; html += \u0027\u003ctable\u003e\u0027; html += \u0027\u003cthead\u003e\u0027; html += \u0027\u003ctr\u003e\u0027; html += \u0027\u003cth\u003e音乐源\u003c/th\u003e\u0027; html += \u0027\u003cth\u003e搜索功能\u003c/th\u003e\u0027; "
+    },
+    {
+        "file":  "api_check_check_api.html",
+        "type":  "\\.php",
+        "index":  3983,
+        "snippet":  "h1\u003eAPI 可用性检查\u003c/h1\u003e \u003cdiv id=\"content\"\u003e \u003cdiv class=\"loading\"\u003e正在加载数据...\u003c/div\u003e \u003c/div\u003e \u003c/div\u003e \u003cscript\u003e async function loadAPIStatus() { try { const response = await fetch(\u0027api_doubtful.php\u0027); if (!response.ok) { throw new Error(\u0027获取数据失败\u0027); } const data = await response.json(); // 构建表格 let html = \u0027\u003cdiv class=\"table-wrapper\"\u003e\u0027; html += \u0027\u003ctable\u003e\u0027; html += \u0027\u003cthead\u003e\u0027; html += \u0027\u003ctr\u003e\u0027; html += \u0027\u003cth\u003e音乐源\u003c/th\u003e\u0027; html += \u0027\u003cth\u003e搜索功能\u003c/th\u003e\u0027; html += \u0027\u003cth"
+    },
+    {
+        "file":  "js_delete_joox.js",
+        "type":  "fetch\\s*\\(",
+        "index":  10219,
+        "snippet":  "9644b[\u0027append\u0027](\"song_id\",_0x2ab[\u0027id\u0027]);_0xd9644b[\u0027append\u0027](\"ecruos\".split(\"\").reverse().join(\"\"),\"xooj\".split(\"\").reverse().join(\"\"));const _0xa77c=await fetch(\"php/favorite.php\",{\"method\":\"POST\",\u0027body\u0027:_0xd9644b});const _0xa10bda=await _0xa77c[\u0027json\u0027]();if(!_0xa10bda[\u0027success\u0027]){console[\u0027error\u0027](\":败失藏收除删器务服从\".split(\"\").reverse().join(\"\"),_0x2ab[\u0027name\u0027],_0xa10bda[\u0027messag\\"
+    },
+    {
+        "file":  "js_delete_joox.js",
+        "type":  "fetch\\s*\\(",
+        "index":  12994,
+        "snippet":  "39ce[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),_0xaee79b);_0xd39ce[\u0027append\u0027](\"playlist_name\",playlistName);const _0x7336b=await fetch(\"php/get_playlist_id.php\",{\u0027method\u0027:\u0027POST\u0027,\"body\":_0xd39ce});const _0x54c5db=await _0x7336b[\u0027json\u0027]();if(_0x54c5db[\u0027success\u0027]\u0026\u0026_0x54c5db[\u0027playlist_id\u0027]){_0x8ad21b=_0x54c5db[\u0027playlist_id\u0027];}}catch(error){c"
+    },
+    {
+        "file":  "js_delete_joox.js",
+        "type":  "fetch\\s*\\(",
+        "index":  14419,
+        "snippet":  ");_0x365ce[\u0027append\u0027](\"song_id\",_0xbf3e1f[\u0027id\u0027]);_0x365ce[\u0027append\u0027](\"ecruos\".split(\"\").reverse().join(\"\"),\"joox\");const _0x1db38f=await fetch(\"php/playlist.php\",{\"method\":\"POST\",\"body\":_0x365ce});var _0xg88ec=(437920^437922)+(433954^433955);const _0xae5fca=await _0x1db38f[\u0027json\u0027]();_0xg88ec=474742^474741;if(!_0xae5fca[\u0027success\u0027]){console[\u0027error\u0027](\"从服务器歌单删除歌曲失败:\",playlistName,_0xbf3e1f[\u0027nam\\u00"
+    },
+    {
+        "file":  "js_delete_joox.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  12675,
+        "snippet":  "5m\u0027](\"playlists\",JSON[\u0027stringify\u0027](_0x174e));if(_0xaee79b){var _0xcefbfe;let _0x8ad21b=null;_0xcefbfe=(459769^459772)+(605381^605389);try{var _0x07bf;const _0xd39ce=new FormData();_0x07bf=(676103^676111)+(135749^135756);_0xd39ce[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),_0xaee79b);_0xd39ce[\u0027append\u0027](\"playlist_name\",playlistName);const _0x7336b=await fetch(\"php/get_playlist_id.php\",{\u0027method\u0027:\u0027POST\u0027,\"body\":"
+    },
+    {
+        "file":  "js_email_verification.js",
+        "type":  "fetch\\s*\\(",
+        "index":  17469,
+        "snippet":  "it(\"\").reverse().join(\"\"));_0x9gf79e=\u0027eiokjd\u0027;sendBtn[\u0027disabled\u0027]=!![];sendBtn[\u0027innerText\u0027]=\"...中送发\".split(\"\").reverse().join(\"\");fetch(\"../php/verify_email.php\",{\"method\":\"POST\",\u0027headers\u0027:{\"Content-Type\":\u0027application/x-www-form-urlencoded\u0027},\"body\":`action=send_code\u0026user_id=${this[\u0027userId\u0027]}${this[\u0027newEmail\u0027]?\"=liame_pmet\u0026\".split(\"\").reverse().join"
+    },
+    {
+        "file":  "js_email_verification.js",
+        "type":  "fetch\\s*\\(",
+        "index":  20454,
+        "snippet":  "split(\"\").reverse().join(\"\");if(this[\u0027newEmail\u0027]){requestParams[\u0027append\u0027](\"new_email\",this[\u0027newEmail\u0027]);}fetch(\"php.liame_yfirev/php/..\".split(\"\").reverse().join(\"\"),{\u0027method\u0027:\u0027POST\u0027,\u0027headers\u0027:{\"Content-Type\":\u0027application/x-www-form-urlencoded\u0027},\"body\":requestParams})[\u0027then\u0027](response=\u003eresponse[\u0027json\u0027]())[\u0027then\u0027](data=\u003e{if(data[\u0027success\u0027]){this[\u0027showSucce\\u0"
+    },
+    {
+        "file":  "js_email_verification.js",
+        "type":  "new\\s+URLSearchParams\\s*\\(",
+        "index":  19968,
+        "snippet":  "\").reverse().join(\"\"));verifyBtn[\u0027disabled\u0027]=!![];verifyBtn[\u0027innerText\u0027]=\"验证中...\";var _0x33f=(540301^540303)+(115765^115772);const requestParams=new URLSearchParams({\u0027action\u0027:\"verify_code\",\"user_id\":this[\u0027userId\u0027],\"code\":verificationCode});_0x33f=\"bdqegk\".split(\"\").reverse().join(\"\");if(this[\u0027newEmail\u0027]){requestParams[\u0027append\u0027](\"new_email\",this[\u0027newEmail\u0027]);}fetch(\"php.liame_yfirev/php/..\".sp"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  157199,
+        "snippet":  "u0065nd\u0027](\"eltit_lanigiro\".split(\"\").reverse().join(\"\"),originalName);formData2[\u0027append\u0027](\"original_artist\",originalArtist);const response=await fetch(\"php/playlist.php\",{\"method\":\"POST\",\u0027body\u0027:formData2});const result=await response[\u0027json\u0027]();console[\u0027log\u0027](`同步歌曲到歌单 ${plistName} 结果:`,result);break;}}}}if(window[\u0027musicSearch\u0027]){window[\u0027musicSearch\u0027][\u0027initPla\\u007"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  191121,
+        "snippet":  "nd\u0027](\"album\",song[\u0027album\u0027]||\u0027\u0027);formData[\u0027append\u0027](\"song_cover\",song[\u0027pic_id\u0027]||\u0027\u0027);await fetch(\"php/favorite.php\",{\u0027method\u0027:\u0027POST\u0027,\u0027body\u0027:formData});}else if(type===\"playlist\"\u0026\u0026playlistName){const formData1=new FormData();formData1[\u0027append\u0027](\"user_id\",userId);formData1[\u0027append\u0027](\"playlist_n\\u0"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  193134,
+        "snippet":  "0070pend\u0027](\"mubla\".split(\"\").reverse().join(\"\"),song[\u0027album\u0027]||\u0027\u0027);formData2[\u0027append\u0027](\"revoc_gnos\".split(\"\").reverse().join(\"\"),song[\u0027pic_id\u0027]||\u0027\u0027);await fetch(\"php/playlist.php\",{\u0027method\u0027:\u0027POST\u0027,\u0027body\u0027:formData2});}}}catch(error){console[\u0027error\u0027](\":败失器务服到息信曲歌新更步同\".split(\"\").reverse().join(\"\"),error);}}setCurrentPlaylist(type,data,index,name){this[\u0027currentPlaylist\u0027]=type;"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  376130,
+        "snippet":  "06Eg_cover\",song[\u0027pic_id\u0027]);formData3[\u0027append\u0027](\"album\",song[\u0027album\u0027]||\u0027\u0027);var _0x15_0x61d;const addResponse=await fetch(\"php/playlist.php\",{\"method\":\"POST\",\"body\":formData3});_0x15_0x61d=(734082^734091)+(579449^579449);var _0xf3a9bf=(961602^961610)+(225934^225934);const addData=await addResponse[\u0027json\u0027]();_0xf3a9bf=(755636^755639)+(908837^908832);if(!addData[\u0027success\u0027]){console[\u0027error\u0027](\"同步歌曲到服务器歌单\\u5"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  378636,
+        "snippet":  "16)+(220325^220333);formData1[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData1[\u0027append\u0027](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),playlistName);var _0xc4e;const idResponse=await fetch(\"php/get_playlist_id.php\",{\"method\":\"POST\",\u0027body\u0027:formData1});_0xc4e=(645620^645616)+(478418^478420);var _0xfc8d;const idData=await idResponse[\u0027json\u0027]();_0xfc8d=\u0027olbmpg\u0027;if(idData[\u0027success\u0027]\u0026\u0026idData[\u0027playlist_id\u0027]){var "
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  379907,
+        "snippet":  "9st_id\u0027]);formData2[\u0027append\u0027](\"song_id\",songId);formData2[\u0027append\u0027](\"source\",songSource);const response=await fetch(\"php/playlist.php\",{\u0027method\u0027:\"POST\",\u0027body\u0027:formData2});const data=await response[\u0027json\u0027]();if(!data[\u0027success\u0027]){console[\u0027error\u0027](\":败失曲歌除移单歌器务服从\".split(\"\").reverse().join(\"\"),data[\u0027message\u0027]"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  397845,
+        "snippet":  "(\"\").reverse().join(\"\"),userId);formData[\u0027append\u0027](\"old_name\",oldName);formData[\u0027append\u0027](\"eman_wen\".split(\"\").reverse().join(\"\"),newName);const response=await fetch(\"php/rename_playlist.php\",{\u0027method\u0027:\"POST\",\u0027body\u0027:formData});var _0xbfe1a=(125534^125530)+(657522^657523);const data=await response[\u0027json\u0027]();_0xbfe1a=\"oofemg\".split(\"\").reverse().join(\"\");if(data[\u0027success\u0027]){}else{console[\u0027error\u0027](\"同步\\u6B"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  400995,
+        "snippet":  "append\u0027](\"user_id\",userId);formData1[\u0027append\u0027](\"playlist_name\",playlistName);const idResponse=await fetch(\"php/get_playlist_id.php\",{\u0027method\u0027:\u0027POST\u0027,\u0027body\u0027:formData1});const responseText=await idResponse[\u0027text\u0027]();if(responseText[\u0027includes\u0027](\"gninraW\".split(\"\").reverse().join(\"\"))||responseText[\u0027includes\u0027](\"Error\")||responseText"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  402514,
+        "snippet":  "plit(\"\").reverse().join(\"\"),userId);formData2[\u0027append\u0027](\"playlist_id\",idData[\u0027playlist_id\u0027]);const deleteResponse=await fetch(\"php/playlist.php\",{\"method\":\"POST\",\"body\":formData2});const deleteText=await deleteResponse[\u0027text\u0027]();try{const deleteData=JSON[\u0027parse\u0027](deleteText);if(!deleteData[\u0027success\u0027]){console[\u0027log\u0027](\"从服务器删除歌单失败，但本地删除成功:\",deleteData"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  427467,
+        "snippet":  "69ng\u0027]=!![];this[\u0027saveSearchState\u0027]();this[\u0027isInSearchMode\u0027]=false;showLoader();try{const response=await fetch(`php/toplist.php?type=${type}`);var _0xf5f=(713514^713517)+(131898^131901);const data=await response[\u0027json\u0027]();_0xf5f=(941255^941250)+(643786^643790);if(data[\u0027code\u0027]===(148892^148820)\u0026\u0026Array[\u0027isArray\u0027](data[\u0027data\u0027])\u0026\u0026data[\u0027data\u0027][\u0027length\u0027]\u003e(978747^978747)){this[\u0027currentToplistDat\\u00"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  483820,
+        "snippet":  ");_0x131eda=(552107^552109)+(661799^661795);formData[\u0027append\u0027](\"nekot\".split(\"\").reverse().join(\"\"),token);formData[\u0027append\u0027](\"user_id\",userId);const response=await fetch(\"php/verify_token.php\",{\u0027method\u0027:\"POST\",\u0027body\u0027:formData});var _0x391g;const data=await response[\u0027json\u0027]();_0x391g=680838^680847;if(data[\u0027success\u0027]){if(data[\u0027need_email_verificatio"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  508093,
+        "snippet":  "0pend\u0027](\"ratava\".split(\"\").reverse().join(\"\"),uploadedFile);}else{formData[\u0027append\u0027](\"default_avatar\",selectedAvatar);}const response=await fetch(\"php/update_avatar.php\",{\"method\":\"POST\",\u0027body\u0027:formData});var _0xa309a;const result=await response[\u0027json\u0027]();_0xa309a=(371657^371662)+(811726^811726);if(result[\u0027success\u0027]){this[\u0027currentUser\u0027][\u0027avatar\u0027]=result[\u0027ava"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  510167,
+        "snippet":  "r _0xa733a=(890055^890050)+(418632^418624);const favFormData=new FormData();_0xa733a=(990713^990704)+(663651^663648);favFormData[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),userId);try{var _0x4d_0x624;const favResponse=await fetch(\"php/get_favorites.php\",{\"method\":\u0027POST\u0027,\"body\":favFormData});_0x4d_0x624=\u0027gfhkfi\u0027;const favData=await favResponse[\u0027json\u0027]();const serverFavorites=favData[\u0027success\u0027]\u0026\u0026favData[\u0027favorites\u0027]?favData[\u0027favorites\u0027]:[];const serverFavMap=new"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  511867,
+        "snippet":  "u006Ed\u0027](\"user_id\",userId);syncFavForm[\u0027append\u0027](\"favorites\",JSON[\u0027stringify\u0027](newFavorites));await fetch(\"php/sync_favorites.php\",{\u0027method\u0027:\"POST\",\"body\":syncFavForm});}}catch(error){console[\u0027error\u0027](\"同步收藏出错:\",error);}try{const playlistsFormData=new FormData();playlistsFormData[\u0027append\u0027](\"user_id\",userId);const playlistsResponse=awa"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  543063,
+        "snippet":  "065nt_password\",currentPassword);formData[\u0027append\u0027](\"new_password\",newPassword);var _0xb760ea;const response=await fetch(\"php/change_password.php\",{\u0027method\u0027:\"POST\",\u0027body\u0027:formData});_0xb760ea=(798931^798935)+(374525^374521);const data=await response[\u0027json\u0027]();if(data[\u0027success\u0027]){showToast(data[\u0027message\u0027],\"sseccus\".split(\"\").reverse().join(\"\"));changePassword"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  552156,
+        "snippet":  "68eck_time\",this[\u0027lastCheckTime\u0027][\u0027toString\u0027]());var _0x21c8g=(407416^407419)+(299594^299596);const response=await fetch(\"php/check_version.php?t=\"+Date[\u0027now\u0027]());_0x21c8g=(435455^435448)+(530259^530261);var _0xe2855d;const data=await response[\u0027json\u0027]();_0xe2855d=170757^170759;var _0xaae6f;const currentNotification=document[\u0027querySelector\u0027](\"noitacifiton-etadpu.\".split(\"\").reverse().join(\"\"));_0xaae6f=139710^139"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  562156,
+        "snippet":  "73er_id\",userId);formData[\u0027append\u0027](\"playlist_name\",this[\u0027playlistName\u0027]);await fetch(\"php/playlist.php\",{\u0027method\u0027:\"POST\",\"body\":formData});}catch(error){console[\u0027error\u0027](\"创建服务器歌单失败:\",error);}}return!![];}showImportDialog(){if(!window[\u0027authManager\u0027]||!window[\u0027authManager\u0027][\u0027c\\u00"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  581527,
+        "snippet":  ";if(directPlaylistId){requestParams[\u0027set\u0027](\"id\",directPlaylistId);}else{requestParams[\u0027set\u0027](\"knil\".split(\"\").reverse().join(\"\"),rawImportText);}var _0x5ad23a=(371740^371733)+(544255^544251);const playlistResponse=await fetch(`php/get_netease_playlist.php?${requestParams[\u0027toString\u0027]()}`);_0x5ad23a=159318^159314;const playlistData=await playlistResponse[\u0027json\u0027]();if(playlistData[\u0027code\u0027]===(227296^227112)\u0026\u0026playlistData[\u0027playlist\u0027]){if(importTarget[\u0027value\u0027]===\"new\"\u0026\u0026!playlistNameInput[\u0027value\u0027][\u0027trim\u0027]()){this[\u0027pla\\u00"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  586970,
+        "snippet":  "0064\u0027](\"user_id\",userId);formData1[\u0027append\u0027](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),this[\u0027playlistName\u0027]);const idResponse=await fetch(\"php/get_playlist_id.php\",{\u0027method\u0027:\u0027POST\u0027,\"body\":formData1});var _0xb37b=(934102^934100)+(861255^861254);const idData=await idResponse[\u0027json\u0027]();_0xb37b=622029^622021;playlistId=idData[\u0027playlist_id\u0027];}catch(error){console[\u0027error\u0027](\"获取歌单ID"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  594192,
+        "snippet":  "\u0027]||\"未知专辑\"};});_0x6656ad=(585719^585726)+(475039^475036);formData3[\u0027append\u0027](\"songs\",JSON[\u0027stringify\u0027](songsData));try{const response=await fetch(\"php/playlist.php\",{\u0027method\u0027:\"POST\",\u0027body\u0027:formData3});var _0x24a=(837791^837783)+(655203^655204);const result=await response[\u0027json\u0027]();_0x24a=(423959^423966)+(833031^833026);if(!result[\u0027success\u0027]){console[\u0027error\u0027](\"文本导入批量同步失败:\","
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  596251,
+        "snippet":  "c_gnos\".split(\"\").reverse().join(\"\"),\u0027\u0027);singleFormData[\u0027append\u0027](\"album\",item[\u0027song\u0027][\u0027album\u0027]||\"辑专知未\".split(\"\").reverse().join(\"\"));await fetch(\"php/playlist.php\",{\u0027method\u0027:\"POST\",\u0027body\u0027:singleFormData});}catch(e){console[\u0027error\u0027](\"单首歌曲同步失败:\",e);}}}}catch(fetchError){console[\u0027error\u0027](\":败失求请步同入导本文\".split(\"\").reverse().join(\"\"),fetchError);}}}}catch(error){consol"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  620470,
+        "snippet":  "2or\");return;}if(_0x698fce\u003e(244909^244909))return;_0x1d458b[\u0027disabled\u0027]=!![];_0x1d458b[\u0027textContent\u0027]=\"...中送发\".split(\"\").reverse().join(\"\");fetch(\"php/forgot_password.php\",{\"method\":\u0027POST\u0027,\u0027body\u0027:new URLSearchParams({\u0027action\u0027:\"send_code\",\"email\":_0x28635g})})[\u0027then\u0027](res=\u003eres[\u0027json\u0027]())[\u0027then\u0027](data=\u003e{showToast(data[\u0027message\u0027],data[\u0027suc\\u"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "fetch\\s*\\(",
+        "index":  623542,
+        "snippet":  "\u0027](\"drowssap-wen-pf\".split(\"\").reverse().join(\"\"))[\u0027value\u0027];_0xfdef=(124144^124150)+(745443^745442);if(!_0x22a0e||!_0x8a_0x88d||!_0x9a4b){showToast(\"请填写完整信息\",\"error\");return;}fetch(\"php/forgot_password.php\",{\u0027method\u0027:\"POST\",\u0027body\u0027:new URLSearchParams({\"action\":\"reset_password\",\u0027email\u0027:_0x22a0e,\u0027code\u0027:_0x8a_0x88d,\"new_password\":_0x9a4b})})[\u0027then\u0027](res=\u003eres[\u0027js\\u00"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+URLSearchParams\\s*\\(",
+        "index":  581246,
+        "snippet":  "5e\u0027][\u0027trim\u0027]();if(!playlistName){playlistName=\u0027\u0027;}}else{playlistName=importTarget[\u0027value\u0027];}this[\u0027playlistName\u0027]=playlistName;try{const requestParams=new URLSearchParams();if(directPlaylistId){requestParams[\u0027set\u0027](\"id\",directPlaylistId);}else{requestParams[\u0027set\u0027](\"knil\".split(\"\").reverse().join(\"\"),rawImportText);}var _0x5ad23a=(371740^371733)+(544255^544251);const playlistResponse=await fetch(`php/get_netease_playlist.php?${requestParams[\u0027toString\u0027]()}`);_0x5ad23a=159318^159314;const playlistData=await playlistResponse[\u0027json\u0027]();if(playlistData[\u0027co\\u006"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+URLSearchParams\\s*\\(",
+        "index":  620661,
+        "snippet":  "5nt\u0027]=\"...中送发\".split(\"\").reverse().join(\"\");fetch(\"php/forgot_password.php\",{\"method\":\u0027POST\u0027,\u0027body\u0027:new URLSearchParams({\u0027action\u0027:\"send_code\",\"email\":_0x28635g})})[\u0027then\u0027](res=\u003eres[\u0027json\u0027]())[\u0027then\u0027](data=\u003e{showToast(data[\u0027message\u0027],data[\u0027success\u0027]?\"success\":\"rorre\".split(\"\").reverse().join(\"\"));if(data[\u0027success\u0027]){_0x698fce=498783^498787;_0x1"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+URLSearchParams\\s*\\(",
+        "index":  623783,
+        "snippet":  "6Fr\");return;}fetch(\"php/forgot_password.php\",{\u0027method\u0027:\"POST\",\u0027body\u0027:new URLSearchParams({\"action\":\"reset_password\",\u0027email\u0027:_0x22a0e,\u0027code\u0027:_0x8a_0x88d,\"new_password\":_0x9a4b})})[\u0027then\u0027](res=\u003eres[\u0027json\u0027]())[\u0027then\u0027](data=\u003e{showToast(data[\u0027message\u0027],data[\u0027success\u0027]?\"sseccus\".split(\"\").reverse().join(\"\"):\"error\");if(data"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  378340,
+        "snippet":  "N[\u0027stringify\u0027](playlists));const userId=localStorage[\u0027getItem\u0027](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{var _0x912gf=(557578^557570)+(788386^788387);const formData1=new FormData();_0x912gf=(306718^306716)+(220325^220333);formData1[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData1[\u0027append\u0027](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),playlistName);var _0xc4e;const idResponse=await fetch(\"php/get_playlist_id.php\",{\"method\":\"POST\",\u0027body\u0027:formData1});_"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  397506,
+        "snippet":  "DoveChild\u0027](modal);});}async syncPlaylistRename(oldName,newName){const userId=localStorage[\u0027getItem\u0027](\"user_id\");if(!userId)return;try{const formData=new FormData();formData[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData[\u0027append\u0027](\"old_name\",oldName);formData[\u0027append\u0027](\"eman_wen\".split(\"\").reverse().join(\"\"),newName);const response=await fetch(\"php/rename_playlist.php\",{\u0027metho\\u"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  400670,
+        "snippet":  "079\u0027](playlists));var _0x74g=(318729^318732)+(390448^390454);const userId=localStorage[\u0027getItem\u0027](\"user_id\");_0x74g=(728399^728392)+(808314^808312);if(userId){try{var _0x3ef;const formData1=new FormData();_0x3ef=(297960^297963)+(519228^519228);formData1[\u0027append\u0027](\"user_id\",userId);formData1[\u0027append\u0027](\"playlist_name\",playlistName);const idResponse=await fetch(\"php/get_playlist_id.php\",{\u0027method\u0027:\u0027POST\u0027,\u0027"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  402049,
+        "snippet":  "uFF0C仅执行本地删除操作\");}else{try{const idData=JSON[\u0027parse\u0027](responseText);if(idData\u0026\u0026idData[\u0027playlist_id\u0027]){showLoader();try{const formData2=new FormData();formData2[\u0027append\u0027](\"action\",\"delete\");formData2[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData2[\u0027append\u0027](\"playlist_id\",idData[\u0027playlist_id\u0027]);const deleteResponse=await fetch(\"php/play"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  483547,
+        "snippet":  "=localStorage[\u0027getItem\u0027](\"username\");_0x642b1c=(743841^743842)+(433860^433869);if(token\u0026\u0026userId\u0026\u0026username){showLoader();try{var _0x131eda=(633262^633259)+(268989^268986);const formData=new FormData();_0x131eda=(552107^552109)+(661799^661795);formData[\u0027append\u0027](\"nekot\".split(\"\").reverse().join(\"\"),token);formData[\u0027append\u0027](\"user_id\",userId);const response=await fetch(\"php/verify_token.php\",{\u0027method\u0027:\"POST\",\u0027body\u0027:formData});var _0x391g;c"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  509968,
+        "snippet":  "073er\u0027])return;try{var _0xa5b=(433582^433580)+(218698^218696);const userId=this[\u0027currentUser\u0027][\u0027id\u0027];_0xa5b=575578^575571;var _0xa733a=(890055^890050)+(418632^418624);const favFormData=new FormData();_0xa733a=(990713^990704)+(663651^663648);favFormData[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),userId);try{var _0x4d_0x624;const favResponse=await fetch(\"php/get_favorites.php\",{\"method\":\u0027POST\u0027,\"body\":favFormData});_0x4d_0x624=\u0027gfhkfi\u0027;const favData=await favResponse[\u0027json\u0027]();const serverFavorites=favData[\u0027\\u00"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  511554,
+        "snippet":  "18^198222);const key=`${item[\u0027source\u0027]}_${item[\u0027id\u0027]}`;_0xb10aca=864282^864287;return!serverFavMap[\u0027has\u0027](key);});if(newFavorites[\u0027length\u0027]\u003e(940579^940579)){const syncFavForm=new FormData();syncFavForm[\u0027append\u0027](\"user_id\",userId);syncFavForm[\u0027append\u0027](\"favorites\",JSON[\u0027stringify\u0027](newFavorites));await fetch(\"php/sync_favorites.php\",{\u0027method\u0027:\"POST\""
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  542615,
+        "snippet":  "rage[\u0027getItem\u0027](\"di_resu\".split(\"\").reverse().join(\"\"));_0xe2ed2f=(354518^354514)+(257958^257967);if(!userId){showToast(\"请先登录\",\"rorre\".split(\"\").reverse().join(\"\"));return;}try{showLoader();const formData=new FormData();formData[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData[\u0027append\u0027](\"current_password\",currentPassword);formData[\u0027append\u0027](\"new_password\",newPassword);var _0xb760ea;const response=await fetch(\"php/change\\u005"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  561672,
+        "snippet":  "laylists));var _0x9fgb1d;const userId=localStorage[\u0027getItem\u0027](\"di_resu\".split(\"\").reverse().join(\"\"));_0x9fgb1d=\u0027iidjnp\u0027;if(userId){try{var _0x733d=(463208^463211)+(298548^298548);const formData=new FormData();_0x733d=829976^829968;formData[\u0027append\u0027](\"action\",\"etaerc\".split(\"\").reverse().join(\"\"));formData[\u0027append\u0027](\"user_id\",userId);formData[\u0027append\u0027](\"playlist_name\",this[\u0027playlistName\u0027]);await fetch(\"php/\\u007"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "new\\s+FormData\\s*\\(",
+        "index":  586611,
+        "snippet":  "=message;};const userId=localStorage[\u0027getItem\u0027](\"user_id\");var _0x3d_0xf5e;let playlistId=null;_0x3d_0xf5e=\u0027meekgj\u0027;if(userId){try{var _0x6e4cd;const formData1=new FormData();_0x6e4cd=(609180^609179)+(810964^810960);formData1[\u0027append\u0027](\"user_id\",userId);formData1[\u0027append\u0027](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),this[\u0027playlistName\u0027]);const idResponse=await fetch(\"php/get_playlist_id.php\",{\u0027me"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "\\.php",
+        "index":  427485,
+        "snippet":  "![];this[\u0027saveSearchState\u0027]();this[\u0027isInSearchMode\u0027]=false;showLoader();try{const response=await fetch(`php/toplist.php?type=${type}`);var _0xf5f=(713514^713517)+(131898^131901);const data=await response[\u0027json\u0027]();_0xf5f=(941255^941250)+(643786^643790);if(data[\u0027code\u0027]===(148892^148820)\u0026\u0026Array[\u0027isArray\u0027](data[\u0027data\u0027])\u0026\u0026data[\u0027data\u0027][\u0027length\u0027]\u003e(978747^978747)){this[\u0027currentToplistData\u0027]=data[\u0027d\\"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "\\.php",
+        "index":  581558,
+        "snippet":  "rams[\u0027set\u0027](\"id\",directPlaylistId);}else{requestParams[\u0027set\u0027](\"knil\".split(\"\").reverse().join(\"\"),rawImportText);}var _0x5ad23a=(371740^371733)+(544255^544251);const playlistResponse=await fetch(`php/get_netease_playlist.php?${requestParams[\u0027toString\u0027]()}`);_0x5ad23a=159318^159314;const playlistData=await playlistResponse[\u0027json\u0027]();if(playlistData[\u0027code\u0027]===(227296^227112)\u0026\u0026playlistData[\u0027playlist\u0027]){if(importTarget[\u0027value\u0027]===\"new\"\u0026\u0026!playlistNameInput[\u0027value\u0027][\u0027trim\u0027]()){this[\u0027playlist\\u004"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "localStorage",
+        "index":  378165,
+        "snippet":  "6Cength\u0027]){playlists[playlistName]=newPlaylist;localStorage[\u0027setItem\u0027](\"stsilyalp\".split(\"\").reverse().join(\"\"),JSON[\u0027stringify\u0027](playlists));const userId=localStorage[\u0027getItem\u0027](\"di_resu\".split(\"\").reverse().join(\"\"));if(userId){try{var _0x912gf=(557578^557570)+(788386^788387);const formData1=new FormData();_0x912gf=(306718^306716)+(220325^220333);formData1[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData1[\u0027append\u0027](\"eman_tsilyalp\".split(\"\").reverse().join(\"\"),playlistName);var _0xc4e;const idResponse=await fetch(\"php/get"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "localStorage",
+        "index":  397364,
+        "snippet":  "istener\u0027](\"kcilc\".split(\"\").reverse().join(\"\"),()=\u003e{document[\u0027body\u0027][\u0027removeChild\u0027](modal);});}async syncPlaylistRename(oldName,newName){const userId=localStorage[\u0027getItem\u0027](\"user_id\");if(!userId)return;try{const formData=new FormData();formData[\u0027append\u0027](\"di_resu\".split(\"\").reverse().join(\"\"),userId);formData[\u0027append\u0027](\"old_name\",oldName);formData[\u0027append\u0027](\"eman_wen\".split(\"\").reverse().join(\"\"),newName);const response=await fetch(\"php/r\\u"
+    },
+    {
+        "file":  "js_main.js",
+        "type":  "localStorage",
+        "index":  551796,
+        "snippet":  "rts2[i]||667302^667302;if(num1\u003cnum2)return-(827202^827203);if(num1\u003enum2)return 976910^976911;}return 475571^475571;}async checkForUpdates(){try{this[\u0027lastCheckTime\u0027]=Date[\u0027now\u0027]();localStorage[\u0027setItem\u0027](\"last_check_time\",this[\u0027lastCheckTime\u0027][\u0027toString\u0027]());var _0x21c8g=(407416^407419)+(299594^299596);const response=await fetch(\"php/check_version.php?t=\"+Date[\u0027\\"
+    }
+]

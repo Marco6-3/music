@@ -1,0 +1,320 @@
+'use strict';
+
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const Database = require('better-sqlite3');
+
+const TOKEN_EXPIRY_SECONDS = 86400 * 30;
+const CODE_EXPIRY_SECONDS = 600;
+let tokenSecret = process.env.XCLOUD_TOKEN_SECRET || '';
+
+function createDataStore(dataDir) {
+  fs.mkdirSync(dataDir, { recursive: true });
+  ensureTokenSecret(dataDir);
+  const dbPath = path.join(dataDir, 'xcloud_music.db');
+  const db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
+  initDb(db);
+
+  return {
+    db,
+    dbPath,
+    dataDir,
+    close: () => db.close()
+  };
+}
+
+function ensureTokenSecret(dataDir) {
+  if (tokenSecret) return tokenSecret;
+
+  const secretFile = path.join(dataDir, 'token-secret');
+  try {
+    if (fs.existsSync(secretFile)) {
+      tokenSecret = fs.readFileSync(secretFile, 'utf8').trim();
+    }
+
+    if (!tokenSecret) {
+      tokenSecret = crypto.randomBytes(32).toString('hex');
+      fs.writeFileSync(secretFile, tokenSecret, { encoding: 'utf8', mode: 0o600 });
+    }
+  } catch {
+    tokenSecret = crypto.randomBytes(32).toString('hex');
+  }
+
+  return tokenSecret;
+}
+
+function initDb(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      avatar TEXT DEFAULT NULL,
+      created_at INTEGER DEFAULT (strftime('%s', 'now')),
+      verification_code TEXT DEFAULT NULL,
+      code_expires_at INTEGER DEFAULT NULL,
+      email_verified INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS favorites (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      song_id TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'netease',
+      name TEXT DEFAULT NULL,
+      artist TEXT DEFAULT NULL,
+      album TEXT DEFAULT NULL,
+      pic_id TEXT DEFAULT NULL,
+      created_at INTEGER DEFAULT (strftime('%s', 'now')),
+      UNIQUE(user_id, song_id, source)
+    );
+
+    CREATE TABLE IF NOT EXISTS playlists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      created_at INTEGER DEFAULT (strftime('%s', 'now')),
+      UNIQUE(user_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS playlist_songs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      playlist_id INTEGER NOT NULL,
+      song_id TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'netease',
+      name TEXT DEFAULT NULL,
+      artist TEXT DEFAULT NULL,
+      album TEXT DEFAULT NULL,
+      pic_id TEXT DEFAULT NULL,
+      original_title TEXT DEFAULT NULL,
+      original_artist TEXT DEFAULT NULL,
+      created_at INTEGER DEFAULT (strftime('%s', 'now')),
+      UNIQUE(playlist_id, song_id, source)
+    );
+
+    CREATE TABLE IF NOT EXISTS api_status (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      search TEXT DEFAULT 'true',
+      play TEXT DEFAULT 'true',
+      last_check TEXT DEFAULT NULL
+    );
+  `);
+
+  const now = formatDateTime(new Date());
+  const insertStatus = db.prepare(`
+    INSERT OR IGNORE INTO api_status (source, name, search, play, last_check)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  insertStatus.run('netease', '网易云音乐', 'true', 'true', now);
+  insertStatus.run('kuwo', '酷我音乐', 'true', 'true', now);
+}
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 32).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+}
+
+function verifyPassword(password, storedHash) {
+  if (!storedHash) return false;
+
+  const parts = String(storedHash).split('$');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') {
+    return false;
+  }
+
+  const [, salt, expected] = parts;
+  const actual = crypto.scryptSync(String(password), salt, 32);
+  const expectedBuffer = Buffer.from(expected, 'hex');
+  return expectedBuffer.length === actual.length && crypto.timingSafeEqual(expectedBuffer, actual);
+}
+
+function generateToken(userId) {
+  const time = Math.floor(Date.now() / 1000);
+  const payload = JSON.stringify({ uid: Number(userId), iat: time, exp: time + TOKEN_EXPIRY_SECONDS });
+  const signature = crypto.createHmac('sha256', tokenSecret || ensureTokenSecret(process.cwd())).update(payload).digest('hex');
+  return `${Buffer.from(payload).toString('base64')}.${signature}`;
+}
+
+function verifyToken(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 2) return null;
+
+  const payload = Buffer.from(parts[0], 'base64').toString('utf8');
+  const expected = crypto.createHmac('sha256', tokenSecret || ensureTokenSecret(process.cwd())).update(payload).digest('hex');
+  const expectedBuffer = Buffer.from(expected);
+  const actualBuffer = Buffer.from(parts[1]);
+  if (expectedBuffer.length !== actualBuffer.length || !crypto.timingSafeEqual(expectedBuffer, actualBuffer)) {
+    return null;
+  }
+
+  try {
+    const data = JSON.parse(payload);
+    if (!data || data.exp < Math.floor(Date.now() / 1000)) return null;
+    return Number(data.uid) || null;
+  } catch {
+    return null;
+  }
+}
+
+function generateCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function publicUser(db, userId) {
+  const user = db.prepare(`
+    SELECT id, username, email, avatar, created_at, email_verified
+    FROM users
+    WHERE id = ?
+  `).get(userId);
+
+  if (!user) return null;
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    avatar: user.avatar,
+    created_at: user.created_at,
+    email_verified: user.email_verified
+  };
+}
+
+function userWithCollections(db, userId) {
+  const user = publicUser(db, userId);
+  if (!user) return null;
+
+  return {
+    ...user,
+    favorites: getUserFavorites(db, userId),
+    playlists: getUserPlaylistsObject(db, userId)
+  };
+}
+
+function getUserFavorites(db, userId) {
+  return db.prepare(`
+    SELECT song_id AS id, source, name, artist, album, pic_id
+    FROM favorites
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+  `).all(userId);
+}
+
+function getUserPlaylistsObject(db, userId) {
+  const playlists = db.prepare(`
+    SELECT id, name, created_at
+    FROM playlists
+    WHERE user_id = ?
+    ORDER BY created_at DESC
+  `).all(userId);
+
+  const songsStmt = db.prepare(`
+    SELECT song_id AS id, source, name, artist, album, pic_id, original_title, original_artist
+    FROM playlist_songs
+    WHERE playlist_id = ?
+    ORDER BY created_at DESC
+  `);
+
+  const result = {};
+  for (const playlist of playlists) {
+    result[playlist.name] = songsStmt.all(playlist.id);
+  }
+  return result;
+}
+
+function getUserPlaylistsArray(db, userId) {
+  const object = getUserPlaylistsObject(db, userId);
+  return Object.entries(object).map(([name, songs]) => ({
+    name,
+    songs,
+    song_count: songs.length
+  }));
+}
+
+function ensurePlaylist(db, userId, name) {
+  const playlistName = String(name || '').trim();
+  if (!playlistName) return null;
+
+  db.prepare('INSERT OR IGNORE INTO playlists (user_id, name) VALUES (?, ?)').run(userId, playlistName);
+  return db.prepare('SELECT id, name FROM playlists WHERE user_id = ? AND name = ?').get(userId, playlistName);
+}
+
+function songFromBody(body) {
+  return {
+    id: stringValue(body.song_id || body.id),
+    source: stringValue(body.source || 'netease'),
+    name: stringValue(body.song_title || body.song_name || body.name || body.title),
+    artist: normalizeArtist(body.song_artist || body.artist),
+    album: stringValue(body.album),
+    pic_id: stringValue(body.song_cover || body.pic_id || body.pic),
+    original_title: stringValue(body.original_title || body.original_name),
+    original_artist: stringValue(body.original_artist)
+  };
+}
+
+function insertPlaylistSong(db, playlistId, song) {
+  db.prepare(`
+    INSERT OR IGNORE INTO playlist_songs
+      (playlist_id, song_id, source, name, artist, album, pic_id, original_title, original_artist)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    playlistId,
+    song.id,
+    song.source || 'netease',
+    song.name || '',
+    song.artist || '',
+    song.album || '',
+    song.pic_id || '',
+    song.original_title || '',
+    song.original_artist || ''
+  );
+}
+
+function normalizeArtist(value) {
+  if (Array.isArray(value)) return value.join(', ');
+  return stringValue(value);
+}
+
+function stringValue(value) {
+  return String(value ?? '').trim();
+}
+
+function parseJson(value, fallback) {
+  try {
+    return JSON.parse(String(value ?? ''));
+  } catch {
+    return fallback;
+  }
+}
+
+function formatDateTime(date) {
+  const pad = (number) => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+module.exports = {
+  CODE_EXPIRY_SECONDS,
+  createDataStore,
+  hashPassword,
+  verifyPassword,
+  generateToken,
+  verifyToken,
+  generateCode,
+  publicUser,
+  userWithCollections,
+  getUserFavorites,
+  getUserPlaylistsObject,
+  getUserPlaylistsArray,
+  ensurePlaylist,
+  songFromBody,
+  insertPlaylistSong,
+  parseJson,
+  stringValue,
+  normalizeArtist,
+  formatDateTime
+};

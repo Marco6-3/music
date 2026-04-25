@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="XCloud音乐 - 在线音乐播放器，支持网易云音乐、酷狗音乐和酷我音乐">
+    <meta name="keywords" content="XCloud音乐,在线音乐,免费音乐,音乐播放器,网易云音乐,酷狗音乐,酷我音乐">
+    <meta name="author" content="XCloud">
+    <meta property="og:title" content="XCloud音乐 - 在线音乐播放器">
+    <meta property="og:description" content="在线听歌，跨平台音乐播放器，支持网易云、酷狗、酷我多平台">
+    <meta property="og:image" content="public/gw.png">
+    <meta property="og:url" content="https://music.xcloudv.top">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="public/gw.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="public/gw.png">
+    <link rel=" android-chrome" sizes="192x192" href="public/gw.png">
+    <link rel="android-chrome" sizes="512x512" href="public/gw.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="XCloud Music">
+    <title>XCloud音乐</title>
+    <link rel="stylesheet" href="css/style.css?v=1.7.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script>
+        var _hmt = _hmt || [];
+        (function () {
+            var hm = document.createElement("script");
+            hm.src = "https://hm.baidu.com/hm.js?f6ea5f42024f9fe8dc0c3884b87709b6";
+            var s = document.getElementsByTagName("script")[0];
+            s.parentNode.insertBefore(hm, s);
+        })();
+    </script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 主卡片 -->
+        <div class="main-card">
+            <div class="card-header">
+                <div class="logo-title-container" style="display: flex; align-items: center;">
+                    <img src="public/gw.png" class="logo-image" style="height: 40px; margin-right: 10px;">
+                    <h1>XCloud音乐</h1>
+                </div>
+                <div class="header-controls">
+                    <div class="user-area">
+                        <button class="login-btn" id="login-btn"><i class="fas fa-user"></i> 登录</button>
+                        <div class="user-info" style="display: none;">
+                            <span class="username"></span>
+                            <button class="logout-btn"><i class="fas fa-sign-out-alt"></i></button>
+                        </div>
+                    </div>
+                    <button class="status-check-btn" id="status-check-btn" title="播放源可用性检查">
+                        <i class="fas fa-signal"></i> 源状态
+                    </button>
+                    <div class="theme-switch">
+                        <i class="fas fa-sun"></i>
+                        <label class="switch">
+                            <input type="checkbox" id="theme-toggle">
+                            <span class="slider round"></span>
+                        </label>
+                        <i class="fas fa-moon"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 导航栏 -->
+            <nav class="main-nav">
+                <ul>
+                    <li class="active"><a href="#home"><i class="fas fa-home"></i> 首页</a></li>
+                    <li><a href="#search"><i class="fas fa-search"></i> 搜索音乐</a></li>
+                    <li><a href="#favorites"><i class="fas fa-heart"></i> 我的收藏</a></li>
+                    <li><a href="#playlists"><i class="fas fa-list"></i> 我的歌单</a></li>
+                </ul>
+            </nav>
+
+            <!-- 搜索区域 -->
+            <div class="search-area">
+                <div class="search-box">
+                    <input type="text" class="search-input" placeholder="搜索歌曲...">
+                    <select class="audio-quality-select">
+                        <option value="128">省流</option>
+                        <option value="192">标准</option>
+                        <option value="320" selected>极高[HQ]</option>
+                        <option value="999">无损[SQ]</option>
+                    </select>
+                    <select class="source-select">
+                        <option value="netease" selected>网易云音乐</option>
+                        <option value="kuwo">酷我音乐</option>
+                    </select>
+                    <button class="search-btn"><i class="fas fa-search"></i></button>
+                </div>
+            </div>
+
+            <!-- 内容区域 -->
+            <div class="content-area">
+            </div>
+        </div>
+
+        <!-- 播放器卡片 -->
+        <div class="player-card">
+            <div class="player-minimized">
+                <div class="song-info">
+                    <img src="" alt="专辑封面" class="album-cover">
+                    <div class="song-details">
+                        <div class="song-title-container">
+                            <div class="song-title">未选择歌曲</div>
+                            <div class="quality-icon" title="音频质量"></div>
+                        </div>
+                        <div class="artist-name">未知艺术家</div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="prev-btn"><i class="fas fa-step-backward"></i></button>
+                    <button class="play-btn"><i class="fas fa-play"></i></button>
+                    <button class="next-btn"><i class="fas fa-step-forward"></i></button>
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress"></div>
+                            <div class="progress-handle"></div>
+                        </div>
+                        <div class="time-info">
+                            <span class="current-time">00:00</span>
+                            <span class="duration">00:00</span>
+                        </div>
+                    </div>
+                    <button class="volume-btn"><i class="fas fa-volume-up"></i></button>
+                    <input type="range" class="volume-slider" min="0" max="100" value="50">
+                    <button class="play-mode-btn" data-mode="order"><i class="fas fa-stream"></i></button>
+                    <button class="playlist-btn"><i class="fas fa-list"></i></button>
+                    <button class="timer-btn" title="定时结束播放"><i class="fas fa-clock"></i></button>
+                    <button class="player-share-btn" title="分享歌曲"><i class="fas fa-share-alt"></i></button>
+                    <button class="expand-btn"><i class="fas fa-expand"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 展开的播放器模态框 -->
+    <div class="expanded-player-modal">
+        <div class="expanded-player-container">
+            <button class="close-expanded-player"><i class="fas fa-times"></i></button>
+            <div class="expanded-player-content">
+                <div class="expanded-player-left">
+                    <div class="expanded-album-cover-container">
+                        <img src="" class="expanded-album-cover">
+                    </div>
+                </div>
+                <div class="expanded-player-right">
+                    <div class="expanded-track-info">
+                        <div class="expanded-song-title-container">
+                            <div class="expanded-song-title">未选择歌曲</div>
+                            <div class="expanded-quality-icon" title="音频质量"></div>
+                        </div>
+                        <div class="expanded-artist-name">未知艺术家</div>
+                    </div>
+                    <div class="expanded-controls">
+                        <button class="expanded-prev-btn"><i class="fas fa-step-backward"></i></button>
+                        <button class="expanded-play-btn"><i class="fas fa-play"></i></button>
+                        <button class="expanded-next-btn"><i class="fas fa-step-forward"></i></button>
+                        <button class="expanded-play-mode-btn" data-mode="order"><i class="fas fa-stream"></i></button>
+                        <button class="expanded-playlist-btn"><i class="fas fa-list"></i></button>
+                        <button class="expanded-timer-btn" title="定时结束播放"><i class="fas fa-clock"></i></button>
+                        <button class="expanded-player-share-btn" title="分享歌曲"><i class="fas fa-share-alt"></i></button>
+                    </div>
+                    <div class="expanded-progress-container">
+                        <div class="expanded-progress-bar">
+                            <div class="expanded-progress"></div>
+                            <div class="expanded-progress-handle"></div>
+                        </div>
+                        <div class="expanded-time-info">
+                            <span class="expanded-current-time">00:00</span>
+                            <span class="expanded-duration">00:00</span>
+                        </div>
+                    </div>
+                    <div class="expanded-volume-controls">
+                        <button class="expanded-volume-btn"><i class="fas fa-volume-up"></i></button>
+                        <input type="range" class="expanded-volume-slider" min="0" max="100" value="50">
+                    </div>
+                </div>
+            </div>
+            <div class="expanded-lyrics">
+                <div class="expanded-lyrics-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录/注册模态框 -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <ul class="tabs">
+                <li class="tab active" data-tab="login">登录</li>
+                <li class="tab" data-tab="register">注册</li>
+            </ul>
+
+            <div class="tab-content" id="login-tab">
+                <form id="login-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="login-username">用户名</label>
+                        <input type="text" id="login-username" name="username" required placeholder="请输入用户名或邮箱！">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">密码</label>
+                        <input type="password" id="login-password" name="password" required placeholder="请输入密码！">
+                    </div>
+                    <button type="submit" class="submit-btn">登录</button>
+                    <div class="form-group" style="text-align:right;margin-top:-10px;">
+                        <a href="javascript:void(0);" id="forgot-password-link" style="font-size:13px;color:#409eff;text-decoration:none;text-align: center;">忘记密码？</a>
+                    </div>
+                </form>
+            </div>
+
+            <div class="tab-content" id="register-tab" style="display: none;">
+                <form id="register-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="register-username">用户名</label>
+                        <input type="text" id="register-username" name="username" required placeholder="在这里输入用户名（不少于5位）,用来登录哦！">
+                    </div>
+                    <div class="form-group">
+                        <label for="register-email">邮箱</label>
+                        <input type="email" id="register-email" name="email" required placeholder="请填写真实邮箱，否则无法找回密码哦！">
+                    </div>
+                    <div class="form-group">
+                        <label for="register-code">验证码</label>
+                        <div class="email-input-container">
+                            <input type="text" id="register-code" name="verification_code" required placeholder="请输入邮箱验证码">
+                            <button type="button" class="verification-btn" id="send-register-code">发送验证码</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">密码</label>
+                        <input type="password" id="register-password" name="password" required placeholder="在这里输入密码，请牢记哦！">
+                    </div>
+                    <div class="form-group">
+                        <label for="register-confirm">确认密码</label>
+                        <input type="password" id="register-confirm" name="confirm_password" required placeholder="再次输一次密码吧！">
+                    </div>
+                    <button type="submit" class="submit-btn">注册</button>
+                    <div class="register-tip">请牢记用户名和密码，邮箱用于找回密码哦！</div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="forgot-password-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close" id="forgot-password-close">&times;</span>
+            <h3 style="text-align:center;">找回密码</h3>
+            <form id="forgot-password-form" class="auth-form">
+                <div class="form-group">
+                    <label for="fp-email">注册邮箱</label>
+                    <input type="email" id="fp-email" name="email" required placeholder="请输入注册邮箱">
+                </div>
+                <div class="form-group" style="display:flex;gap:8px;align-items:center;flex-direction: row;">
+                    <input type="text" id="fp-code" name="code" placeholder="验证码" style="flex:1;">
+                    <button type="button" id="fp-send-code" style="flex-shrink:0;">获取验证码</button>
+                </div>
+                <div class="form-group">
+                    <label for="fp-new-password">新密码</label>
+                    <input type="password" id="fp-new-password" name="new_password" required placeholder="请输入新密码">
+                </div>
+                <button type="submit" class="submit-btn">重置密码</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="loader">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text" id="loader-text">加载中...</div>
+        </div>
+        <div class="loader-progress-container">
+            <div class="loader-progress-bar" id="loader-progress-bar"></div>
+            <div class="loader-progress-text" id="loader-progress-text"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <footer class="copyright">
+        <p>
+            <a href="https://www.xcloudv.top/" target="_blank" class="contact-button">
+                <svg t="1746451739428" class="contact-button-icon" viewBox="0 0 1024 1024" version="1.1"
+                    xmlns="http://www.w3.org/2000/svg" p-id="3935" width="200" height="200">
+                    <path
+                        d="M598.528 628.7872m-281.4464 0a281.4464 281.4464 0 1 0 562.8928 0 281.4464 281.4464 0 1 0-562.8928 0Z"
+                        fill="#90D4DD" p-id="3936"></path>
+                    <path
+                        d="M258.7136 415.1296c59.136 0 110.7968-32.2048 138.5984-79.9744 31.0272 41.6256 80.64 68.608 136.448 68.608 93.8496 0 170.1888-76.3392 170.1888-170.1888 0-93.8496-76.3392-170.1888-170.1888-170.1888-65.2288 0-121.9584 36.9152-150.528 90.9312-29.3888-36.3008-74.2912-59.5968-124.5184-59.5968-88.32 0-160.2048 71.8848-160.2048 160.2048s71.8848 160.2048 160.2048 160.2048z m275.0464-290.304c59.9552 0 108.7488 48.7936 108.7488 108.7488 0 59.9552-48.7936 108.7488-108.7488 108.7488-59.9552 0-108.7488-48.7936-108.7488-108.7488 0-59.9552 48.7936-108.7488 108.7488-108.7488zM258.7136 156.16c54.4256 0 98.7648 44.288 98.7648 98.7648 0 54.4256-44.288 98.7648-98.7648 98.7648-54.4256 0-98.7648-44.288-98.7648-98.7648 0.0512-54.4256 44.3392-98.7648 98.7648-98.7648zM945.9712 537.9072a61.4656 61.4656 0 0 0-54.6816-8.8576l-132.864 42.5472v-5.376c0-62.1056-50.5344-112.64-112.64-112.64H173.9264c-62.1056 0-112.64 50.5344-112.64 112.64v274.6368c0 62.1056 50.5344 112.64 112.64 112.64h471.9104c62.1056 0 112.64-50.5344 112.64-112.64v-15.2064l133.2736 41.5744c6.0928 1.8944 12.2368 2.816 18.3808 2.816 12.8 0 25.344-4.0448 35.9936-11.9296 15.8208-11.6224 24.8832-29.5936 24.8832-49.2032V587.264c0.0512-19.4048-9.3184-37.888-25.0368-49.3568z m-248.9344 302.9504c0 28.2112-22.9888 51.2-51.2 51.2H173.9264c-28.2112 0-51.2-22.9888-51.2-51.2V566.272c0-28.2112 22.9888-51.2 51.2-51.2h471.9104c28.2112 0 51.2 22.9888 51.2 51.2v274.5856z m212.5824-32.4096l-151.1424-47.1552v-125.184l151.1424-48.4352v220.7744z"
+                        fill="#4F4F4F" p-id="3937"></path>
+                </svg>
+                影视资源
+            </a>
+            <a href="javascript:void(0);" class="contact-button" id="thanks-button">
+                <svg t="1746451766026" class="contact-button-icon" viewBox="0 0 1024 1024" version="1.1"
+                    xmlns="http://www.w3.org/2000/svg" p-id="4959" width="200" height="200">
+                    <path
+                        d="M490.666667 746.112c-190.826667-10.581333-342.336-169.109333-342.336-363.093333 0-70.229333 19.84-135.808 54.229333-191.381334 55.338667 4.629333 130.858667 17.386667 187.861333 51.541334 19.989333-83.242667 62.421333-141.845333 121.578667-179.093334 62.826667 37.248 98.773333 97.642667 122.090667 179.093334 45.610667-35.541333 126.229333-47.914667 185.045333-52.053334a362.688 362.688 0 0 1 54.528 191.872c0 193.344-150.442667 351.424-340.330667 362.986667V960a21.333333 21.333333 0 0 1-42.666666 0V746.666667v-0.554667z m-104.746667 180.074667c-47.082667-103.189333-134.762667-157.653333-236.693333-158.186667a21.333333 21.333333 0 1 1 0.213333-42.666667c118.272 0.597333 221.184 64.554667 275.306667 183.146667a21.333333 21.333333 0 1 1-38.826667 17.706667z m213.333333-17.706667c54.122667-118.613333 157.034667-182.549333 275.306667-183.146667a21.333333 21.333333 0 1 1 0.213333 42.666667c-101.930667 0.512-189.610667 54.997333-236.693333 158.186667a21.333333 21.333333 0 1 1-38.826667-17.706667z"
+                        fill="#3D3D3D" p-id="4960"></path>
+                </svg>
+                特别鸣谢
+            </a>
+            <a href="https://jc.xshyun.top/?id=11" target="_blank" class="contact-button">
+                <svg t="1746451807379" class="contact-button-icon" viewBox="0 0 1024 1024" version="1.1"
+                    xmlns="http://www.w3.org/2000/svg" p-id="6317" width="200" height="200">
+                    <path
+                        d="M196.156542 193.222723c68.077491-68.081585 155.862837-112.239294 252.851798-126.169561 118.554116-17.018605 236.693794 13.1853 332.570421 85.005023 95.897094 71.842235 158.092621 176.723957 175.123506 295.308773 35.161824 244.874103-135.474484 472.618061-380.215558 507.805468-102.627379 14.724353-207.859072-6.780427-296.330032-60.495816-15.126512-9.198499-19.930935-28.91147-10.754948-44.021609 9.261944-15.015995 28.881794-19.957541 44.0124-10.764158 75.782987 46.067198 165.973102 64.48364 253.969249 51.837622 209.737862-30.083156 355.992877-225.339188 325.887208-435.252035-14.592346-101.638865-67.901483-191.517895-150.113903-253.078972-82.190931-61.579497-183.435823-87.432305-285.045011-72.818469C248.151753 160.66726 101.957113 355.945805 132.112923 565.81465c7.90197 54.943356 26.977421 106.284675 56.775074 152.569838 9.553587 14.908548 5.206582 34.801621-9.587356 44.290739-14.883989 9.583263-34.724873 5.28026-44.286646-9.583263C100.236935 698.971345 77.94421 639.069047 68.677149 574.923098c-17.013489-118.563326 13.163811-236.740866 85.049025-332.647169C166.799934 224.76102 180.977841 208.40654 196.156542 193.222723L196.156542 193.222723 196.156542 193.222723zM516.149507 811.197336c-26.524097 0-48.055482-21.531386-48.055482-48.060599 0-26.52819 21.531386-48.059576 48.055482-48.059576 26.532283 0 48.063669 21.531386 48.063669 48.059576C564.213175 789.66595 542.68179 811.197336 516.149507 811.197336L516.149507 811.197336 516.149507 811.197336zM604.838432 483.603253c-27.875884 27.850301-56.646138 56.624648-56.646138 82.477456l0 54.18611c0 17.681708-14.352893 32.038694-32.038694 32.038694-17.684778 0-32.03767-14.356986-32.03767-32.038694l0-54.18611c0-52.419883 40.051181-92.471065 75.41869-127.811967 25.921369-25.921369 52.736085-52.710502 52.736085-74.080206 0-53.416584-43.123147-96.861048-96.116081-96.861048-53.891398 0-96.115058 41.588187-96.115058 94.683453 0 17.684778-14.353916 32.038694-32.038694 32.038694-17.689894 0-32.042787-14.353916-32.042787-32.038694 0-87.538729 71.867818-158.769027 160.193469-158.769027 88.337931 0 160.196539 72.193229 160.196539 160.945599C676.346045 412.121222 639.98286 448.457802 604.838432 483.603253L604.838432 483.603253 604.838432 483.603253zM604.838432 483.603253"
+                        fill="#272636" p-id="6318"></path>
+                </svg>
+                使用教程
+            </a>
+        </p>
+    </footer>
+
+    <div id="thanks-modal" class="custom-modal">
+        <div class="custom-modal-content">
+            <span class="custom-modal-close">&times;</span>
+            <p>感谢<a href="https://space.bilibili.com/13715770"
+                    target="_blank">@GD-Studio</a>提供的API支持，如果你看到这个提示框请给他一个关注哦！</p>
+        </div>
+    </div>
+
+    <div id="sponsor-modal" class="custom-modal">
+        <div class="custom-modal-content sponsor-content">
+            <span class="custom-modal-close">&times;</span>
+            <h3 style="text-align: center; margin-bottom: 5px; color: var(--text-color);">网站赞助</h3>
+            <p style="text-align: center; margin-bottom: 5px; color: var(--text-color); line-height: 1.6;">建站不易，您的每一份支持都是我持续前进的动力！</p>
+            <div style="text-align: center; margin-bottom: 5px;">
+                <img src="public/sponsor-qr.png" alt="赞助二维码" style="max-width: 350px; width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            </div>
+            <div style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 5px 0px;">
+                <iframe src="https://jc.xshyun.top/sponsors/embed.html" width="100%" height="240" frameborder="0" scrolling="no" style="border:none;overflow:hidden;border-radius:8px;max-width:420px;min-width:280px;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分享歌曲确认框 -->
+    <div id="share-song-modal" class="custom-modal">
+        <div class="custom-modal-content share-song-content">
+            <h3>检测到您的链接有被分享的歌曲，是否立即播放？</h3>
+            <div class="share-song-info">
+                <div class="share-song-cover">
+                    <img src="" alt="歌曲封面" id="share-song-cover-img">
+                </div>
+                <div class="share-song-details">
+                    <div class="share-song-title" id="share-song-title"></div>
+                    <div class="share-song-artist" id="share-song-artist"></div>
+                </div>
+            </div>
+            <div class="share-song-actions">
+                <button class="share-song-play-btn" id="share-song-play-btn">立即播放</button>
+                <button class="share-song-cancel-btn" id="share-song-cancel-btn">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 播放源可用性检查模态框 -->
+    <div id="status-check-modal" class="custom-modal">
+        <div class="custom-modal-content2 status-check-content">
+            <span class="custom-modal-close2" id="status-check-close">&times;</span>
+            <iframe src="https://music.xcloudv.top/api_check/check_api.php" 
+                    width="100%" 
+                    height="314px" 
+                    frameborder="0" 
+                    style="border-radius: 8px; border: 1px solid var(--border-color);">
+            </iframe>
+        </div>
+    </div>
+
+    <!-- 定时器选择面板 -->
+    <div id="timer-modal" class="custom-modal">
+        <div class="custom-modal-content timer-content">
+            <button class="timer-close-btn" id="timer-close-btn"><i class="fas fa-times"></i></button>
+            <h3 id="timer-title">定时结束播放</h3>
+            <div class="timer-options" id="timer-options">
+                <button class="timer-option" data-minutes="5">5分钟</button>
+                <button class="timer-option" data-minutes="10">10分钟</button>
+                <button class="timer-option" data-minutes="30">30分钟</button>
+                <button class="timer-option" data-minutes="60">1小时</button>
+                <button class="timer-option" data-minutes="120">2小时</button>
+                <button class="timer-option" data-minutes="0">自定义</button>
+            </div>
+            <div class="timer-custom" id="timer-custom" style="display: none;">
+                <div class="timer-input-group">
+                    <label for="timer-hours">小时：</label>
+                    <input type="number" id="timer-hours" min="0" max="23" value="0">
+                </div>
+                <div class="timer-input-group">
+                    <label for="timer-minutes">分钟：</label>
+                    <input type="number" id="timer-minutes" min="0" max="59" value="5">
+                </div>
+            </div>
+            <div class="timer-actions" id="timer-actions">
+                <button class="timer-start-btn" id="timer-start-btn">开始定时</button>
+                <button class="timer-cancel-btn" id="timer-cancel-btn">取消</button>
+            </div>
+            <div class="timer-status" id="timer-status" style="display: none;">
+                <div class="timer-countdown" id="timer-countdown">剩余时间：00:00</div>
+                <div class="timer-progress-container">
+                    <div class="timer-progress-bar">
+                        <div class="timer-progress" id="timer-progress"></div>
+                    </div>
+                </div>
+                <div class="timer-status-actions">
+                    <button class="timer-stop-btn" id="timer-stop-btn">停止定时</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/main.js?v=1.7.2" defer></script>
+    <script src="js/util.js?v=1.7.1"></script>
+    <script src="js/email_verification.js?v=1.7.1" defer></script>
+    <script src="js/delete_joox.js?v=1.7.1" defer></script>
+
+</body>
+
+</html>

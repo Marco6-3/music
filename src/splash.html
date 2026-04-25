@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>启动中...</title>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    .splash-container {
+      width: 100vw;
+      height: 100vh;
+      background: #ffffff;
+      border-radius: 20px;
+      border: 6px solid #cccccc;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 24px rgba(0, 0, 0, 0.12);
+    }
+
+    .logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 32px;
+    }
+
+    .loading {
+      width: 48px;
+      height: 48px;
+      border: 6px solid #eeeeee;
+      border-top: 6px solid #1db954;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .message {
+      margin-top: 16px;
+      color: #777777;
+      font-size: 14px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash-container">
+    <img class="logo" src="../webroot/public/icon.ico" alt="XCloud音乐">
+    <div class="loading"></div>
+    <div class="message">正在加载，请稍候...</div>
+  </div>
+</body>
+</html>

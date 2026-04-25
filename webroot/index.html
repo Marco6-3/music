@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="XCloud音乐 - 桌面音乐播放器">
+    <meta name="theme-color" content="#07110d">
+    <title>XCloud音乐</title>
+    <link rel="icon" href="public/gw.png">
+    <link rel="stylesheet" href="css/style.css?v=2.0.0">
+</head>
+
+<body>
+    <div class="app-window-controls" id="app-window-controls" aria-label="窗口控制">
+        <button type="button" id="app-minimize-btn" title="最小化" aria-label="最小化">−</button>
+        <button type="button" id="app-maximize-btn" title="最大化" aria-label="最大化">□</button>
+        <button type="button" id="app-close-btn" title="关闭" aria-label="关闭">×</button>
+    </div>
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <div class="app-shell">
+        <aside class="side-rail glass-panel">
+            <div class="brand">
+                <img src="public/gw.png" alt="XCloud音乐" class="brand-mark">
+                <div>
+                    <strong>XCloud音乐</strong>
+                    <span>Desktop Player</span>
+                </div>
+            </div>
+            <nav class="nav-list" aria-label="主导航">
+                <button class="nav-item active" data-view="home"><span>⌂</span> 首页</button>
+                <button class="nav-item" data-view="search"><span>⌕</span> 搜索</button>
+                <button class="nav-item" data-view="favorites"><span>♡</span> 我的收藏</button>
+                <button class="nav-item" data-view="playlists"><span>≡</span> 我的歌单</button>
+            </nav>
+            <div class="rail-footer">
+                <button class="ghost-btn" id="source-status-btn">源状态</button>
+                <button class="ghost-btn" id="login-open-btn">登录</button>
+                <div class="user-chip" id="user-chip" hidden>
+                    <img src="public/avatars/default1.png" alt="" id="user-avatar">
+                    <div>
+                        <strong id="user-name">未登录</strong>
+                        <button id="logout-btn">退出</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-stage">
+            <header class="top-bar glass-panel">
+                <div>
+                    <p class="eyebrow">Local music gateway</p>
+                    <h1 id="view-title">为今晚找一首歌</h1>
+                </div>
+                <form class="search-form" id="search-form">
+                    <input id="search-input" type="search" placeholder="搜索歌曲..." autocomplete="off">
+                    <select id="quality-select" title="音质">
+                        <option value="320">极高 HQ</option>
+                        <option value="999" selected>无损 SQ</option>
+                    </select>
+                    <select id="source-select" title="音乐源">
+                        <option value="netease" selected>网易云音乐</option>
+                        <option value="kuwo">酷我音乐</option>
+                    </select>
+                    <button type="submit" class="primary-btn">搜索</button>
+                </form>
+            </header>
+
+            <section class="content-grid">
+                <div class="content-panel glass-panel">
+                    <div id="view-root"></div>
+                </div>
+                <aside class="queue-panel glass-panel">
+                    <div class="now-card">
+                        <div class="cover-wrap">
+                            <img src="public/gw.png" alt="当前封面" id="side-cover">
+                        </div>
+                        <p class="eyebrow">Now Playing</p>
+                        <h2 id="side-title">未选择歌曲</h2>
+                        <p id="side-artist">未知艺术家</p>
+                    </div>
+                    <div class="queue-head">
+                        <strong>播放队列</strong>
+                        <button class="text-btn" id="clear-queue-btn">清空</button>
+                    </div>
+                    <div class="queue-list" id="queue-list"></div>
+                </aside>
+            </section>
+        </main>
+    </div>
+
+    <section class="player-dock glass-panel" aria-label="播放器">
+        <div class="dock-song">
+            <img src="public/gw.png" alt="专辑封面" id="dock-cover">
+            <div>
+                <strong id="dock-title">未选择歌曲</strong>
+                <span id="dock-artist">未知艺术家</span>
+            </div>
+        </div>
+        <div class="dock-controls">
+            <div class="control-row">
+                <button class="icon-btn" id="prev-btn" title="上一首">⏮</button>
+                <button class="play-btn" id="play-btn" title="播放/暂停">▶</button>
+                <button class="icon-btn" id="next-btn" title="下一首">⏭</button>
+                <button class="icon-btn" id="mode-btn" title="播放模式">顺序</button>
+                <button class="icon-btn" id="favorite-btn" title="收藏">♡</button>
+                <button class="icon-btn" id="add-playlist-btn" title="添加到歌单">＋</button>
+                <button class="icon-btn" id="expand-btn" title="展开播放器">⛶</button>
+            </div>
+            <div class="progress-row">
+                <span id="current-time">00:00</span>
+                <input type="range" id="progress-slider" min="0" max="1000" value="0">
+                <span id="duration-time">00:00</span>
+            </div>
+        </div>
+        <div class="volume-row">
+            <span>音量</span>
+            <input type="range" id="volume-slider" min="0" max="100" value="70">
+        </div>
+    </section>
+
+    <div class="modal" id="player-modal" aria-hidden="true">
+        <div class="expanded-player glass-panel">
+            <button class="close-btn" data-close-modal="player-modal">×</button>
+            <div class="expanded-layout">
+                <div class="expanded-cover-shell">
+                    <img src="public/gw.png" alt="专辑封面" id="expanded-cover">
+                </div>
+                <div class="expanded-info">
+                    <p class="eyebrow">Expanded Player</p>
+                    <h2 id="expanded-title">未选择歌曲</h2>
+                    <p id="expanded-artist">未知艺术家</p>
+                    <div class="expanded-actions">
+                        <button class="icon-btn" id="expanded-prev-btn">⏮</button>
+                        <button class="play-btn" id="expanded-play-btn">▶</button>
+                        <button class="icon-btn" id="expanded-next-btn">⏭</button>
+                    </div>
+                    <div class="expanded-quality" id="expanded-quality">SQ / HQ 优先</div>
+                    <div class="lyric-stage">
+                        <div class="lyric-box" id="lyric-box"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="auth-modal" aria-hidden="true">
+        <div class="auth-card glass-panel">
+            <button class="close-btn" data-close-modal="auth-modal">×</button>
+            <div class="tabs">
+                <button class="tab-btn active" data-auth-tab="login">登录</button>
+                <button class="tab-btn" data-auth-tab="register">注册</button>
+            </div>
+            <form class="auth-form" id="login-form">
+                <label>用户名或邮箱<input name="username" required autocomplete="username"></label>
+                <label>密码<input name="password" type="password" required autocomplete="current-password"></label>
+                <button class="primary-btn" type="submit">登录</button>
+            </form>
+            <form class="auth-form hidden" id="register-form">
+                <label>用户名<input name="username" required minlength="3" autocomplete="username"></label>
+                <label>邮箱<input name="email" type="email" required autocomplete="email"></label>
+                <div class="inline-field">
+                    <label>验证码<input name="verification_code" required></label>
+                    <button type="button" class="ghost-btn" id="send-register-code">发送验证码</button>
+                </div>
+                <label>密码<input name="password" type="password" required minlength="6" autocomplete="new-password"></label>
+                <button class="primary-btn" type="submit">注册</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="playlist-modal" aria-hidden="true">
+        <div class="playlist-dialog glass-panel">
+            <button class="close-btn" data-close-modal="playlist-modal">×</button>
+            <h2>添加到歌单</h2>
+            <div id="playlist-choice-list"></div>
+            <form id="create-playlist-form" class="create-playlist">
+                <input name="name" placeholder="新建歌单名称" required>
+                <button class="primary-btn" type="submit">新建并添加</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <audio id="audio"></audio>
+    <script src="js/main.js?v=2.0.0"></script>
+</body>
+
+</html>

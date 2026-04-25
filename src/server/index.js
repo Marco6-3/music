@@ -1,0 +1,1013 @@
+﻿'use strict';
+
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const http = require('node:http');
+const path = require('node:path');
+const axios = require('axios');
+const express = require('express');
+const multer = require('multer');
+const {
+  CODE_EXPIRY_SECONDS,
+  createDataStore,
+  hashPassword,
+  verifyPassword,
+  generateToken,
+  verifyToken,
+  generateCode,
+  publicUser,
+  userWithCollections,
+  getUserFavorites,
+  getUserPlaylistsObject,
+  getUserPlaylistsArray,
+  ensurePlaylist,
+  songFromBody,
+  insertPlaylistSong,
+  parseJson,
+  stringValue,
+  normalizeArtist,
+  formatDateTime
+} = require('./database');
+
+const projectRoot = path.resolve(__dirname, '../..');
+const webroot = resolveWebroot();
+
+function resolveWebroot() {
+  const resourceWebroot = process.resourcesPath ? path.join(process.resourcesPath, 'webroot') : null;
+  if (resourceWebroot && fs.existsSync(resourceWebroot)) {
+    return resourceWebroot;
+  }
+  return path.join(projectRoot, 'webroot');
+}
+
+async function startLocalBackend({ preferredPort = 41731, dataDir } = {}) {
+  const resolvedDataDir = dataDir || process.env.XCLOUD_DATA_DIR || path.join(projectRoot, 'data');
+  const uploadsDir = path.join(resolvedDataDir, 'uploads', 'avatars');
+  const cacheDir = path.join(resolvedDataDir, 'cache');
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(cacheDir, { recursive: true });
+  pruneCacheDir(cacheDir);
+
+  const store = createDataStore(resolvedDataDir);
+  const app = createExpressApp({ store, uploadsDir, cacheDir });
+  const server = http.createServer(app);
+  const port = await listen(server, preferredPort);
+
+  return {
+    port,
+    url: `http://127.0.0.1:${port}`,
+    mode: 'express-sqlite',
+    dbPath: store.dbPath,
+    close: () => {
+      server.close();
+      store.close();
+    }
+  };
+}
+
+function createExpressApp({ store, uploadsDir, cacheDir }) {
+  const app = express();
+  const db = store.db;
+  const upload = createUploadMiddleware(uploadsDir);
+  const parseForm = upload.none();
+  const loginLimiter = createRateLimiter({ windowMs: 60_000, max: 12 });
+  const codeLimiter = createRateLimiter({ windowMs: 60_000, max: 5 });
+
+  app.disable('x-powered-by');
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    res.setHeader('X-XCloud-Backend', 'express-sqlite');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
+  app.use(express.json({ limit: '12mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '12mb' }));
+
+  app.get('/', sendIndex);
+  app.get('/index.html', sendIndex);
+  app.get('/index.php', sendIndex);
+  app.use('/css', express.static(path.join(webroot, 'css'), { fallthrough: false }));
+  app.use('/js', express.static(path.join(webroot, 'js'), { fallthrough: false }));
+  app.use('/public', express.static(path.join(webroot, 'public'), { fallthrough: false }));
+  app.use('/uploads', express.static(path.join(store.dataDir, 'uploads'), { fallthrough: false }));
+  app.get('/api_check/check_api.php', (_req, res) => {
+    res.type('html').sendFile(path.join(webroot, 'api_check', 'check_api.php'));
+  });
+  app.get('/api_check/api_doubtful.php', (_req, res) => handleApiDoubtful(db, res));
+  app.get('/api.php', (req, res) => proxyMusicApi(req, res, cacheDir));
+
+  app.get('/php/check_version.php', (_req, res) => {
+    res.json({
+      version: '1.7.2',
+      require_update: false,
+      download_url: 'https://music.xcloudv.top/download/',
+      message: '当前已是最新版本'
+    });
+  });
+  app.get('/check_version.php', (_req, res) => {
+    res.json({ version: '1.7.2' });
+  });
+  app.get('/php/toplist.php', (req, res) => handleToplist(req, res, cacheDir));
+  app.get('/php/get_netease_playlist.php', (req, res) => handleNeteasePlaylist(req, res));
+
+  app.post('/php/register_verification.php', codeLimiter, parseForm, (req, res) => handleRegisterVerification(db, store.dataDir, req, res));
+  app.post('/php/register.php', loginLimiter, parseForm, (req, res) => handleRegister(db, req, res));
+  app.post('/php/login.php', loginLimiter, parseForm, (req, res) => handleLogin(db, req, res));
+  app.post('/php/logout.php', parseForm, (_req, res) => res.json({ success: true, message: '已安全退出登录' }));
+  app.post('/php/verify_token.php', parseForm, (req, res) => handleVerifyToken(db, req, res));
+  app.post('/php/verify_email.php', codeLimiter, parseForm, (req, res) => handleVerifyEmail(db, store.dataDir, req, res));
+  app.post('/php/forgot_password.php', codeLimiter, parseForm, (req, res) => handleForgotPassword(db, store.dataDir, req, res));
+  app.post('/php/change_password.php', loginLimiter, parseForm, (req, res) => handleChangePassword(db, req, res));
+  app.post('/php/update_avatar.php', upload.single('avatar'), (req, res) => handleUpdateAvatar(db, req, res));
+  app.post('/php/favorite.php', parseForm, (req, res) => handleFavorite(db, req, res));
+  app.post('/php/get_favorites.php', parseForm, (req, res) => handleGetFavorites(db, req, res));
+  app.post('/php/sync_favorites.php', parseForm, (req, res) => handleSyncFavorites(db, req, res));
+  app.post('/php/playlist.php', parseForm, (req, res) => handlePlaylist(db, req, res));
+  app.post('/php/get_playlists.php', parseForm, (req, res) => handleGetPlaylists(db, req, res));
+  app.post('/php/get_playlist_id.php', parseForm, (req, res) => handleGetPlaylistId(db, req, res));
+  app.post('/php/rename_playlist.php', parseForm, (req, res) => handleRenamePlaylist(db, req, res));
+  app.post('/php/sync_playlists.php', parseForm, (req, res) => handleSyncPlaylists(db, req, res));
+
+  app.use((req, res) => {
+    res.status(404).json({ success: false, message: `Not found: ${req.path}` });
+  });
+  app.use((error, _req, res, _next) => {
+    console.error('[express-backend]', error);
+    res.status(500).json({ success: false, message: error.message || '服务器错误' });
+  });
+
+  return app;
+}
+
+function sendIndex(_req, res) {
+  res.type('html').sendFile(path.join(webroot, 'index.html'));
+}
+
+function createUploadMiddleware(uploadsDir) {
+  const storage = multer.diskStorage({
+    destination: (_req, _file, callback) => callback(null, uploadsDir),
+    filename: (req, file, callback) => {
+      const userId = String(req.body.user_id || '0').replace(/[^0-9]/g, '') || '0';
+      const ext = extensionFromFile(file);
+      callback(null, `avatar_${userId}_${Date.now()}${ext}`);
+    }
+  });
+
+  return multer({
+    storage,
+    limits: { fileSize: 2 * 1024 * 1024 },
+    fileFilter: (_req, file, callback) => {
+      if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.mimetype)) {
+        callback(new Error('仅支持 JPG、PNG 格式'));
+        return;
+      }
+      callback(null, true);
+    }
+  });
+}
+
+function extensionFromFile(file) {
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  if (ext) return ext;
+  return file.mimetype === 'image/png' ? '.png' : '.jpg';
+}
+
+function createRateLimiter({ windowMs, max }) {
+  const hits = new Map();
+
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = `${req.ip || req.socket.remoteAddress || 'local'}:${req.path}`;
+    const record = hits.get(key);
+
+    if (!record || now > record.resetAt) {
+      hits.set(key, { count: 1, resetAt: now + windowMs });
+      next();
+      return;
+    }
+
+    record.count += 1;
+    if (record.count > max) {
+      res.status(429).json({ success: false, message: '请求过于频繁，请稍后再试' });
+      return;
+    }
+
+    next();
+  };
+}
+
+function handleRegisterVerification(db, dataDir, req, res) {
+  const email = stringValue(req.body.email);
+  if (!isEmail(email)) return res.json({ success: false, message: '请填写正确的邮箱地址' });
+
+  const existing = db.prepare('SELECT id, email_verified FROM users WHERE email = ?').get(email);
+  if (existing && existing.email_verified) {
+    return res.json({ success: false, message: '该邮箱已被注册' });
+  }
+
+  const code = generateCode();
+  const expires = nowSeconds() + CODE_EXPIRY_SECONDS;
+  if (existing) {
+    db.prepare('UPDATE users SET verification_code = ?, code_expires_at = ? WHERE id = ?').run(code, expires, existing.id);
+  } else {
+    const tempUsername = `temp_${crypto.createHash('sha256').update(email).digest('hex').slice(0, 16)}`;
+    db.prepare(`
+      INSERT INTO users (username, email, password_hash, verification_code, code_expires_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(tempUsername, email, hashPassword(crypto.randomUUID()), code, expires);
+  }
+
+  logVerificationEmail(dataDir, email, code, 'register');
+  return res.json({ success: true, message: '验证码已发送' });
+}
+
+function handleRegister(db, req, res) {
+  const username = stringValue(req.body.username);
+  const email = stringValue(req.body.email);
+  const password = String(req.body.password || '');
+  const verificationCode = stringValue(req.body.verification_code);
+
+  if (!username || !email || !password || !verificationCode) {
+    return res.json({ success: false, message: '所有字段均为必填项' });
+  }
+  if (username.length < 3 || username.length > 30) {
+    return res.json({ success: false, message: '用户名长度需在3-30位之间' });
+  }
+  if (!isEmail(email)) return res.json({ success: false, message: '邮箱格式不正确' });
+  if (password.length < 6) return res.json({ success: false, message: '密码长度不能少于6位' });
+
+  const existing = db.prepare(`
+    SELECT id, verification_code, code_expires_at
+    FROM users
+    WHERE email = ?
+    ORDER BY id DESC
+    LIMIT 1
+  `).get(email);
+
+  if (!existing) return res.json({ success: false, message: '请先获取验证码' });
+  if (existing.verification_code !== verificationCode) return res.json({ success: false, message: '验证码错误' });
+  if (existing.code_expires_at < nowSeconds()) return res.json({ success: false, message: '验证码已过期，请重新获取' });
+
+  try {
+    db.prepare(`
+      UPDATE users
+      SET username = ?, password_hash = ?, email_verified = 1, verification_code = NULL, code_expires_at = NULL
+      WHERE id = ?
+    `).run(username, hashPassword(password), existing.id);
+  } catch (error) {
+    if (String(error.message).includes('UNIQUE constraint failed: users.username')) {
+      return res.json({ success: false, message: '用户名已被注册' });
+    }
+    throw error;
+  }
+
+  const user = userWithCollections(db, existing.id);
+  return res.json({ success: true, token: generateToken(existing.id), user });
+}
+
+function handleLogin(db, req, res) {
+  const username = stringValue(req.body.username);
+  const password = String(req.body.password || '');
+  if (!username || !password) return res.json({ success: false, message: '用户名和密码不能为空' });
+
+  const user = db.prepare(`
+    SELECT id, username, email, password_hash, avatar, email_verified
+    FROM users
+    WHERE username = ? OR email = ?
+  `).get(username, username);
+
+  if (!user || !verifyPassword(password, user.password_hash)) {
+    return res.json({ success: false, message: '用户名或密码错误' });
+  }
+
+  if (!user.email_verified) {
+    return res.json({
+      success: true,
+      need_email_verification: true,
+      user_id: user.id,
+      email: user.email
+    });
+  }
+
+  return res.json({
+    success: true,
+    token: generateToken(user.id),
+    user: userWithCollections(db, user.id)
+  });
+}
+
+function handleVerifyToken(db, req, res) {
+  const token = stringValue(req.body.token);
+  const userId = Number(req.body.user_id || 0);
+  if (!token && !userId) return res.json({ success: false, message: '缺少认证信息' });
+
+  const uid = token ? verifyToken(token) : userId;
+  const finalUid = uid || userId;
+  if (!finalUid) return res.json({ success: false, message: '登录已过期，请重新登录' });
+
+  const user = userWithCollections(db, finalUid);
+  if (!user) return res.json({ success: false, message: '用户不存在' });
+  return res.json({ success: true, user });
+}
+
+function handleVerifyEmail(db, dataDir, req, res) {
+  const action = stringValue(req.body.action);
+  if (action === 'send_code') {
+    const userId = Number(req.body.user_id || 0);
+    const email = stringValue(req.body.email);
+    const tempEmail = stringValue(req.body.temp_email);
+    if (!userId) return res.json({ success: false, message: '缺少用户ID' });
+
+    const user = db.prepare('SELECT email FROM users WHERE id = ?').get(userId);
+    if (!user) return res.json({ success: false, message: '用户不存在' });
+
+    const targetEmail = tempEmail || email || user.email;
+    if (!isEmail(targetEmail)) return res.json({ success: false, message: '邮箱格式不正确' });
+
+    const code = generateCode();
+    db.prepare('UPDATE users SET verification_code = ?, code_expires_at = ? WHERE id = ?').run(code, nowSeconds() + CODE_EXPIRY_SECONDS, userId);
+    logVerificationEmail(dataDir, targetEmail, code, 'verify_email');
+    return res.json({ success: true, message: '验证码已发送' });
+  }
+
+  if (action === 'verify' || action === 'verify_code') {
+    const userId = Number(req.body.user_id || 0);
+    const code = stringValue(req.body.code);
+    if (!userId || !code) return res.json({ success: false, message: '缺少必要参数' });
+
+    const user = db.prepare('SELECT verification_code, code_expires_at FROM users WHERE id = ?').get(userId);
+    if (!user) return res.json({ success: false, message: '用户不存在' });
+    if (user.verification_code !== code) return res.json({ success: false, message: '验证码错误' });
+    if (user.code_expires_at < nowSeconds()) return res.json({ success: false, message: '验证码已过期' });
+
+    db.prepare('UPDATE users SET email_verified = 1, verification_code = NULL, code_expires_at = NULL WHERE id = ?').run(userId);
+    return res.json({ success: true, message: '邮箱验证成功' });
+  }
+
+  return res.json({ success: false, message: '未知操作' });
+}
+
+function handleForgotPassword(db, dataDir, req, res) {
+  const action = stringValue(req.body.action);
+  if (action === 'send_code') {
+    const email = stringValue(req.body.email);
+    if (!isEmail(email)) return res.json({ success: false, message: '请填写正确的邮箱地址' });
+
+    const user = db.prepare('SELECT id FROM users WHERE email = ? AND email_verified = 1').get(email);
+    if (!user) return res.json({ success: false, message: '该邮箱未注册或未验证' });
+
+    const code = generateCode();
+    db.prepare('UPDATE users SET verification_code = ?, code_expires_at = ? WHERE id = ?').run(code, nowSeconds() + CODE_EXPIRY_SECONDS, user.id);
+    logVerificationEmail(dataDir, email, code, 'forgot_password');
+    return res.json({ success: true, message: '验证码已发送' });
+  }
+
+  if (action === 'reset_password') {
+    const email = stringValue(req.body.email);
+    const code = stringValue(req.body.code);
+    const newPassword = String(req.body.new_password || '');
+    if (!email || !code || !newPassword) return res.json({ success: false, message: '请填写所有必填项' });
+    if (newPassword.length < 6) return res.json({ success: false, message: '密码长度不能少于6位' });
+
+    const user = db.prepare('SELECT id, verification_code, code_expires_at FROM users WHERE email = ?').get(email);
+    if (!user) return res.json({ success: false, message: '用户不存在' });
+    if (user.verification_code !== code) return res.json({ success: false, message: '验证码错误' });
+    if (user.code_expires_at < nowSeconds()) return res.json({ success: false, message: '验证码已过期' });
+
+    db.prepare('UPDATE users SET password_hash = ?, verification_code = NULL, code_expires_at = NULL WHERE id = ?').run(hashPassword(newPassword), user.id);
+    return res.json({ success: true, message: '密码重置成功' });
+  }
+
+  return res.json({ success: false, message: '未知操作' });
+}
+
+function handleChangePassword(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  const currentPassword = String(req.body.current_password || '');
+  const newPassword = String(req.body.new_password || '');
+  if (!userId || !currentPassword || !newPassword) return res.json({ success: false, message: '请填写所有必填项' });
+  if (newPassword.length < 6) return res.json({ success: false, message: '新密码长度不能少于6位' });
+
+  const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId);
+  if (!user || !verifyPassword(currentPassword, user.password_hash)) {
+    return res.json({ success: false, message: '当前密码错误' });
+  }
+
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(newPassword), userId);
+  return res.json({ success: true, message: '密码修改成功' });
+}
+
+function handleUpdateAvatar(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  if (!userId) return res.json({ success: false, message: '缺少用户ID' });
+  if (!req.file) return res.json({ success: false, message: '头像上传失败' });
+
+  const avatarUrl = `uploads/avatars/${req.file.filename}`;
+  db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatarUrl, userId);
+  return res.json({ success: true, avatar_url: avatarUrl });
+}
+
+function handleFavorite(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  const songId = stringValue(req.body.song_id || req.body.id);
+  const source = stringValue(req.body.source || 'netease');
+  const action = stringValue(req.body.action || 'add');
+  if (!userId || !songId) return res.json({ success: false, message: '缺少必要参数' });
+
+  if (action === 'check') {
+    const exists = db.prepare('SELECT id FROM favorites WHERE user_id = ? AND song_id = ? AND source = ?').get(userId, songId, source);
+    return res.json({ success: true, is_favorite: Boolean(exists) });
+  }
+
+  if (action === 'add') {
+    const song = songFromBody(req.body);
+    db.prepare(`
+      INSERT OR IGNORE INTO favorites (user_id, song_id, source, name, artist, album, pic_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, song.id, song.source, song.name, song.artist, song.album, song.pic_id);
+    return res.json({ success: true, is_favorite: true });
+  }
+
+  if (action === 'update') {
+    const song = songFromBody(req.body);
+    db.prepare('UPDATE favorites SET album = ?, pic_id = ? WHERE user_id = ? AND song_id = ? AND source = ?').run(song.album, song.pic_id, userId, song.id, song.source);
+    return res.json({ success: true, is_favorite: true });
+  }
+
+  if (action === 'remove') {
+    db.prepare('DELETE FROM favorites WHERE user_id = ? AND song_id = ? AND source = ?').run(userId, songId, source);
+    return res.json({ success: true, is_favorite: false });
+  }
+
+  return res.json({ success: false, message: '未知操作' });
+}
+
+function handleGetFavorites(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  if (!userId) return res.json({ success: false, message: '缺少用户ID' });
+  return res.json({ success: true, favorites: getUserFavorites(db, userId) });
+}
+
+function handleSyncFavorites(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  if (!userId) return res.json({ success: false, message: '缺少用户ID' });
+
+  const favorites = parseJson(req.body.favorites, null);
+  if (!Array.isArray(favorites)) return res.json({ success: false, message: '收藏数据格式错误' });
+
+  const sync = db.transaction(() => {
+    db.prepare('DELETE FROM favorites WHERE user_id = ?').run(userId);
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO favorites (user_id, song_id, source, name, artist, album, pic_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const rawSong of favorites) {
+      const song = songFromBody(rawSong);
+      if (!song.id) continue;
+      insert.run(userId, song.id, song.source, song.name, song.artist, song.album, song.pic_id);
+    }
+  });
+
+  sync();
+  return res.json({ success: true, message: '收藏同步成功' });
+}
+
+function handlePlaylist(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  const action = stringValue(req.body.action);
+  if (!userId) return res.json({ success: false, message: '缺少用户ID' });
+
+  if (action === 'create') {
+    const name = stringValue(req.body.name || req.body.playlist_name);
+    if (!name) return res.json({ success: false, message: '歌单名称不能为空' });
+    const playlist = ensurePlaylist(db, userId, name);
+    return res.json({ success: true, playlist_id: playlist.id, name: playlist.name });
+  }
+
+  if (action === 'add_song' || (!action && req.body.song_id)) {
+    const playlistId = Number(req.body.playlist_id || 0);
+    const song = songFromBody(req.body);
+    if (!playlistId || !song.id) return res.json({ success: false, message: '缺少必要参数' });
+    if (!ownsPlaylist(db, userId, playlistId)) return res.json({ success: false, message: '歌单不存在' });
+    insertPlaylistSong(db, playlistId, song);
+    return res.json({ success: true, message: '已添加到歌单' });
+  }
+
+  if (action === 'remove_song' || action === 'remove') {
+    const playlistId = Number(req.body.playlist_id || 0);
+    const songId = stringValue(req.body.song_id);
+    const source = stringValue(req.body.source || 'netease');
+    db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ? AND song_id = ? AND source = ?').run(playlistId, songId, source);
+    return res.json({ success: true, message: '已从歌单移除' });
+  }
+
+  if (action === 'delete') {
+    const playlistId = Number(req.body.playlist_id || 0);
+    db.prepare('DELETE FROM playlists WHERE id = ? AND user_id = ?').run(playlistId, userId);
+    return res.json({ success: true, message: '歌单已删除' });
+  }
+
+  if (action === 'get') {
+    const playlistId = Number(req.body.playlist_id || 0);
+    const playlist = db.prepare('SELECT id, name FROM playlists WHERE id = ? AND user_id = ?').get(playlistId, userId);
+    if (!playlist) return res.json({ success: false, message: '歌单不存在' });
+
+    const songs = db.prepare(`
+      SELECT song_id AS id, source, name, artist, album, pic_id, original_title, original_artist
+      FROM playlist_songs
+      WHERE playlist_id = ?
+      ORDER BY created_at DESC
+    `).all(playlistId);
+    return res.json({ success: true, playlist, songs });
+  }
+
+  if (action === 'update_songs' || action === 'import_songs') {
+    const playlistId = Number(req.body.playlist_id || 0);
+    const songs = parseJson(req.body.songs, null);
+    if (!Array.isArray(songs)) return res.json({ success: false, message: '歌曲数据格式错误' });
+    if (!ownsPlaylist(db, userId, playlistId)) return res.json({ success: false, message: '歌单不存在' });
+
+    const update = db.transaction(() => {
+      if (action === 'import_songs') {
+        db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ?').run(playlistId);
+      }
+      for (const rawSong of songs) {
+        const song = songFromBody(rawSong);
+        if (song.id) insertPlaylistSong(db, playlistId, song);
+      }
+    });
+    update();
+    return res.json({ success: true, message: '歌曲导入成功' });
+  }
+
+  return res.json({ success: false, message: '未知操作' });
+}
+
+function handleGetPlaylists(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  if (!userId) return res.json({ success: false, message: '缺少用户ID' });
+  return res.json({ success: true, playlists: getUserPlaylistsArray(db, userId) });
+}
+
+function handleGetPlaylistId(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  const playlistName = stringValue(req.body.playlist_name);
+  if (!userId || !playlistName) return res.json({ success: false, message: '缺少必要参数' });
+  const playlist = ensurePlaylist(db, userId, playlistName);
+  return res.json({ success: true, playlist_id: playlist.id });
+}
+
+function handleRenamePlaylist(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  const oldName = stringValue(req.body.old_name);
+  const newName = stringValue(req.body.new_name);
+  if (!userId || !oldName || !newName) return res.json({ success: false, message: '缺少必要参数' });
+  if (oldName === newName) return res.json({ success: true, message: '名称未变更' });
+
+  const exists = db.prepare('SELECT id FROM playlists WHERE user_id = ? AND name = ?').get(userId, newName);
+  if (exists) return res.json({ success: false, message: '歌单名称已存在' });
+
+  db.prepare('UPDATE playlists SET name = ? WHERE user_id = ? AND name = ?').run(newName, userId, oldName);
+  return res.json({ success: true, message: '歌单已重命名' });
+}
+
+function handleSyncPlaylists(db, req, res) {
+  const userId = Number(req.body.user_id || 0);
+  if (!userId) return res.json({ success: false, message: '缺少用户ID' });
+
+  const playlists = parseJson(req.body.playlists, null);
+  if (!playlists || typeof playlists !== 'object' || Array.isArray(playlists)) {
+    return res.json({ success: false, message: '歌单数据格式错误' });
+  }
+
+  const sync = db.transaction(() => {
+    for (const [name, songs] of Object.entries(playlists)) {
+      if (!Array.isArray(songs)) continue;
+      const playlist = ensurePlaylist(db, userId, name);
+      db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ?').run(playlist.id);
+      for (const rawSong of songs) {
+        const song = songFromBody(rawSong);
+        if (song.id) insertPlaylistSong(db, playlist.id, song);
+      }
+    }
+  });
+  sync();
+  return res.json({ success: true, message: '歌单同步成功' });
+}
+
+async function handleToplist(req, res, cacheDir) {
+  const type = req.query.type || 'soaring';
+  const cached = readDailyToplistCache(cacheDir, type);
+  if (cached) {
+    res.setHeader('X-Toplist-Cache', 'HIT');
+    return res.json(cached);
+  }
+
+  const toplistMap = {
+    soaring: 19723756,
+    new: 3779629,
+    original: 2884035,
+    hot: 3778678,
+    douyin: 2250011882,
+    rap: 5213356842,
+    electronic: 1978921795,
+    euro_america: 2809513713,
+    billboard: 60198,
+    beatport: 3812895,
+    korean: 745956260,
+    uk: 180106
+  };
+  if (type === 'qq_music') return handleQqMusicToplist(res, cacheDir, type);
+
+  const playlistId = toplistMap[type] || toplistMap.soaring;
+
+  try {
+    const response = await axios.get(`https://music.163.com/api/playlist/detail?id=${playlistId}`, {
+      timeout: 10_000,
+      headers: neteaseHeaders()
+    });
+    const tracks = response.data?.result?.tracks || [];
+    if (!tracks.length) return res.json({ code: 500, message: '榜单数据为空', data: [] });
+
+    const data = tracks.slice(0, 100).map((track, index) => ({
+      id: String(track.id),
+      name: track.name,
+      artist: (track.artists || []).map((artist) => artist.name),
+      album: track.album?.name || '',
+      pic_id: track.album?.picId ? String(track.album.picId) : '',
+      source: 'netease',
+      rank: index + 1
+    }));
+    const payload = { code: 200, data };
+    writeDailyToplistCache(cacheDir, type, payload);
+    res.setHeader('X-Toplist-Cache', 'MISS');
+    return res.json(payload);
+  } catch {
+    return res.json({ code: 500, message: '获取榜单数据失败', data: [] });
+  }
+}
+
+async function handleQqMusicToplist(res, cacheDir, type) {
+  try {
+    const response = await axios.get('https://c.y.qq.com/v8/fcg-bin/fcg_v8_toplist_cp.fcg', {
+      timeout: 10_000,
+      params: {
+        topid: 26,
+        format: 'json',
+        inCharset: 'utf8',
+        outCharset: 'utf-8',
+        notice: 0,
+        platform: 'yqq.json',
+        needNewCode: 1
+      },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+        Referer: 'https://y.qq.com/'
+      }
+    });
+    const items = response.data?.songlist || [];
+    if (!items.length) return res.json({ code: 500, message: 'QQ音乐榜单数据为空', data: [] });
+
+    const data = await resolvePlayableToplistSongs(items.slice(0, 60));
+    if (!data.length) return res.json({ code: 500, message: 'QQ音乐榜单歌曲解析失败', data: [] });
+    const payload = { code: 200, data };
+    writeDailyToplistCache(cacheDir, type, payload);
+    res.setHeader('X-Toplist-Cache', 'MISS');
+    return res.json(payload);
+  } catch {
+    return res.json({ code: 500, message: '获取QQ音乐榜单失败', data: [] });
+  }
+}
+
+function readDailyToplistCache(cacheDir, type) {
+  return readToplistCacheFile(toplistCacheFile(cacheDir, type, localDateKey()));
+}
+
+function writeDailyToplistCache(cacheDir, type, payload) {
+  fs.mkdirSync(cacheDir, { recursive: true });
+  fs.writeFileSync(toplistCacheFile(cacheDir, type, localDateKey()), JSON.stringify(payload), 'utf8');
+  pruneCacheDir(cacheDir);
+}
+
+function readToplistCacheFile(file) {
+  try {
+    if (!fs.existsSync(file)) return null;
+    const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return payload && payload.code === 200 && Array.isArray(payload.data) ? payload : null;
+  } catch {
+    return null;
+  }
+}
+
+function toplistCacheFile(cacheDir, type, dateKey) {
+  return path.join(cacheDir, `toplist-${safeCacheKey(type)}-${dateKey}.json`);
+}
+
+function localDateKey() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+}
+
+function safeCacheKey(value) {
+  return String(value || 'soaring').replace(/[^a-z0-9_-]/gi, '_');
+}
+
+async function resolvePlayableToplistSongs(items) {
+  const resolvedItems = await mapWithConcurrency(items, 8, async (item, index) => {
+    const song = item.data || item;
+    const name = stringValue(song.songname || song.name);
+    const artists = (song.singer || song.singers || []).map((artist) => artist.name).filter(Boolean);
+    if (!name) return null;
+
+    const resolved = await resolvePlayableSong(name, artists);
+    if (!resolved) return null;
+    return {
+      ...resolved,
+      rank: index + 1,
+      original_title: name,
+      original_artist: artists.join(' / ')
+    };
+  });
+  return resolvedItems.filter(Boolean).slice(0, 50);
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+async function resolvePlayableSong(name, artists) {
+  const keyword = [name, artists[0] || ''].filter(Boolean).join(' ');
+  for (const source of ['kuwo', 'netease']) {
+    const candidates = await searchMusicApi(source, keyword);
+    const matched = chooseBestSongMatch(candidates, name, artists);
+    if (matched) return matched;
+  }
+  return null;
+}
+
+async function searchMusicApi(source, keyword) {
+  try {
+    const response = await axios.get('https://music-api.gdstudio.xyz/api.php', {
+      timeout: 8_000,
+      params: {
+        types: 'search',
+        source,
+        name: keyword,
+        count: 5
+      },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        Accept: 'application/json, text/plain, */*',
+        Referer: 'https://music.xcloudv.top/'
+      }
+    });
+    return Array.isArray(response.data) ? response.data : response.data?.data || [];
+  } catch {
+    return [];
+  }
+}
+
+function chooseBestSongMatch(candidates, name, artists) {
+  if (!Array.isArray(candidates) || !candidates.length) return null;
+  const normalizedName = normalizeMatchText(name);
+  const normalizedArtists = artists.map(normalizeMatchText).filter(Boolean);
+  return candidates.find((candidate) => {
+    const candidateName = normalizeMatchText(candidate.name);
+    const candidateArtists = artistList(candidate.artist).map(normalizeMatchText);
+    const titleMatches = candidateName === normalizedName || candidateName.includes(normalizedName) || normalizedName.includes(candidateName);
+    const artistMatches = !normalizedArtists.length || normalizedArtists.some((artist) => candidateArtists.some((candidateArtist) => candidateArtist.includes(artist) || artist.includes(candidateArtist)));
+    return titleMatches && artistMatches;
+  }) || candidates[0];
+}
+
+function artistList(value) {
+  if (Array.isArray(value)) return value;
+  return normalizeArtist(value).split(/[,/&、]/).map((artist) => artist.trim()).filter(Boolean);
+}
+
+function normalizeMatchText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[（(].*?[）)]/g, '')
+    .replace(/\s+/g, '')
+    .trim();
+}
+
+async function handleNeteasePlaylist(req, res) {
+  let playlistId = stringValue(req.query.id);
+  const link = stringValue(req.query.link);
+  if (!playlistId && link) {
+    playlistId = extractPlaylistId(link);
+  }
+
+  if (!playlistId || !/^\d+$/.test(playlistId)) {
+    return res.json({ code: 400, message: '无法识别的歌单链接或ID', playlist: null });
+  }
+
+  try {
+    const response = await axios.get(`https://music.163.com/api/playlist/detail?id=${playlistId}`, {
+      timeout: 15_000,
+      headers: neteaseHeaders()
+    });
+    const result = response.data?.result;
+    if (!result) return res.json({ code: 500, message: '歌单数据为空', playlist: null });
+
+    const tracks = (result.tracks || []).map((track) => ({
+      id: String(track.id),
+      name: track.name,
+      artist: (track.artists || []).map((artist) => artist.name),
+      album: track.album?.name || '',
+      pic_id: track.album?.picId ? String(track.album.picId) : '',
+      source: 'netease'
+    }));
+
+    return res.json({
+      code: 200,
+      playlist: {
+        id: String(result.id),
+        name: result.name || '未知歌单',
+        cover: result.coverImgUrl || '',
+        description: result.description || '',
+        track_count: tracks.length,
+        tracks
+      }
+    });
+  } catch {
+    return res.json({ code: 500, message: '获取歌单失败', playlist: null });
+  }
+}
+
+function handleApiDoubtful(db, res) {
+  const rows = db.prepare('SELECT source, name, search, play, last_check FROM api_status').all();
+  const result = {};
+  for (const row of rows) {
+    result[row.source] = {
+      name: row.name,
+      search: row.search,
+      play: row.play,
+      last_check: row.last_check
+    };
+  }
+  return res.json(result);
+}
+
+async function proxyMusicApi(req, res, cacheDir) {
+  const query = new URLSearchParams(req.query).toString();
+  const upstreamUrl = `https://music-api.gdstudio.xyz/api.php?${query}`;
+  const cacheFile = path.join(cacheDir, `${crypto.createHash('sha256').update(query).digest('hex')}.json`);
+  const cacheTtl = cacheTtlForType(req.query.types);
+
+  if (fs.existsSync(cacheFile) && Date.now() - fs.statSync(cacheFile).mtimeMs < cacheTtl) {
+    res.setHeader('X-Cache', 'HIT');
+    res.type('json').send(fs.readFileSync(cacheFile, 'utf8'));
+    return;
+  }
+
+  try {
+    const response = await axios.get(upstreamUrl, {
+      timeout: 15_000,
+      responseType: 'text',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        Accept: 'application/json, text/plain, */*',
+        Referer: 'https://music.xcloudv.top/'
+      },
+      transformResponse: [(data) => data]
+    });
+
+    const body = response.data;
+    if (typeof body === 'string' && /^[\[{]/.test(body.trim())) {
+      fs.writeFileSync(cacheFile, body, 'utf8');
+      pruneCacheDir(cacheDir);
+    }
+    res.setHeader('X-Cache', 'MISS');
+    res.type(response.headers['content-type'] || 'application/json').send(body);
+  } catch {
+    if (fs.existsSync(cacheFile)) {
+      res.setHeader('X-Cache', 'STALE');
+      res.type('json').send(fs.readFileSync(cacheFile, 'utf8'));
+      return;
+    }
+    res.status(503).json({ error: '音乐服务暂时不可用，请稍后重试' });
+  }
+}
+
+function pruneCacheDir(cacheDir, { maxFiles = 800, maxAgeMs = 14 * 24 * 60 * 60 * 1000 } = {}) {
+  try {
+    if (!fs.existsSync(cacheDir)) return;
+
+    const now = Date.now();
+    const files = fs.readdirSync(cacheDir)
+      .filter((name) => name.endsWith('.json'))
+      .map((name) => {
+        const file = path.join(cacheDir, name);
+        const stat = fs.statSync(file);
+        return { file, mtimeMs: stat.mtimeMs };
+      })
+      .sort((a, b) => a.mtimeMs - b.mtimeMs);
+
+    for (const item of files) {
+      if (now - item.mtimeMs > maxAgeMs) {
+        fs.unlinkSync(item.file);
+      }
+    }
+
+    const remaining = files.filter((item) => fs.existsSync(item.file));
+    const overflow = remaining.length - maxFiles;
+    if (overflow <= 0) return;
+
+    for (const item of remaining.slice(0, overflow)) {
+      fs.unlinkSync(item.file);
+    }
+  } catch (error) {
+    console.warn('[express-backend] cache prune failed:', error.message);
+  }
+}
+
+function ownsPlaylist(db, userId, playlistId) {
+  return Boolean(db.prepare('SELECT id FROM playlists WHERE id = ? AND user_id = ?').get(playlistId, userId));
+}
+
+function listen(server, preferredPort) {
+  return new Promise((resolve, reject) => {
+    const tryListen = (port) => {
+      server.once('error', (error) => {
+        if (error.code === 'EADDRINUSE' && port < preferredPort + 20) {
+          tryListen(port + 1);
+          return;
+        }
+        reject(error);
+      });
+
+      server.listen(port, '127.0.0.1', () => resolve(port));
+    };
+    tryListen(preferredPort);
+  });
+}
+
+function logVerificationEmail(dataDir, to, code, purpose) {
+  const logFile = path.join(dataDir, 'email_log.txt');
+  const line = `${formatDateTime(new Date())} | To: ${to} | Code: ${code} | Purpose: ${purpose}\n`;
+  fs.appendFileSync(logFile, line, 'utf8');
+}
+
+function extractPlaylistId(value) {
+  const match = String(value).match(/[?&]id=(\d+)/) || String(value).match(/playlist\/(\d+)/);
+  return match ? match[1] : '';
+}
+
+function cacheTtlForType(type) {
+  if (type === 'url') return 60_000;
+  if (type === 'pic') return 86_400_000;
+  if (type === 'lyric') return 604_800_000;
+  return 300_000;
+}
+
+function neteaseHeaders() {
+  return {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
+    Referer: 'https://music.163.com/'
+  };
+}
+
+function nowSeconds() {
+  return Math.floor(Date.now() / 1000);
+}
+
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
+}
+
+if (require.main === module) {
+  startLocalBackend().then((server) => {
+    console.log(`XCloud Express backend running at ${server.url}`);
+    console.log(`SQLite database: ${server.dbPath}`);
+  }).catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  startLocalBackend,
+  createExpressApp
+};

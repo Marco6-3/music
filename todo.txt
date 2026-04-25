@@ -1,0 +1,151 @@
+  方案一：自建 UnblockNeteaseMusic（最推荐）
+
+  这是目前 GitHub 上最成熟的多音源自动替换方案， Stars 数万的项目。
+
+  核心原理：它不是单一 API，而是一个本地代理/服务，当某首歌在网易云找不到或变灰时，自动去其他平台（酷我、酷狗、B站、咪咕
+  、YouTube、波点音乐、QQ音乐）搜索并返回可播放链接。
+
+  支持的音源：
+
+   平台       代号                   是否需要 Cookie
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   酷狗音乐   kugou                  不需要
+   酷我音乐   kuwo                   不需要
+   波点音乐   bodian                 不需要
+   咪咕音乐   migu                   需要 MIGU_COOKIE
+   QQ 音乐    qq                     需要 QQ_COOKIE
+   B 站音乐   bilibili / bilivideo   不需要
+   YouTube    ytdlp                  需要装 yt-dlp
+
+  GitHub: https://github.com/UnblockNeteaseMusic/server
+
+  如何跟你项目结合：
+
+  1. 作为本地并行服务启动（监听另一个端口，如 8080）
+  2. 你的 src/server/index.js 在 proxyMusicApi 里做多上游 fallback：先请求 gdstudio，失败或返回空时转请求本地 UNM 服务
+  3. 或者直接用 UNM 替换掉你现有的第三方 API 代理逻辑
+
+  # 最快体验
+  npx -p @unblockneteasemusic/server unblockneteasemusic -o kuwo kugou bodian bilibili ytdlp
+
+  # 或 Docker
+  docker run -p 8080:8080 -e SELECT_MAX_BR=true pan93412/unblock-netease-music-enhanced -o kuwo kugou bilibili
+
+  优势：音源多、自动回退、社区极活跃、支持无损音质替换。
+
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  方案二：自建 Meting-API（多平台统一接口）
+
+  如果你不想只绑死网易云，想要一个支持多平台切换的统一 API，Meting 是目前最标准的开源方案。
+
+  GitHub 核心库: https://github.com/metowolf/Meting
+  Node.js 版本: @meting/core（零外部依赖）
+
+  支持平台：网易云、QQ音乐、酷狗、百度音乐、酷我
+
+  用法示例：
+
+  import Meting from '@meting/core';
+  const meting = new Meting('netease'); // 可切换 'tencent', 'kugou', 'kuwo', 'baidu'
+  meting.format(true);
+
+  // 搜索
+  const result = await meting.search('周杰伦', { limit: 10 });
+
+  // 获取播放链接
+  const url = await meting.url(songId, 320);
+
+  // 获取歌词
+  const lyric = await meting.lyric(lyricId);
+
+  如何跟你项目结合：
+
+  • 单独建一个 meting-server.js 包装成 HTTP API
+  • 你的后端在请求 gdstudio 失败时，通过 Meting 换平台重试
+  • 甚至可以让用户在前端切换"音乐源"时，后端直接切换 Meting 的 site
+
+  现成的 RESTful API 包装：
+
+  • PHP 版：https://github.com/injahow/meting-api
+  • 可以一键部署到 Vercel/服务器
+
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  方案三：学习 LX Music / MusicFree 的"音源分离"架构
+
+  这两个是国内用户量最大的开源免费音乐播放器，它们解决"单一 API 不靠谱"问题的思路是——音源和播放器完全解耦。
+
+  LX Music（洛雪音乐助手）
+
+  • GitHub: https://github.com/lyswhut/lx-music-desktop
+  • 架构：播放器本身不提供任何音源，通过"自定义源"（.js 脚本）获取音乐
+  • 社区：有大量开发者在维护各种音源脚本（六音源、九音源等），一个源废了换另一个就行
+  • 启发：你可以把"音源"做成你项目里的可插拔模块，而不是写死一个 gdstudio 地址
+
+  MusicFree
+
+  • GitHub: https://github.com/maotoumao/MusicFree
+  • 架构：纯插件化，所有搜索/播放/歌词功能都靠插件实现
+  • 插件示例仓库：https://raw.gitcode.com/maotoumao/MusicFreePlugins/raw/master/plugins.json
+  • 启发：如果你愿意，可以写一个兼容 MusicFree 插件协议的加载器，直接复用社区现成的几十套音源
+
+  对你项目的建议： 与其自己对接 N 个 API，不如在 src/server/index.js 里抽象一个 MusicSourceProvider 接口：
+
+  // 支持多源回退
+  const providers = [
+    new GdstudioProvider(),
+    new UnmProvider({ port: 8080 }),
+    new MetingProvider({ platform: 'kuwo' }),
+    new MetingProvider({ platform: 'kugou' }),
+  ];
+
+  // 获取播放链接时逐个尝试
+  async function resolveUrl(song) {
+    for (const provider of providers) {
+      try {
+        const url = await provider.getUrl(song);
+        if (url) return url;
+      } catch {}
+    }
+    throw new Error('所有音源均不可用');
+  }
+
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  方案四：直接对接平台公开/半公开接口（备用）
+
+  除了依赖第三方聚合 API，一些平台本身有相对稳定的公开接口可直接调用：
+
+  网易云音乐
+
+  • Binaryify/NeteaseCloudMusicApi（原版已 Archive，但社区有大量 Fork 仍在维护）
+  • 搜索、获取歌单、获取 URL、歌词等功能完整
+  • 需要自己部署 Node.js 服务
+
+  酷我音乐
+
+  • 公开搜索接口相对开放，限制较少
+  • 很多开源项目直接调用 kuwo.cn 的接口获取播放链接
+
+  B 站 (bilivideo)
+
+  • 很多音乐在 B 站有官方 MV/音频
+  • UnblockNeteaseMusic 已内置 bilivideo 音源，可以直接复用
+
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  综合建议：给你的项目选一个组合
+
+  如果你不想大改架构，最务实的升级路径是：
+
+   层级       当前                     建议替换为
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   第一优先   music-api.gdstudio.xyz   保留，但加缓存和失败检测
+   第二优先   —                        本地/服务器部署 UnblockNeteaseMusic，支持 kuwo/kugou/bilibili/bodian
+   第三优先   —                        引入 Meting 作为平台切换兜底（网易云挂了切酷我）
+   长期架构   单一 API                 抽象 SourceProvider，支持多源并行/回退
+
+  最小改动方案：
+
+  1. 在本地启动 UnblockNeteaseMusic（端口 8080）
+  2. 修改 src/server/index.js 中的 proxyMusicApi，让它同时向 gdstudio 和 127.0.0.1:8080 发请求，哪个先返回有效数据就用哪
+  3. 这样你立刻就有了 6 个音源的 fallback，而不是单点故障
+
+  需要我帮你实现这个"多源 fallback 代理"的代码吗？
