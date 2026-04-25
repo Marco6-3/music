@@ -28,6 +28,8 @@ const {
   normalizeArtist,
   formatDateTime
 } = require('./database');
+const { createDefaultDispatcher } = require('./source-providers');
+const { musicSources } = require('../config');
 
 const projectRoot = path.resolve(__dirname, '../..');
 const webroot = resolveWebroot();
@@ -40,7 +42,7 @@ function resolveWebroot() {
   return path.join(projectRoot, 'webroot');
 }
 
-async function startLocalBackend({ preferredPort = 41731, dataDir } = {}) {
+async function startLocalBackend({ preferredPort = 41731, dataDir, musicSourceConfig } = {}) {
   const resolvedDataDir = dataDir || process.env.XCLOUD_DATA_DIR || path.join(projectRoot, 'data');
   const uploadsDir = path.join(resolvedDataDir, 'uploads', 'avatars');
   const cacheDir = path.join(resolvedDataDir, 'cache');
@@ -49,7 +51,8 @@ async function startLocalBackend({ preferredPort = 41731, dataDir } = {}) {
   pruneCacheDir(cacheDir);
 
   const store = createDataStore(resolvedDataDir);
-  const app = createExpressApp({ store, uploadsDir, cacheDir });
+  const dispatcher = createDefaultDispatcher(musicSourceConfig || musicSources);
+  const app = createExpressApp({ store, uploadsDir, cacheDir, dispatcher });
   const server = http.createServer(app);
   const port = await listen(server, preferredPort);
 
@@ -65,7 +68,7 @@ async function startLocalBackend({ preferredPort = 41731, dataDir } = {}) {
   };
 }
 
-function createExpressApp({ store, uploadsDir, cacheDir }) {
+function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefaultDispatcher(musicSources) }) {
   const app = express();
   const db = store.db;
   const upload = createUploadMiddleware(uploadsDir);
@@ -99,7 +102,7 @@ function createExpressApp({ store, uploadsDir, cacheDir }) {
     res.type('html').sendFile(path.join(webroot, 'api_check', 'check_api.php'));
   });
   app.get('/api_check/api_doubtful.php', (_req, res) => handleApiDoubtful(db, res));
-  app.get('/api.php', (req, res) => proxyMusicApi(req, res, cacheDir));
+  app.get('/api.php', (req, res) => proxyMusicApi(req, res, cacheDir, dispatcher));
 
   app.get('/php/check_version.php', (_req, res) => {
     res.json({
@@ -112,7 +115,7 @@ function createExpressApp({ store, uploadsDir, cacheDir }) {
   app.get('/check_version.php', (_req, res) => {
     res.json({ version: '1.7.2' });
   });
-  app.get('/php/toplist.php', (req, res) => handleToplist(req, res, cacheDir));
+  app.get('/php/toplist.php', (req, res) => handleToplist(req, res, cacheDir, dispatcher));
   app.get('/php/get_netease_playlist.php', (req, res) => handleNeteasePlaylist(req, res));
 
   app.post('/php/register_verification.php', codeLimiter, parseForm, (req, res) => handleRegisterVerification(db, store.dataDir, req, res));
@@ -600,7 +603,7 @@ function handleSyncPlaylists(db, req, res) {
   return res.json({ success: true, message: '歌单同步成功' });
 }
 
-async function handleToplist(req, res, cacheDir) {
+async function handleToplist(req, res, cacheDir, dispatcher) {
   const type = req.query.type || 'soaring';
   const cached = readDailyToplistCache(cacheDir, type);
   if (cached) {
@@ -622,7 +625,7 @@ async function handleToplist(req, res, cacheDir) {
     korean: 745956260,
     uk: 180106
   };
-  if (type === 'qq_music') return handleQqMusicToplist(res, cacheDir, type);
+  if (type === 'qq_music') return handleQqMusicToplist(res, cacheDir, type, dispatcher);
 
   const playlistId = toplistMap[type] || toplistMap.soaring;
 
@@ -652,7 +655,7 @@ async function handleToplist(req, res, cacheDir) {
   }
 }
 
-async function handleQqMusicToplist(res, cacheDir, type) {
+async function handleQqMusicToplist(res, cacheDir, type, dispatcher) {
   try {
     const response = await axios.get('https://c.y.qq.com/v8/fcg-bin/fcg_v8_toplist_cp.fcg', {
       timeout: 10_000,
@@ -673,7 +676,7 @@ async function handleQqMusicToplist(res, cacheDir, type) {
     const items = response.data?.songlist || [];
     if (!items.length) return res.json({ code: 500, message: 'QQ音乐榜单数据为空', data: [] });
 
-    const data = await resolvePlayableToplistSongs(items.slice(0, 60));
+    const data = await resolvePlayableToplistSongs(items.slice(0, 60), dispatcher);
     if (!data.length) return res.json({ code: 500, message: 'QQ音乐榜单歌曲解析失败', data: [] });
     const payload = { code: 200, data };
     writeDailyToplistCache(cacheDir, type, payload);
@@ -721,14 +724,14 @@ function safeCacheKey(value) {
   return String(value || 'soaring').replace(/[^a-z0-9_-]/gi, '_');
 }
 
-async function resolvePlayableToplistSongs(items) {
+async function resolvePlayableToplistSongs(items, dispatcher) {
   const resolvedItems = await mapWithConcurrency(items, 8, async (item, index) => {
     const song = item.data || item;
     const name = stringValue(song.songname || song.name);
     const artists = (song.singer || song.singers || []).map((artist) => artist.name).filter(Boolean);
     if (!name) return null;
 
-    const resolved = await resolvePlayableSong(name, artists);
+    const resolved = await resolvePlayableSong(name, artists, dispatcher);
     if (!resolved) return null;
     return {
       ...resolved,
@@ -754,17 +757,21 @@ async function mapWithConcurrency(items, limit, mapper) {
   return results;
 }
 
-async function resolvePlayableSong(name, artists) {
+async function resolvePlayableSong(name, artists, dispatcher) {
   const keyword = [name, artists[0] || ''].filter(Boolean).join(' ');
   for (const source of ['kuwo', 'netease']) {
-    const candidates = await searchMusicApi(source, keyword);
+    const candidates = await searchMusicApi(source, keyword, dispatcher);
     const matched = chooseBestSongMatch(candidates, name, artists);
     if (matched) return matched;
   }
   return null;
 }
 
-async function searchMusicApi(source, keyword) {
+async function searchMusicApi(source, keyword, dispatcher) {
+  if (dispatcher) {
+    return dispatcher.search(source, keyword, 5);
+  }
+
   try {
     const response = await axios.get('https://music-api.gdstudio.xyz/api.php', {
       timeout: 8_000,
@@ -870,7 +877,7 @@ function handleApiDoubtful(db, res) {
   return res.json(result);
 }
 
-async function proxyMusicApi(req, res, cacheDir) {
+async function proxyMusicApi(req, res, cacheDir, dispatcher) {
   const query = new URLSearchParams(req.query).toString();
   const upstreamUrl = `https://music-api.gdstudio.xyz/api.php?${query}`;
   const cacheFile = path.join(cacheDir, `${crypto.createHash('sha256').update(query).digest('hex')}.json`);
@@ -880,6 +887,27 @@ async function proxyMusicApi(req, res, cacheDir) {
     res.setHeader('X-Cache', 'HIT');
     res.type('json').send(fs.readFileSync(cacheFile, 'utf8'));
     return;
+  }
+
+  if (dispatcher && req.query.types) {
+    try {
+      const params = Object.fromEntries(Object.entries(req.query).filter(([key]) => key !== 'types'));
+      const result = await dispatcher.proxy(req.query.types, params);
+      if (result) {
+        const body = typeof result === 'string' ? result : result.data;
+        const contentType = typeof result === 'string' ? 'application/json' : result.contentType;
+        if (typeof body === 'string' && /^[\[{]/.test(body.trim())) {
+          fs.writeFileSync(cacheFile, body, 'utf8');
+          pruneCacheDir(cacheDir);
+        }
+        res.setHeader('X-Cache', 'MISS');
+        res.setHeader('X-Music-Source', result.providerName || 'dispatcher');
+        res.type(contentType || 'application/json').send(body);
+        return;
+      }
+    } catch (error) {
+      console.warn('[proxyMusicApi] dispatcher request failed:', error.message);
+    }
   }
 
   try {

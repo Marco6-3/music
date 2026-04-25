@@ -10,6 +10,8 @@
     "start": "electron .",
     "dev": "electron .",
     "server": "node scripts/run-server.js",
+    "probe:sources": "node scripts/probe-music-sources.js",
+    "probe:backend": "node scripts/electron-node.js scripts/probe-backend.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --dir",
     "build": "electron-builder --dir",
@@ -63,6 +65,7 @@
     "axios": "^1.13.2",
     "better-sqlite3": "^12.4.6",
     "express": "^5.2.1",
+    "@meting/core": "^1.6.1",
     "multer": "^2.0.2"
   },
   "devDependencies": {

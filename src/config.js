@@ -15,5 +15,18 @@ module.exports = {
     height: 700,
     minWidth: 800,
     minHeight: 600
+  },
+  musicSources: {
+    strategy: 'fallback',
+    gdstudio: {
+      enabled: true,
+      baseUrl: 'https://music-api.gdstudio.xyz/api.php',
+      timeout: 12000
+    },
+    meting: {
+      enabled: true,
+      defaultPlatform: 'netease',
+      supportedPlatforms: ['netease', 'tencent', 'kugou', 'kuwo', 'baidu']
+    }
   }
 };
