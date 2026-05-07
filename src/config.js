@@ -23,6 +23,11 @@ module.exports = {
       baseUrl: 'https://music-api.gdstudio.xyz/api.php',
       timeout: 12000
     },
+    unm: {
+      enabled: true,
+      sources: ['kuwo', 'kugou', 'bodian', 'bilibili'],
+      timeout: 10000
+    },
     meting: {
       enabled: true,
       defaultPlatform: 'netease',

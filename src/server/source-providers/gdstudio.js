@@ -3,13 +3,44 @@
 const axios = require('axios');
 const { BaseProvider } = require('./base');
 
-// Gdstudio aggregate API provider.
+const FAILURE_THRESHOLD = 3;
+const COOLDOWN_MS = 5 * 60 * 1000;
+
+// Gdstudio aggregate API provider with per-source health tracking.
 class GdstudioProvider extends BaseProvider {
   constructor(options = {}) {
     super('gdstudio', options);
     this.baseUrl = options.baseUrl || 'https://music-api.gdstudio.xyz/api.php';
     this.timeout = options.timeout || 12_000;
     this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+    this.sourceHealth = {};
+  }
+
+  _getHealth(source) {
+    if (!this.sourceHealth[source]) {
+      this.sourceHealth[source] = { failures: 0, unhealthyUntil: 0 };
+    }
+    return this.sourceHealth[source];
+  }
+
+  isSourceHealthy(source) {
+    const health = this._getHealth(source);
+    return Date.now() > health.unhealthyUntil;
+  }
+
+  recordFailure(source) {
+    const health = this._getHealth(source);
+    health.failures += 1;
+    if (health.failures >= FAILURE_THRESHOLD) {
+      health.unhealthyUntil = Date.now() + COOLDOWN_MS;
+      console.warn(`[GdstudioProvider] source "${source}" marked unhealthy for ${COOLDOWN_MS / 60000}min (${health.failures} failures)`);
+    }
+  }
+
+  recordSuccess(source) {
+    const health = this._getHealth(source);
+    health.failures = 0;
+    health.unhealthyUntil = 0;
   }
 
   async search(platform, keyword, count = 30) {
@@ -65,18 +96,58 @@ class GdstudioProvider extends BaseProvider {
   }
 
   async proxy(types, params) {
-    const response = await axios.get(this.baseUrl, {
-      timeout: this.timeout,
-      params: { types, ...params },
-      headers: {
-        'User-Agent': this.userAgent,
-        Accept: 'application/json, text/plain, */*',
-        Referer: 'https://music.xcloudv.top/'
-      },
-      responseType: 'text',
-      transformResponse: [(data) => data]
-    });
-    return { ok: true, data: response.data, contentType: response.headers['content-type'] };
+    const source = params.source || 'netease';
+
+    if (!this.isSourceHealthy(source)) {
+      return null;
+    }
+
+    try {
+      const response = await axios.get(this.baseUrl, {
+        timeout: this.timeout,
+        params: { types, ...params },
+        headers: {
+          'User-Agent': this.userAgent,
+          Accept: 'application/json, text/plain, */*',
+          Referer: 'https://music.xcloudv.top/'
+        },
+        responseType: 'text',
+        transformResponse: [(data) => data]
+      });
+
+      const body = response.data;
+      const isEmpty = this._isEmptyResult(types, body);
+
+      if (isEmpty) {
+        this.recordFailure(source);
+        return null;
+      }
+
+      this.recordSuccess(source);
+      return { ok: true, data: body, contentType: response.headers['content-type'], providerName: this.name };
+    } catch (error) {
+      this.recordFailure(source);
+      console.warn(`[GdstudioProvider] proxy failed (${types}, source=${source}):`, error.message);
+      return null;
+    }
+  }
+
+  _isEmptyResult(types, body) {
+    if (!body || typeof body !== 'string') return true;
+    const trimmed = body.trim();
+    if (!trimmed) return true;
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.length === 0;
+      if (types === 'url') return !parsed.url;
+      if (types === 'lyric') return !parsed.lyric && !parsed.tlyric;
+      if (types === 'pic') return !parsed.url;
+      if (types === 'search' && parsed.data) return Array.isArray(parsed.data) && parsed.data.length === 0;
+      return false;
+    } catch {
+      return false;
+    }
   }
 }
 
