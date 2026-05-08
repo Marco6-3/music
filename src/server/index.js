@@ -29,10 +29,13 @@ const {
   formatDateTime
 } = require('./database');
 const { createDefaultDispatcher } = require('./source-providers');
+const { registerPlayHistory } = require('./play-history');
+const { startMonitoring } = require('./api-monitor');
 const { musicSources } = require('../config');
 
 const projectRoot = path.resolve(__dirname, '../..');
 const webroot = resolveWebroot();
+const MUSIC_API_CACHE_VERSION = 'music-api-v3';
 
 function resolveWebroot() {
   const resourceWebroot = process.resourcesPath ? path.join(process.resourcesPath, 'webroot') : null;
@@ -50,9 +53,10 @@ async function startLocalBackend({ preferredPort = 41731, dataDir, musicSourceCo
   fs.mkdirSync(cacheDir, { recursive: true });
   pruneCacheDir(cacheDir);
 
-  const store = createDataStore(resolvedDataDir);
+  const store = await createDataStore(resolvedDataDir);
   const dispatcher = createDefaultDispatcher(musicSourceConfig || musicSources);
   const app = createExpressApp({ store, uploadsDir, cacheDir, dispatcher });
+  const stopMonitor = startMonitoring(store.db, dispatcher);
   const server = http.createServer(app);
   const port = await listen(server, preferredPort);
 
@@ -62,6 +66,7 @@ async function startLocalBackend({ preferredPort = 41731, dataDir, musicSourceCo
     mode: 'express-sqlite',
     dbPath: store.dbPath,
     close: () => {
+      stopMonitor();
       server.close();
       store.close();
     }
@@ -81,7 +86,7 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-    res.setHeader('X-XCloud-Backend', 'express-sqlite');
+    res.setHeader('X-musiQ-Backend', 'express-sqlite');
     if (req.method === 'OPTIONS') {
       res.sendStatus(204);
       return;
@@ -135,6 +140,7 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
   app.post('/php/get_playlist_id.php', parseForm, (req, res) => handleGetPlaylistId(db, req, res));
   app.post('/php/rename_playlist.php', parseForm, (req, res) => handleRenamePlaylist(db, req, res));
   app.post('/php/sync_playlists.php', parseForm, (req, res) => handleSyncPlaylists(db, req, res));
+  registerPlayHistory(app, db);
 
   app.use((req, res) => {
     res.status(404).json({ success: false, message: `Not found: ${req.path}` });
@@ -693,8 +699,26 @@ function readDailyToplistCache(cacheDir, type) {
 
 function writeDailyToplistCache(cacheDir, type, payload) {
   fs.mkdirSync(cacheDir, { recursive: true });
-  fs.writeFileSync(toplistCacheFile(cacheDir, type, localDateKey()), JSON.stringify(payload), 'utf8');
+  const dateKey = localDateKey();
+  fs.writeFileSync(toplistCacheFile(cacheDir, type, dateKey), JSON.stringify(payload), 'utf8');
+  pruneToplistCache(cacheDir, type, dateKey);
   pruneCacheDir(cacheDir);
+}
+
+function pruneToplistCache(cacheDir, type, keepDateKey) {
+  try {
+    if (!fs.existsSync(cacheDir)) return;
+    const safeType = safeCacheKey(type);
+    const keepName = `toplist-${safeType}-${keepDateKey}.json`;
+    const prefix = `toplist-${safeType}-`;
+    for (const name of fs.readdirSync(cacheDir)) {
+      if (name.startsWith(prefix) && name.endsWith('.json') && name !== keepName) {
+        fs.unlinkSync(path.join(cacheDir, name));
+      }
+    }
+  } catch (error) {
+    console.warn('[express-backend] toplist cache prune failed:', error.message);
+  }
 }
 
 function readToplistCacheFile(file) {
@@ -880,7 +904,7 @@ function handleApiDoubtful(db, res) {
 async function proxyMusicApi(req, res, cacheDir, dispatcher) {
   const query = new URLSearchParams(req.query).toString();
   const upstreamUrl = `https://music-api.gdstudio.xyz/api.php?${query}`;
-  const cacheFile = path.join(cacheDir, `${crypto.createHash('sha256').update(query).digest('hex')}.json`);
+  const cacheFile = path.join(cacheDir, `${crypto.createHash('sha256').update(`${MUSIC_API_CACHE_VERSION}:${query}`).digest('hex')}.json`);
   const cacheTtl = cacheTtlForType(req.query.types);
 
   if (fs.existsSync(cacheFile) && Date.now() - fs.statSync(cacheFile).mtimeMs < cacheTtl) {
@@ -1027,7 +1051,7 @@ function isEmail(value) {
 
 if (require.main === module) {
   startLocalBackend().then((server) => {
-    console.log(`XCloud Express backend running at ${server.url}`);
+    console.log(`musiQ Express backend running at ${server.url}`);
     console.log(`SQLite database: ${server.dbPath}`);
   }).catch((error) => {
     console.error(error);

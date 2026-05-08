@@ -13,7 +13,7 @@ const disableMeting = rawArgs.includes('--disable-meting') || process.env.XCLOUD
 const keyword = rawArgs.filter((arg) => !arg.startsWith('--')).join(' ') || '周杰伦 晴天';
 
 async function main() {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xcloud-backend-probe-'));
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'musiq-backend-probe-'));
   const musicSourceConfig = {
     ...musicSources,
     gdstudio: {

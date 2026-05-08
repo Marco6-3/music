@@ -16,29 +16,34 @@ class GdstudioProvider extends BaseProvider {
     this.sourceHealth = {};
   }
 
-  _getHealth(source) {
-    if (!this.sourceHealth[source]) {
-      this.sourceHealth[source] = { failures: 0, unhealthyUntil: 0 };
-    }
-    return this.sourceHealth[source];
+  _healthKey(source, types) {
+    return `${source || 'netease'}:${types || 'unknown'}`;
   }
 
-  isSourceHealthy(source) {
-    const health = this._getHealth(source);
+  _getHealth(source, types) {
+    const key = this._healthKey(source, types);
+    if (!this.sourceHealth[key]) {
+      this.sourceHealth[key] = { failures: 0, unhealthyUntil: 0 };
+    }
+    return this.sourceHealth[key];
+  }
+
+  isSourceHealthy(source, types) {
+    const health = this._getHealth(source, types);
     return Date.now() > health.unhealthyUntil;
   }
 
-  recordFailure(source) {
-    const health = this._getHealth(source);
+  recordFailure(source, types) {
+    const health = this._getHealth(source, types);
     health.failures += 1;
     if (health.failures >= FAILURE_THRESHOLD) {
       health.unhealthyUntil = Date.now() + COOLDOWN_MS;
-      console.warn(`[GdstudioProvider] source "${source}" marked unhealthy for ${COOLDOWN_MS / 60000}min (${health.failures} failures)`);
+      console.warn(`[GdstudioProvider] source "${source}" ${types} marked unhealthy for ${COOLDOWN_MS / 60000}min (${health.failures} failures)`);
     }
   }
 
-  recordSuccess(source) {
-    const health = this._getHealth(source);
+  recordSuccess(source, types) {
+    const health = this._getHealth(source, types);
     health.failures = 0;
     health.unhealthyUntil = 0;
   }
@@ -98,7 +103,7 @@ class GdstudioProvider extends BaseProvider {
   async proxy(types, params) {
     const source = params.source || 'netease';
 
-    if (!this.isSourceHealthy(source)) {
+    if (!this.isSourceHealthy(source, types)) {
       return null;
     }
 
@@ -119,14 +124,14 @@ class GdstudioProvider extends BaseProvider {
       const isEmpty = this._isEmptyResult(types, body);
 
       if (isEmpty) {
-        this.recordFailure(source);
+        this.recordFailure(source, types);
         return null;
       }
 
-      this.recordSuccess(source);
+      this.recordSuccess(source, types);
       return { ok: true, data: body, contentType: response.headers['content-type'], providerName: this.name };
     } catch (error) {
-      this.recordFailure(source);
+      this.recordFailure(source, types);
       console.warn(`[GdstudioProvider] proxy failed (${types}, source=${source}):`, error.message);
       return null;
     }

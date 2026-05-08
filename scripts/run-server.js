@@ -1,5 +1,11 @@
 'use strict';
 
-const { runElectronNode } = require('./electron-node');
+const { startLocalBackend } = require('../src/server');
 
-runElectronNode('src/server/index.js', process.argv.slice(2));
+startLocalBackend().then((server) => {
+  console.log(`musiQ Express backend running at ${server.url}`);
+  console.log(`SQLite database: ${server.dbPath}`);
+}).catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

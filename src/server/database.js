@@ -3,27 +3,231 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const Database = require('better-sqlite3');
+const initSqlJs = require('sql.js');
 
 const TOKEN_EXPIRY_SECONDS = 86400 * 30;
 const CODE_EXPIRY_SECONDS = 600;
-let tokenSecret = process.env.XCLOUD_TOKEN_SECRET || '';
+let tokenSecret = process.env.MUSIQ_TOKEN_SECRET || process.env.XCLOUD_TOKEN_SECRET || '';
+let sqlJsPromise;
 
-function createDataStore(dataDir) {
+async function createDataStore(dataDir) {
   fs.mkdirSync(dataDir, { recursive: true });
+  const releaseLock = acquireDataStoreLock(dataDir);
   ensureTokenSecret(dataDir);
-  const dbPath = path.join(dataDir, 'xcloud_music.db');
-  const db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  initDb(db);
+  try {
+    const dbPath = resolveDataFile(dataDir, 'musiq.db', 'xcloud_music.db');
+    const SQL = await loadSqlJs();
+    const db = new PersistentSqlJsDatabase(SQL, dbPath);
+    db.pragma('journal_mode = DELETE');
+    db.pragma('foreign_keys = ON');
+    initDb(db);
 
-  return {
-    db,
-    dbPath,
-    dataDir,
-    close: () => db.close()
-  };
+    return {
+      db,
+      dbPath,
+      dataDir,
+      close: () => {
+        try {
+          db.close();
+        } finally {
+          releaseLock();
+        }
+      }
+    };
+  } catch (error) {
+    releaseLock();
+    throw error;
+  }
+}
+
+function loadSqlJs() {
+  if (!sqlJsPromise) {
+    const wasmDir = path.join(__dirname, '..', '..', 'node_modules', 'sql.js', 'dist');
+    sqlJsPromise = initSqlJs({
+      locateFile: (file) => path.join(wasmDir, file)
+    });
+  }
+  return sqlJsPromise;
+}
+
+function resolveDataFile(dataDir, fileName, legacyFileName) {
+  const dbPath = path.join(dataDir, fileName);
+  const legacyPath = path.join(dataDir, legacyFileName);
+  if (!fs.existsSync(dbPath) && fs.existsSync(legacyPath)) {
+    fs.copyFileSync(legacyPath, dbPath);
+  }
+  return dbPath;
+}
+
+class PersistentSqlJsDatabase {
+  constructor(SQL, dbPath) {
+    this.dbPath = dbPath;
+    this.transactionDepth = 0;
+    const bytes = fs.existsSync(dbPath) ? fs.readFileSync(dbPath) : null;
+    this.raw = bytes && bytes.length ? new SQL.Database(bytes) : new SQL.Database();
+  }
+
+  exec(sql) {
+    const result = this.raw.run(sql);
+    this.persistIfNeeded(sql);
+    return result;
+  }
+
+  prepare(sql) {
+    return new SqlJsStatement(this, sql);
+  }
+
+  pragma(sql) {
+    this.raw.run(`PRAGMA ${sql}`);
+    this.persistIfNeeded(`PRAGMA ${sql}`);
+  }
+
+  transaction(fn) {
+    return (...args) => {
+      this.raw.run('BEGIN IMMEDIATE');
+      this.transactionDepth += 1;
+      try {
+        const result = fn(...args);
+        this.transactionDepth -= 1;
+        this.raw.run('COMMIT');
+        this.persist();
+        return result;
+      } catch (error) {
+        this.transactionDepth -= 1;
+        this.raw.run('ROLLBACK');
+        throw error;
+      }
+    };
+  }
+
+  persistIfNeeded(sql) {
+    if (this.transactionDepth > 0) return;
+    if (!isWriteSql(sql)) return;
+    this.persist();
+  }
+
+  persist() {
+    fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
+    const data = Buffer.from(this.raw.export());
+    const tempPath = `${this.dbPath}.tmp`;
+    fs.writeFileSync(tempPath, data);
+    fs.renameSync(tempPath, this.dbPath);
+  }
+
+  close() {
+    this.persist();
+    this.raw.close();
+  }
+}
+
+class SqlJsStatement {
+  constructor(db, sql) {
+    this.db = db;
+    this.sql = sql;
+  }
+
+  run(...params) {
+    const statement = this.db.raw.prepare(this.sql);
+    try {
+      statement.run(flattenParams(params));
+      this.db.persistIfNeeded(this.sql);
+      return { changes: this.db.raw.getRowsModified(), lastInsertRowid: this.lastInsertRowid() };
+    } finally {
+      statement.free();
+    }
+  }
+
+  get(...params) {
+    const statement = this.db.raw.prepare(this.sql);
+    try {
+      statement.bind(flattenParams(params));
+      return statement.step() ? statement.getAsObject() : undefined;
+    } finally {
+      statement.free();
+    }
+  }
+
+  all(...params) {
+    const statement = this.db.raw.prepare(this.sql);
+    const rows = [];
+    try {
+      statement.bind(flattenParams(params));
+      while (statement.step()) {
+        rows.push(statement.getAsObject());
+      }
+      return rows;
+    } finally {
+      statement.free();
+    }
+  }
+
+  lastInsertRowid() {
+    const rows = this.db.raw.exec('SELECT last_insert_rowid() AS id');
+    return rows[0]?.values?.[0]?.[0] ?? 0;
+  }
+}
+
+function flattenParams(params) {
+  if (params.length === 1 && Array.isArray(params[0])) return params[0];
+  return params;
+}
+
+function isWriteSql(sql) {
+  const firstToken = String(sql || '').trim().split(/\s+/, 1)[0]?.toUpperCase();
+  return ['INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'CREATE', 'DROP', 'ALTER', 'PRAGMA'].includes(firstToken);
+}
+
+function acquireDataStoreLock(dataDir) {
+  const lockPath = path.join(dataDir, 'musiq.lock');
+
+  for (;;) {
+    try {
+      const fd = fs.openSync(lockPath, 'wx');
+      fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, created_at: formatDateTime(new Date()) }));
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        try {
+          fs.closeSync(fd);
+        } catch {}
+        try {
+          fs.unlinkSync(lockPath);
+        } catch {}
+      };
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+
+      const owner = readLockOwner(lockPath);
+      if (owner.pid && isProcessAlive(owner.pid)) {
+        throw new Error(`SQLite data directory is already in use by process ${owner.pid}: ${dataDir}`);
+      }
+
+      try {
+        fs.unlinkSync(lockPath);
+      } catch (unlinkError) {
+        if (unlinkError.code !== 'ENOENT') throw unlinkError;
+      }
+    }
+  }
+}
+
+function readLockOwner(lockPath) {
+  try {
+    return JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function isProcessAlive(pid) {
+  if (!Number.isInteger(Number(pid)) || Number(pid) <= 0) return false;
+  try {
+    process.kill(Number(pid), 0);
+    return true;
+  } catch (error) {
+    return error.code === 'EPERM';
+  }
 }
 
 function ensureTokenSecret(dataDir) {

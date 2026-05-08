@@ -21,7 +21,7 @@ if not exist "node_modules\electron\dist\electron.exe" (
   goto install_deps
 )
 
-if not exist "node_modules\better-sqlite3\build\Release\better_sqlite3.node" (
+if not exist "node_modules\sql.js\dist\sql-wasm.wasm" (
   goto install_deps
 )
 

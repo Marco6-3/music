@@ -1,14 +1,13 @@
-# XCloud 音乐桌面端重构版
+# musiQ 音乐桌面端
 
-这是一个基于 Electron + Express + SQLite 的 XCloud 音乐桌面客户端重构项目。项目目标是把原本依赖远端页面和 PHP 后端的桌面应用，整理成一个可以本地运行、继续开发、打包发布的 Windows 桌面应用。
+这是一个基于 Electron + Express + SQLite 的 musiQ 音乐桌面客户端项目。项目目标是把原本依赖远端页面和 PHP 后端的桌面应用，整理成一个可以本地运行、继续开发、打包发布的 Windows 桌面应用。
 
 当前版本已经包含：
 
 - Electron 桌面壳和无边框窗口控制。
 - 本地 Express 后端，兼容原前端使用的 `php/*.php` 风格接口。
-- 本地 SQLite 数据库，用于用户、收藏、歌单和接口状态数据。
-- 多音源 Provider 架构，支持 `gdstudio` 与 `@meting/core` fallback。
-- 通过 Electron Node 模式运行后端脚本，避免 `better-sqlite3` 的 Node/Electron ABI 冲突。
+- 本地 SQLite 数据库，用于用户、收藏、歌单和接口状态数据，数据库运行时基于 `sql.js`，不依赖 Node/Electron 原生 ABI。
+- 多音源 Provider 架构，支持 `gdstudio`、`unm` 与 `@meting/core` fallback。
 - 后端和音源探测脚本，用于快速验证搜索、播放 URL、歌词和封面链路。
 
 ## 环境要求
@@ -17,7 +16,7 @@
 - Node.js
 - npm
 
-依赖里包含 `better-sqlite3` 原生模块。桌面端运行以 Electron 的 Node ABI 为准，不建议直接用全局 `node` 导入 `src/server`。
+数据库层不再依赖 `.node` 原生扩展，普通 Node 和 Electron 可以共用同一套后端代码。
 
 ## 安装依赖
 
@@ -25,7 +24,7 @@
 npm install
 ```
 
-安装后会通过 `electron-builder install-app-deps` 重建 Electron 需要的原生模块。
+当前依赖不需要 Electron 原生模块重建。
 
 ## 启动应用
 
@@ -38,7 +37,7 @@ npm start
 也可以双击项目根目录下的：
 
 ```text
-start-xcloud-music.cmd
+start-musiq.cmd
 ```
 
 只启动内置后端：
@@ -47,7 +46,7 @@ start-xcloud-music.cmd
 npm run server
 ```
 
-`npm run server` 会通过 `scripts/electron-node.js` 使用 Electron Node 模式启动，避免全局 Node 与 Electron 的 ABI 不一致。
+`npm run server` 会直接使用普通 Node 启动 `src/server/index.js`。
 
 ## 验证音源
 
@@ -63,7 +62,7 @@ npm run probe:sources -- "周杰伦 晴天"
 npm run probe:backend -- "周杰伦 晴天"
 ```
 
-强制关闭 `gdstudio`，验证是否可以 fallback 到 Meting：
+强制关闭 `gdstudio`，验证是否可以 fallback 到 UNM / Meting：
 
 ```powershell
 npm run probe:backend -- --disable-gdstudio "周杰伦 晴天"
@@ -97,13 +96,12 @@ npm run installer
 ## 工程结构
 
 ```text
-xcloud-music-rebuild/
+musiq/
 ├─ package.json
 ├─ package-lock.json
 ├─ README.md
-├─ start-xcloud-music.cmd
+├─ start-musiq.cmd
 ├─ scripts/
-│  ├─ electron-node.js
 │  ├─ probe-backend.js
 │  ├─ probe-music-sources.js
 │  └─ run-server.js
@@ -145,6 +143,7 @@ src/server/source-providers/
 当前包含：
 
 - `gdstudio`：第三方聚合音乐 API。
+- `unm`：基于 `@unblockneteasemusic/server` 的多音源 URL fallback。
 - `meting`：基于 `@meting/core` 的本地多平台解析 Provider。
 - `dispatcher`：按配置进行 fallback 或 race 调度。
 
@@ -154,6 +153,7 @@ src/server/source-providers/
 
 ```text
 X-Music-Source: gdstudio
+X-Music-Source: unm
 X-Music-Source: meting
 ```
 
@@ -162,7 +162,7 @@ X-Music-Source: meting
 Electron 桌面端运行时，用户数据保存在：
 
 ```text
-%APPDATA%/XCloud音乐/server-data/
+%APPDATA%/musiQ/server-data/
 ```
 
 单独运行后端时，默认使用项目内的：
@@ -178,7 +178,7 @@ data/
 | 命令 | 说明 |
 |---|---|
 | `npm start` | 启动 Electron 桌面应用 |
-| `npm run server` | 使用 Electron Node 模式启动本地后端 |
+| `npm run server` | 使用普通 Node 启动本地后端 |
 | `npm run probe:sources` | 验证音源 Provider 层 |
 | `npm run probe:backend` | 验证真实 Express 后端 `/api.php` |
 | `npm run dist` | 构建 unpacked Windows 应用目录 |
@@ -187,6 +187,6 @@ data/
 ## 注意事项
 
 - 音乐搜索、播放链接、歌词和封面仍依赖第三方音乐接口或公开平台接口，可用性会受上游影响。
-- `better-sqlite3` 是原生模块。切换 Electron 版本后，需要重新执行 `npm install` 或 `npx electron-builder install-app-deps`。
+- 数据库层使用 `sql.js`，避免 Node/Electron ABI 不一致导致的原生模块加载失败。
 - 当前邮件验证码没有接入 SMTP，会写入本地日志用于开发验证。
 - 生产发布前建议替换 token secret，并补充自动化测试。

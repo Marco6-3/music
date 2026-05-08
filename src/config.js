@@ -1,11 +1,11 @@
 'use strict';
 
 module.exports = {
-  appId: 'com.xcloud.music',
-  appName: 'XCloud音乐',
+  appId: 'com.musiq.music',
+  appName: 'musiQ',
   useLocalBackend: true,
   localBackendPort: 41731,
-  remoteUrl: 'https://music.xcloudv.top/?from=xcloudapp',
+  remoteUrl: 'https://music.xcloudv.top/?from=musiqapp',
   versionApiUrl: 'https://music.xcloudv.top/php/check_version.php',
   versionPollIntervalMs: 30_000,
   requestTimeoutMs: 10_000,
@@ -32,6 +32,11 @@ module.exports = {
       enabled: true,
       defaultPlatform: 'netease',
       supportedPlatforms: ['netease', 'tencent', 'kugou', 'kuwo', 'baidu']
+    },
+    unmExternal: {
+      enabled: false,
+      baseUrl: 'http://127.0.0.1:8080',
+      timeout: 10000
     }
   }
 };

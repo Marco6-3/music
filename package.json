@@ -1,7 +1,7 @@
 {
-  "name": "xcloud-music-rebuild",
+  "name": "musiq",
   "version": "1.0.0",
-  "description": "XCloud音乐桌面客户端重构版",
+  "description": "musiQ 音乐桌面客户端重构版",
   "main": "src/main.js",
   "private": true,
   "author": "",
@@ -18,8 +18,8 @@
     "installer": "electron-builder"
   },
   "build": {
-    "appId": "com.xcloud.music",
-    "productName": "XCloud音乐",
+    "appId": "com.musiq.music",
+    "productName": "musiQ",
     "asar": true,
     "files": [
       "src/**/*",
@@ -54,7 +54,7 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "XCloud音乐"
+      "shortcutName": "musiQ"
     }
   },
   "dependencies": {

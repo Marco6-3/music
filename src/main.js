@@ -45,8 +45,10 @@ ipcMain.on('window-control', (_event, action) => {
       mainWindow.minimize();
       break;
     case 'maximize':
-      if (mainWindow.isMaximized()) {
-        mainWindow.unmaximize();
+      if (mainWindow.isFullScreen()) {
+        mainWindow.setFullScreen(false);
+      } else if (mainWindow.isMaximized()) {
+        mainWindow.restore();
       } else {
         mainWindow.maximize();
       }
@@ -102,13 +104,14 @@ function createMainWindow() {
     minWidth: windowConfig.minWidth,
     minHeight: windowConfig.minHeight,
     frame: false,
-    transparent: true,
-    backgroundColor: '#00ffffff',
+    transparent: false,
+    backgroundColor: '#06100d',
     show: false,
     title: appName,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: false,
       preload: path.join(__dirname, 'preload.js')
     }
   });
@@ -143,7 +146,7 @@ function createMainWindow() {
 function loadRemoteApp() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
-  const appUrl = localBackend ? `${localBackend.url}/?from=xcloudapp` : remoteUrl;
+  const appUrl = localBackend ? `${localBackend.url}/?from=musiqapp` : remoteUrl;
 
   mainWindow.webContents.session.clearCache().finally(() => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -165,11 +168,13 @@ function attachWindowStateEvents(win) {
   win.on('maximize', () => sendMaximizedState(win));
   win.on('unmaximize', () => sendMaximizedState(win));
   win.on('restore', () => sendMaximizedState(win));
+  win.on('enter-full-screen', () => sendMaximizedState(win));
+  win.on('leave-full-screen', () => sendMaximizedState(win));
 }
 
 function sendMaximizedState(win) {
   if (!win || win.isDestroyed()) return;
-  win.webContents.send('window-maximized', win.isMaximized());
+  win.webContents.send('window-maximized', win.isMaximized() || win.isFullScreen());
 }
 
 function attachNavigationGuards(win) {

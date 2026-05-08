@@ -56,13 +56,13 @@ src/server/database.js   SQLite 初始化、用户/收藏/歌单数据访问、t
 Electron 中运行时：
 
 ```text
-%APPDATA%/XCloud音乐/server-data/xcloud_music.db
+%APPDATA%/musiQ/server-data/musiq.db
 ```
 
 单独运行 `npm run server` 时：
 
 ```text
-data/xcloud_music.db
+data/musiq.db
 ```
 
 ## 打包说明

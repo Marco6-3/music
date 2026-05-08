@@ -205,7 +205,20 @@ class UnmProvider extends BaseProvider {
     }
 
     if (types === 'search') {
-      return null;
+      const keyword = params.name || params.keyword;
+      if (!keyword) return null;
+      try {
+        const results = await this.search(params.source, keyword, Number(params.count) || 30);
+        if (!results.length) return null;
+        return {
+          ok: true,
+          data: JSON.stringify(results),
+          contentType: 'application/json',
+          providerName: this.name
+        };
+      } catch {
+        return null;
+      }
     }
 
     // lyric and pic: UNM doesn't support these

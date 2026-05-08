@@ -7,6 +7,12 @@
     const root = document.documentElement;
     const fallbackCover = 'public/gw.png';
     const storage = {
+        token: 'musiq_token',
+        userId: 'musiq_user_id',
+        volume: 'musiq_volume',
+        queue: 'musiq_queue'
+    };
+    const legacyStorage = {
         token: 'xcloud_token',
         userId: 'xcloud_user_id',
         volume: 'xcloud_volume',
@@ -16,8 +22,8 @@
     const state = {
         view: 'home',
         currentUser: null,
-        token: localStorage.getItem(storage.token) || '',
-        queue: readJson(storage.queue, []),
+        token: readLocalValue(storage.token, legacyStorage.token) || '',
+        queue: readJson(storage.queue, [], legacyStorage.queue),
         currentIndex: -1,
         currentSong: null,
         searchResults: [],
@@ -100,7 +106,7 @@
     init();
 
     function init() {
-        audio.volume = Number(localStorage.getItem(storage.volume) || 70) / 100;
+        audio.volume = Number(readLocalValue(storage.volume, legacyStorage.volume) || 70) / 100;
         els.volume.value = String(Math.round(audio.volume * 100));
         bindEvents();
         verifySession();
@@ -223,7 +229,7 @@
     }
 
     async function verifySession() {
-        const userId = localStorage.getItem(storage.userId);
+        const userId = readLocalValue(storage.userId, legacyStorage.userId);
         if (!state.token && !userId) {
             updateUserUI();
             return;
@@ -260,6 +266,8 @@
         state.playlists = [];
         localStorage.removeItem(storage.token);
         localStorage.removeItem(storage.userId);
+        localStorage.removeItem(legacyStorage.token);
+        localStorage.removeItem(legacyStorage.userId);
         updateUserUI();
     }
 
@@ -268,7 +276,7 @@
         els.loginOpen.hidden = loggedIn;
         els.userChip.hidden = !loggedIn;
         if (!loggedIn) return;
-        els.userName.textContent = state.currentUser.username || 'XCloud用户';
+        els.userName.textContent = state.currentUser.username || 'musiQ用户';
         els.userAvatar.src = state.currentUser.avatar || 'public/avatars/default1.png';
     }
 
@@ -633,7 +641,10 @@
                 types: 'url',
                 source: state.currentSong.source || 'netease',
                 id: state.currentSong.url_id || state.currentSong.id,
-                br: retryQuality
+                br: retryQuality,
+                name: state.currentSong.name || '',
+                artist: formatArtists(state.currentSong.artist),
+                album: state.currentSong.album || ''
             });
             const url = data.url || data.data?.url;
             if (!url) return;
@@ -681,7 +692,10 @@
             types: 'url',
             source: song.source || 'netease',
             id: song.url_id || song.id,
-            br: quality
+            br: quality,
+            name: song.name || '',
+            artist: formatArtists(song.artist),
+            album: song.album || ''
         });
     }
 
@@ -1294,9 +1308,17 @@
         localStorage.setItem(storage.queue, JSON.stringify(state.queue.slice(0, 80)));
     }
 
-    function readJson(key, fallback) {
+    function readLocalValue(key, legacyKey) {
+        const value = localStorage.getItem(key);
+        if (value !== null) return value;
+        const legacyValue = legacyKey ? localStorage.getItem(legacyKey) : null;
+        if (legacyValue !== null) localStorage.setItem(key, legacyValue);
+        return legacyValue;
+    }
+
+    function readJson(key, fallback, legacyKey) {
         try {
-            const value = JSON.parse(localStorage.getItem(key) || '');
+            const value = JSON.parse(readLocalValue(key, legacyKey) || '');
             return value ?? fallback;
         } catch {
             return fallback;

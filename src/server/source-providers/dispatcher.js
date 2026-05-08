@@ -22,7 +22,7 @@ class Dispatcher {
           return attachProviderName(method, result, provider.name);
         }
       } catch (error) {
-        console.warn(`[Dispatcher] ${method} failed on ${provider.name}:`, error.message);
+        console.warn(`[Dispatcher] ${method} failed on ${provider.name}:`, errorMessage(error));
       }
     }
     return emptyResult(method);
@@ -38,7 +38,7 @@ class Dispatcher {
           return { provider: provider.name, result };
         })
         .catch((error) => {
-          console.warn(`[Dispatcher] ${method} failed on ${provider.name}:`, error.message);
+          console.warn(`[Dispatcher] ${method} failed on ${provider.name}:`, errorMessage(error));
           throw error;
         })
     );
@@ -125,4 +125,15 @@ function hasProviderResult(method, result, args = []) {
   return true;
 }
 
-module.exports = { Dispatcher, hasProviderResult };
+function errorMessage(error) {
+  if (error instanceof Error) return error.message;
+  if (error == null) return 'unknown error';
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+module.exports = { Dispatcher, hasProviderResult, errorMessage };

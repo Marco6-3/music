@@ -2,7 +2,7 @@
 require_once __DIR__ . '/config.php';
 
 jsonResponse([
-    'name' => 'XCloud Music API',
+    'name' => 'musiQ API',
     'version' => '1.7.2',
     'status' => 'running',
     'time' => date('Y-m-d H:i:s'),

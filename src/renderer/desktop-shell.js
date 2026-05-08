@@ -1,10 +1,10 @@
 'use strict';
 
 const CONTAINER_CLASS = 'electron-app-container';
-const STYLE_ID = 'xcloud-desktop-shell-style';
+const STYLE_ID = 'musiq-desktop-shell-style';
 const CONTROLS_ID = 'window-controls';
 const DRAG_REGION_ID = 'titlebar-drag-region';
-const ERROR_ID = 'xcloud-load-error';
+const ERROR_ID = 'musiq-load-error';
 
 function installDesktopShell(handlers) {
   ensureTheme();
@@ -44,7 +44,7 @@ function injectStyle() {
 
     html,
     body {
-      background: transparent !important;
+      background: var(--app-bg-color) !important;
       margin: 0 !important;
       padding: 0 !important;
       width: 100%;
@@ -234,9 +234,9 @@ function bindAppWindowControls(handlers) {
 }
 
 function observeThemeChanges() {
-  if (window.__xcloudThemeObserver) return;
+  if (window.__musiqThemeObserver) return;
 
-  window.__xcloudThemeObserver = new MutationObserver((mutations) => {
+  window.__musiqThemeObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
         syncThemeVariables();
@@ -244,7 +244,7 @@ function observeThemeChanges() {
     }
   });
 
-  window.__xcloudThemeObserver.observe(document.documentElement, {
+  window.__musiqThemeObserver.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-theme']
   });
@@ -277,7 +277,7 @@ function showLoadError(message) {
 
   errorBox.innerHTML = `
     <h1>页面加载失败</h1>
-    <p>${escapeHtml(message || '无法连接到 XCloud 音乐服务，请检查网络后重试。')}</p>
+    <p>${escapeHtml(message || '无法连接到 musiQ 服务，请检查网络后重试。')}</p>
     <button id="retry-load-button" type="button">重新加载</button>
   `;
 
