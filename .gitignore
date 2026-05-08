@@ -7,6 +7,7 @@ webroot/data/
 webroot/uploads/
 php-backend-source/data/
 php-backend-source/uploads/
+.claude/
 ALL_SOURCE.md
 *.log
 npm-debug.log*
