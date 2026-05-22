@@ -2,6 +2,7 @@
 
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const https = require('node:https');
+const fs = require('node:fs');
 const path = require('node:path');
 const { startLocalBackend } = require('./server');
 const {
@@ -22,6 +23,7 @@ let splashWindow = null;
 let lastWebVersion = null;
 let versionTimer = null;
 let localBackend = null;
+const authStateFileName = 'auth-state.json';
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -63,6 +65,16 @@ ipcMain.on('window-control', (_event, action) => {
 
 ipcMain.on('window-reload', () => {
   reloadMainWindow();
+});
+
+ipcMain.handle('auth-state:get', () => readAuthState());
+ipcMain.handle('auth-state:set', (_event, authState) => {
+  writeAuthState(authState);
+  return true;
+});
+ipcMain.handle('auth-state:clear', () => {
+  clearAuthState();
+  return true;
 });
 
 async function createWindows() {
@@ -162,6 +174,43 @@ function reloadMainWindow() {
       mainWindow.reload();
     }
   });
+}
+
+function authStatePath() {
+  return path.join(app.getPath('userData'), authStateFileName);
+}
+
+function readAuthState() {
+  try {
+    const file = authStatePath();
+    if (!fs.existsSync(file)) return {};
+    const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return {
+      token: typeof value.token === 'string' ? value.token : '',
+      userId: value.userId ? String(value.userId) : ''
+    };
+  } catch {
+    return {};
+  }
+}
+
+function writeAuthState(authState = {}) {
+  const payload = {
+    token: typeof authState.token === 'string' ? authState.token : '',
+    userId: authState.userId ? String(authState.userId) : '',
+    updatedAt: new Date().toISOString()
+  };
+  fs.mkdirSync(app.getPath('userData'), { recursive: true });
+  fs.writeFileSync(authStatePath(), JSON.stringify(payload, null, 2), 'utf8');
+}
+
+function clearAuthState() {
+  try {
+    const file = authStatePath();
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+  } catch {
+    // 清理失败不影响退出登录流程。
+  }
 }
 
 function attachWindowStateEvents(win) {

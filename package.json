@@ -12,6 +12,7 @@
     "server": "node src/server/index.js",
     "probe:sources": "node scripts/probe-music-sources.js",
     "probe:backend": "node scripts/probe-backend.js",
+    "qa:electron": "node scripts/qa-electron.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --dir",
     "build": "electron-builder --dir",

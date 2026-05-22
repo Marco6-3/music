@@ -11,5 +11,6 @@ php-backend-source/uploads/
 ALL_SOURCE.md
 *.log
 npm-debug.log*
+token-secret
 .DS_Store
 Thumbs.db

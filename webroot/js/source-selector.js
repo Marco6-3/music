@@ -46,26 +46,30 @@
         position: relative;
         display: inline-flex;
         align-items: center;
-        margin-left: 8px;
+        min-width: 112px;
       }
       .source-selector-btn {
         display: flex;
         align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        border: 1px solid var(--border, #e0e0e0);
-        border-radius: 6px;
-        background: var(--surface, #fff);
-        color: var(--text, #333);
-        font-size: 13px;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        height: 42px;
+        padding: 0 13px;
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.13));
+        border-radius: 15px;
+        background: rgba(255, 255, 255, 0.07);
+        color: var(--text, #f3fff9);
+        font-size: 15px;
         cursor: pointer;
-        transition: all 0.15s;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
         white-space: nowrap;
         user-select: none;
       }
       .source-selector-btn:hover {
-        border-color: var(--primary, #ec4141);
-        color: var(--primary, #ec4141);
+        border-color: rgba(var(--accent-rgb, 30, 215, 96), 0.58);
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text, #f3fff9);
       }
       .source-selector-btn .arrow {
         font-size: 10px;
@@ -75,22 +79,24 @@
         transform: rotate(180deg);
       }
       .source-dropdown {
-        position: absolute;
-        top: calc(100% + 4px);
+        position: fixed;
+        top: 0;
         left: 0;
         min-width: 120px;
-        background: var(--surface, #fff);
-        border: 1px solid var(--border, #e0e0e0);
+        max-height: min(320px, calc(100vh - 24px));
+        background: rgba(15, 28, 25, 0.96);
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.13));
         border-radius: 8px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-        z-index: 100;
-        overflow: hidden;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.32);
+        z-index: 99999;
+        overflow: auto;
         opacity: 0;
         transform: translateY(-4px);
         pointer-events: none;
-        transition: all 0.15s;
+        transition: opacity 0.15s, transform 0.15s;
       }
-      .source-selector.open .source-dropdown {
+      .source-selector.open .source-dropdown,
+      .source-dropdown.open {
         opacity: 1;
         transform: translateY(0);
         pointer-events: auto;
@@ -100,16 +106,16 @@
         align-items: center;
         padding: 8px 14px;
         font-size: 13px;
-        color: var(--text, #333);
+        color: var(--text, #f3fff9);
         cursor: pointer;
         transition: background 0.1s;
       }
       .source-option:hover,
       .source-option.active {
-        background: var(--hover, #f5f5f5);
+        background: rgba(255, 255, 255, 0.1);
       }
       .source-option.active {
-        color: var(--primary, #ec4141);
+        color: var(--accent, #1ed760);
         font-weight: 600;
       }
       .source-option .check {
@@ -171,13 +177,64 @@
     }
 
     const btn = container.querySelector('.source-selector-btn');
+    const dropdown = container.querySelector('.source-dropdown');
+
+    function positionDropdown() {
+      if (dropdown.parentElement !== document.body) {
+        document.body.appendChild(dropdown);
+      }
+
+      const rect = btn.getBoundingClientRect();
+      const dropdownWidth = Math.max(120, Math.ceil(rect.width));
+      const viewportPadding = 12;
+      const left = Math.min(
+        Math.max(viewportPadding, rect.left),
+        window.innerWidth - dropdownWidth - viewportPadding
+      );
+
+      dropdown.style.width = `${dropdownWidth}px`;
+      dropdown.style.left = `${left}px`;
+      dropdown.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - viewportPadding)}px`;
+    }
+
+    function closeDropdown() {
+      container.classList.remove('open');
+      dropdown.classList.remove('open');
+      if (dropdown.parentElement !== container) {
+        container.appendChild(dropdown);
+      }
+    }
+
+    function toggleDropdown() {
+      if (container.classList.contains('open')) {
+        closeDropdown();
+        return;
+      }
+
+      positionDropdown();
+      container.classList.add('open');
+      dropdown.classList.add('open');
+    }
+
     btn.addEventListener('click', (event) => {
       event.stopPropagation();
-      container.classList.toggle('open');
+      toggleDropdown();
     });
 
     document.addEventListener('click', () => {
-      container.classList.remove('open');
+      closeDropdown();
+    });
+
+    window.addEventListener('resize', () => {
+      if (container.classList.contains('open')) positionDropdown();
+    });
+
+    window.addEventListener('scroll', () => {
+      if (container.classList.contains('open')) positionDropdown();
+    }, true);
+
+    window.addEventListener('source-selector:close', () => {
+      closeDropdown();
     });
 
     container.querySelectorAll('.source-option').forEach((option) => {
@@ -186,9 +243,9 @@
         const label = PLATFORMS.find((platform) => platform.value === source)?.label || source;
 
         container.querySelector('.label').textContent = label;
-        container.querySelectorAll('.source-option').forEach((item) => item.classList.remove('active'));
+        dropdown.querySelectorAll('.source-option').forEach((item) => item.classList.remove('active'));
         option.classList.add('active');
-        container.classList.remove('open');
+        closeDropdown();
         saveSource(source);
 
         if (existingSelect) {

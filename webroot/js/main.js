@@ -5,7 +5,7 @@
     const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
     const audio = $('#audio');
     const root = document.documentElement;
-    const fallbackCover = 'public/gw.png';
+    const fallbackCover = 'public/musiq-default.png';
     const storage = {
         token: 'musiq_token',
         userId: 'musiq_user_id',
@@ -30,6 +30,7 @@
         homeSongs: [],
         favorites: [],
         playlists: [],
+        activePlaylistName: null,
         lyrics: [],
         activeLyricIndex: -1,
         lastLyricScrollAt: 0,
@@ -40,6 +41,7 @@
         qualityRetryLevel: 0,
         currentQuality: '999'
     };
+    const coverCache = new Map();
 
     const toplists = [
         ['soaring', '飙升榜', '正在被更多人听见'],
@@ -78,6 +80,7 @@
         mode: $('#mode-btn'),
         favorite: $('#favorite-btn'),
         addPlaylist: $('#add-playlist-btn'),
+        queueOpen: $('#queue-open-btn'),
         expand: $('#expand-btn'),
         progress: $('#progress-slider'),
         currentTime: $('#current-time'),
@@ -117,7 +120,10 @@
 
     function bindEvents() {
         $$('.nav-item').forEach((button) => {
-            button.addEventListener('click', () => renderView(button.dataset.view));
+            button.addEventListener('click', () => {
+                if (button.dataset.view === 'playlists') state.activePlaylistName = null;
+                renderView(button.dataset.view);
+            });
         });
 
         els.searchForm.addEventListener('submit', (event) => {
@@ -134,6 +140,7 @@
         els.mode.addEventListener('click', cyclePlayMode);
         els.favorite.addEventListener('click', toggleFavorite);
         els.addPlaylist.addEventListener('click', () => openPlaylistDialog(state.currentSong));
+        els.queueOpen.addEventListener('click', () => openModal('queue-modal'));
         els.expand.addEventListener('click', () => openModal('player-modal'));
         els.clearQueue.addEventListener('click', clearQueue);
         els.loginOpen.addEventListener('click', () => openModal('auth-modal'));
@@ -141,6 +148,7 @@
         els.sourceStatus.addEventListener('click', showSourceStatus);
         bindWindowControls();
         bindWheelForwarding();
+        bindResizePerformanceMode();
 
         els.progress.addEventListener('input', () => {
             if (!Number.isFinite(audio.duration)) return;
@@ -228,8 +236,22 @@
         }, { passive: true });
     }
 
+    function bindResizePerformanceMode() {
+        let resizeTimer = 0;
+
+        window.addEventListener('resize', () => {
+            document.body.classList.add('is-window-resizing');
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                document.body.classList.remove('is-window-resizing');
+            }, 180);
+        }, { passive: true });
+    }
+
     async function verifySession() {
-        const userId = readLocalValue(storage.userId, legacyStorage.userId);
+        const persistedAuth = await readPersistedAuthState();
+        if (!state.token && persistedAuth.token) state.token = persistedAuth.token;
+        const userId = readLocalValue(storage.userId, legacyStorage.userId) || persistedAuth.userId || '';
         if (!state.token && !userId) {
             updateUserUI();
             return;
@@ -254,6 +276,7 @@
         state.playlists = playlistsFromUser(user);
         localStorage.setItem(storage.userId, String(user.id));
         if (state.token) localStorage.setItem(storage.token, state.token);
+        persistAuthState({ userId: String(user.id), token: state.token });
         updateUserUI();
         renderShell();
         renderView(state.view);
@@ -268,6 +291,7 @@
         localStorage.removeItem(storage.userId);
         localStorage.removeItem(legacyStorage.token);
         localStorage.removeItem(legacyStorage.userId);
+        clearPersistedAuthState();
         updateUserUI();
     }
 
@@ -287,6 +311,7 @@
 
     function renderView(view) {
         state.view = view;
+        if (view !== 'playlists') state.activePlaylistName = null;
         $$('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.view === view));
         const titles = {
             home: '为今晚找一首歌',
@@ -299,7 +324,11 @@
         if (view === 'home') renderHome();
         if (view === 'search') renderSearch();
         if (view === 'favorites') renderFavorites();
-        if (view === 'playlists') renderPlaylists();
+        if (view === 'playlists') {
+            const activePlaylist = state.playlists.find((item) => item.name === state.activePlaylistName);
+            if (activePlaylist) openPlaylistView(activePlaylist.name);
+            else renderPlaylists();
+        }
     }
 
     function renderHome() {
@@ -343,6 +372,7 @@
             button.addEventListener('click', () => loadToplist(button.dataset.toplist));
         });
         bindSongActions(els.viewRoot);
+        hydrateSongCardCovers(els.viewRoot);
     }
 
     function renderSearch() {
@@ -356,6 +386,7 @@
             ${state.isLoading ? loadingState('正在搜索音乐') : renderSongList(state.searchResults, 'search')}
         `;
         bindSongActions(els.viewRoot);
+        hydrateSongCardCovers(els.viewRoot);
     }
 
     function renderFavorites() {
@@ -373,9 +404,11 @@
             ${renderSongList(state.favorites, 'favorites')}
         `;
         bindSongActions(els.viewRoot);
+        hydrateSongCardCovers(els.viewRoot);
     }
 
     function renderPlaylists() {
+        state.activePlaylistName = null;
         if (!state.currentUser) {
             els.viewRoot.innerHTML = emptyState('登录后可以管理歌单', '创建、重命名、删除和添加歌曲都会走现有接口。');
             return;
@@ -417,6 +450,7 @@
     async function openPlaylistView(name) {
         const playlist = state.playlists.find((item) => item.name === name);
         if (!playlist) return;
+        state.activePlaylistName = name;
         const songs = normalizeSongList(playlist.songs);
         els.viewRoot.innerHTML = `
             <div class="section-head">
@@ -429,9 +463,13 @@
             </div>
             ${renderSongList(songs, 'playlist')}
         `;
-        $('#back-playlists').addEventListener('click', renderPlaylists);
+        $('#back-playlists').addEventListener('click', () => {
+            state.activePlaylistName = null;
+            renderPlaylists();
+        });
         $('#delete-playlist-btn').addEventListener('click', () => deletePlaylist(name));
         bindSongActions(els.viewRoot);
+        hydrateSongCardCovers(els.viewRoot);
     }
 
     function renderSongList(songs, context) {
@@ -463,15 +501,56 @@
         `;
     }
 
+    function hydrateSongCardCovers(scope) {
+        $$('.song-card', scope).forEach((card) => {
+            const img = $('.song-cover', card);
+            if (!img || img.dataset.coverHydrated === '1') return;
+
+            const song = decodeSong(card.dataset.song);
+            if (!song?.pic_id || song.cover_url || /^https?:\/\//.test(song.pic_id) || song.pic_id.startsWith('uploads/')) {
+                img.dataset.coverHydrated = '1';
+                return;
+            }
+
+            img.dataset.coverHydrated = '1';
+            resolveCachedCoverUrl(song, 120).then((coverUrl) => {
+                if (!coverUrl || coverUrl === fallbackCover || !card.isConnected) return;
+                const latestSong = decodeSong(card.dataset.song);
+                if (!sameSong(latestSong, song)) return;
+
+                latestSong.cover_url = coverUrl;
+                card.dataset.song = encodeSong(latestSong);
+                swapImageWhenLoaded(img, coverUrl);
+            });
+        });
+    }
+
+    function swapImageWhenLoaded(img, src) {
+        const probe = new Image();
+        probe.onload = () => {
+            if (img.isConnected) img.src = src;
+        };
+        probe.src = src;
+    }
+
+    async function resolveCachedCoverUrl(song, size = 300) {
+        const key = `${song.source || 'netease'}:${song.pic_id}:${size}`;
+        if (coverCache.has(key)) return coverCache.get(key);
+
+        const coverUrl = await resolveCoverUrl(song, size);
+        coverCache.set(key, coverUrl);
+        return coverUrl;
+    }
+
     function bindSongActions(scope) {
         $$('.song-card', scope).forEach((card) => {
             const song = decodeSong(card.dataset.song);
-            card.addEventListener('dblclick', () => playSong(song, { list: songsForContext(card.dataset.context) }));
+            card.addEventListener('dblclick', () => playSong(song, { list: songsForCard(card) }));
             $$('[data-action]', card).forEach((button) => {
                 button.addEventListener('click', (event) => {
                     event.stopPropagation();
                     const action = button.dataset.action;
-                    if (action === 'play') playSong(song, { list: songsForContext(card.dataset.context) });
+                    if (action === 'play') playSong(song, { list: songsForCard(card) });
                     if (action === 'queue') enqueue(song);
                     if (action === 'favorite') toggleFavorite(song);
                     if (action === 'playlist') openPlaylistDialog(song);
@@ -480,11 +559,25 @@
         });
     }
 
+    function songsForCard(card) {
+        const list = card.closest('.song-list');
+        const songs = list ? normalizeSongList($$('.song-card', list).map((item) => decodeSong(item.dataset.song))) : [];
+        return songs.length ? songs : songsForContext(card.dataset.context);
+    }
+
     function songsForContext(context) {
         if (context === 'search') return state.searchResults;
         if (context === 'favorites') return state.favorites;
         if (context === 'home') return state.homeSongs;
+        if (context === 'playlist') return currentPlaylistSongs();
         return state.queue.length ? state.queue : [state.currentSong].filter(Boolean);
+    }
+
+    function currentPlaylistSongs() {
+        if (state.view !== 'playlists') return [];
+        const heading = $('.section-head h2', els.viewRoot);
+        const playlist = state.playlists.find((item) => item.name === heading?.textContent);
+        return playlist ? playlist.songs : [];
     }
 
     async function searchSongs(keyword) {
@@ -545,7 +638,7 @@
         renderView(state.view);
 
         try {
-            const [coverUrl, lyricData] = await Promise.all([
+            let [coverUrl, lyricData] = await Promise.all([
                 resolveCoverUrl(state.currentSong),
                 apiGet('api.php', {
                     types: 'lyric',
@@ -553,7 +646,36 @@
                     id: state.currentSong.lyric_id || state.currentSong.id
                 }).catch(() => ({ lyric: '' }))
             ]);
-            const urlData = await fetchPreferredAudioUrl(state.currentSong, state.currentQuality);
+            let urlData;
+            try {
+                urlData = await fetchPreferredAudioUrl(state.currentSong, state.currentQuality);
+            } catch (error) {
+                const fallbackSong = await resolvePlaybackFallbackSong(state.currentSong);
+                if (!fallbackSong) throw error;
+
+                showToast(`当前音乐源不可用，已切换到酷我：${fallbackSong.name}`);
+                const originalSong = state.currentSong;
+                state.currentSong = {
+                    ...fallbackSong,
+                    original_title: originalSong.original_title || originalSong.name,
+                    original_artist: originalSong.original_artist || formatArtists(originalSong.artist)
+                };
+                if (state.currentIndex >= 0) state.queue[state.currentIndex] = state.currentSong;
+                saveQueue();
+                renderShell();
+
+                const [fallbackCoverUrl, fallbackLyricData] = await Promise.all([
+                    resolveCoverUrl(state.currentSong).catch(() => coverUrl),
+                    apiGet('api.php', {
+                        types: 'lyric',
+                        source: state.currentSong.source || 'kuwo',
+                        id: state.currentSong.lyric_id || state.currentSong.id
+                    }).catch(() => lyricData)
+                ]);
+                coverUrl = fallbackCoverUrl;
+                lyricData = fallbackLyricData;
+                urlData = await fetchPreferredAudioUrl(state.currentSong, '320');
+            }
             state.currentSong.cover_url = coverUrl;
             const queueSong = state.queue[state.currentIndex];
             if (queueSong && sameSong(queueSong, state.currentSong)) queueSong.cover_url = coverUrl;
@@ -699,6 +821,54 @@
         });
     }
 
+    async function resolvePlaybackFallbackSong(song) {
+        if (!song || (song.source || 'netease') === 'kuwo') return null;
+        const keyword = [song.original_title || song.name, firstArtist(song)].filter(Boolean).join(' ');
+        if (!keyword.trim()) return null;
+
+        try {
+            const data = await apiGet('api.php', {
+                types: 'search',
+                source: 'kuwo',
+                name: keyword,
+                count: 8
+            });
+            const candidates = normalizeSongList(Array.isArray(data) ? data : data.data || []);
+            return chooseBestFallbackSong(candidates, song);
+        } catch {
+            return null;
+        }
+    }
+
+    function chooseBestFallbackSong(candidates, originalSong) {
+        if (!Array.isArray(candidates) || !candidates.length) return null;
+        const targetTitle = normalizeSearchText(originalSong.original_title || originalSong.name);
+        const targetArtists = artistList(originalSong.artist).map(normalizeSearchText).filter(Boolean);
+
+        return candidates.find((candidate) => {
+            const candidateTitle = normalizeSearchText(candidate.name);
+            const candidateArtists = artistList(candidate.artist).map(normalizeSearchText);
+            const titleMatches = candidateTitle === targetTitle || candidateTitle.includes(targetTitle) || targetTitle.includes(candidateTitle);
+            const artistMatches = !targetArtists.length || targetArtists.some((artist) =>
+                candidateArtists.some((candidateArtist) => candidateArtist.includes(artist) || artist.includes(candidateArtist))
+            );
+            return titleMatches && artistMatches;
+        }) || candidates[0];
+    }
+
+    function firstArtist(song) {
+        return artistList(song.artist)[0] || '';
+    }
+
+    function artistList(artist) {
+        if (Array.isArray(artist)) return artist.map((item) => String(item || '').trim()).filter(Boolean);
+        return String(artist || '').split(/[\/,，、&＆]+/).map((item) => item.trim()).filter(Boolean);
+    }
+
+    function normalizeSearchText(value) {
+        return String(value || '').toLowerCase().replace(/\s+/g, '').replace(/[·・,，/／&＆()（）\[\]【】《》<>「」『』-]/g, '');
+    }
+
     function cyclePlayMode() {
         const order = ['order', 'loop', 'single', 'random'];
         state.playMode = order[(order.indexOf(state.playMode) + 1) % order.length];
@@ -727,11 +897,12 @@
     function renderQueue() {
         els.queueList.innerHTML = state.queue.map((song, index) => `
             <div class="queue-song ${state.currentSong && sameSong(state.currentSong, song) ? 'active' : ''}" data-index="${index}">
+                <span class="queue-song-number">${index + 1}</span>
                 <div>
                     <div class="song-title">${escapeHtml(song.name || '未知歌曲')}</div>
                     <div class="song-subtitle">${escapeHtml(formatArtists(song.artist))}</div>
                 </div>
-                <span class="time">${index + 1}</span>
+                <button class="queue-remove-btn" data-action="remove-queue" title="从播放队列移除">×</button>
             </div>
         `).join('') || `<div class="empty-state">播放队列为空</div>`;
         $$('.queue-song', els.queueList).forEach((item) => {
@@ -740,6 +911,41 @@
                 playSong(state.queue[index], { list: state.queue });
             });
         });
+        $$('[data-action="remove-queue"]', els.queueList).forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const item = button.closest('.queue-song');
+                removeQueueSong(Number(item?.dataset.index));
+            });
+        });
+    }
+
+    function removeQueueSong(index) {
+        if (!Number.isInteger(index) || index < 0 || index >= state.queue.length) return;
+        const removedCurrent = state.currentIndex === index;
+        state.queue.splice(index, 1);
+
+        if (!state.queue.length) {
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
+            state.currentSong = null;
+            state.currentIndex = -1;
+            saveQueue();
+            renderShell();
+            renderView(state.view);
+            return;
+        }
+
+        if (removedCurrent) {
+            const nextIndex = Math.min(index, state.queue.length - 1);
+            playSong(state.queue[nextIndex], { list: state.queue });
+            return;
+        }
+
+        if (index < state.currentIndex) state.currentIndex -= 1;
+        saveQueue();
+        renderQueue();
     }
 
     function renderPlayer() {
@@ -1246,14 +1452,21 @@
     }
 
     function encodeSong(song) {
-        return escapeAttr(JSON.stringify(normalizeSong(song)));
+        return encodeURIComponent(JSON.stringify(normalizeSong(song)));
     }
 
     function decodeSong(value) {
+        if (!value) return null;
         try {
-            return normalizeSong(JSON.parse(value));
+            return normalizeSong(JSON.parse(decodeURIComponent(value)));
         } catch {
-            return null;
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.innerHTML = value;
+                return normalizeSong(JSON.parse(textarea.value));
+            } catch {
+                return null;
+            }
         }
     }
 
@@ -1283,6 +1496,7 @@
         const modal = document.getElementById(id);
         if (!modal) return;
         if (id === 'player-modal') renderLyrics();
+        if (id === 'queue-modal') renderQueue();
         modal.classList.add('open');
         modal.setAttribute('aria-hidden', 'false');
     }
@@ -1314,6 +1528,36 @@
         const legacyValue = legacyKey ? localStorage.getItem(legacyKey) : null;
         if (legacyValue !== null) localStorage.setItem(key, legacyValue);
         return legacyValue;
+    }
+
+    async function readPersistedAuthState() {
+        try {
+            if (!window.electronAPI?.getAuthState) return {};
+            const value = await window.electronAPI.getAuthState();
+            if (!value || typeof value !== 'object') return {};
+            return {
+                token: typeof value.token === 'string' ? value.token : '',
+                userId: value.userId ? String(value.userId) : ''
+            };
+        } catch {
+            return {};
+        }
+    }
+
+    function persistAuthState(authState) {
+        try {
+            if (window.electronAPI?.setAuthState) window.electronAPI.setAuthState(authState);
+        } catch {
+            // 浏览器调试环境没有 Electron 存储时继续使用 localStorage。
+        }
+    }
+
+    function clearPersistedAuthState() {
+        try {
+            if (window.electronAPI?.clearAuthState) window.electronAPI.clearAuthState();
+        } catch {
+            // 浏览器调试环境没有 Electron 存储时无需处理。
+        }
     }
 
     function readJson(key, fallback, legacyKey) {

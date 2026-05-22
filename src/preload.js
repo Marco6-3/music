@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximize: () => ipcRenderer.send('window-control', 'maximize'),
   close: () => ipcRenderer.send('window-control', 'close'),
   reload: () => ipcRenderer.send('window-reload'),
+  getAuthState: () => ipcRenderer.invoke('auth-state:get'),
+  setAuthState: (authState) => ipcRenderer.invoke('auth-state:set', authState),
+  clearAuthState: () => ipcRenderer.invoke('auth-state:clear'),
   onWindowMaximized: (callback) => {
     ipcRenderer.on('window-maximized', (_event, maximized) => callback(maximized));
   }

@@ -15,7 +15,7 @@
     --warning: #ffc857;
     --cover-glow: rgba(30, 215, 96, 0.28);
     --radius: 24px;
-    --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+    --shadow: 0 18px 52px rgba(0, 0, 0, 0.38);
     color-scheme: dark;
 }
 
@@ -93,8 +93,8 @@ body {
     width: 42vw;
     height: 42vw;
     pointer-events: none;
-    filter: blur(52px);
-    opacity: 0.34;
+    filter: blur(34px);
+    opacity: 0.28;
     transform: translateZ(0);
 }
 
@@ -124,8 +124,28 @@ body {
     background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.055));
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
-    backdrop-filter: blur(28px) saturate(135%);
-    -webkit-backdrop-filter: blur(28px) saturate(135%);
+    backdrop-filter: blur(16px) saturate(122%);
+    -webkit-backdrop-filter: blur(16px) saturate(122%);
+}
+
+body.is-window-resizing .ambient {
+    opacity: 0.2;
+    filter: none;
+}
+
+body.is-window-resizing .glass-panel,
+body.is-window-resizing .modal {
+    box-shadow: 0 14px 42px rgba(0, 0, 0, 0.34);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body.is-window-resizing *,
+body.is-window-resizing *::before,
+body.is-window-resizing *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
 }
 
 .side-rail {
@@ -350,7 +370,7 @@ select option {
 }
 
 .content-panel,
-.queue-panel {
+.now-panel {
     border-radius: var(--radius);
     min-height: 0;
     overflow: hidden;
@@ -548,11 +568,11 @@ select option {
     background: rgba(255, 255, 255, 0.055);
 }
 
-.queue-panel {
+.now-panel {
     padding: 16px;
-    display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr);
-    gap: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .now-card {
@@ -590,11 +610,16 @@ select option {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 18px;
 }
 
 .text-btn {
     padding: 4px 0;
     background: transparent;
+}
+
+.danger-text-btn {
+    color: #ff7a8a;
 }
 
 .queue-list {
@@ -604,20 +629,68 @@ select option {
     display: grid;
     align-content: start;
     gap: 8px;
+    padding-right: 4px;
 }
 
 .queue-song {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
+    grid-template-columns: 28px minmax(0, 1fr) 32px;
+    gap: 10px;
     align-items: center;
     padding: 10px;
     cursor: pointer;
 }
 
+.queue-song-number {
+    color: var(--muted);
+    text-align: center;
+    font-weight: 700;
+}
+
+.queue-remove-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 11px;
+    color: rgba(243, 255, 249, 0.62);
+    background: rgba(255, 255, 255, 0.055);
+    cursor: pointer;
+}
+
+.queue-remove-btn:hover {
+    color: #fff;
+    background: rgba(255, 122, 138, 0.22);
+}
+
 .queue-song.active {
     border-color: rgba(var(--accent-rgb), 0.45);
     background: rgba(var(--accent-rgb), 0.12);
+}
+
+.queue-drawer {
+    position: relative;
+    width: min(520px, calc(100vw - 48px));
+    max-height: min(680px, calc(100vh - 96px));
+    border-radius: 28px;
+    padding: 26px;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 18px;
+    overflow: hidden;
+}
+
+.queue-drawer .queue-head h2 {
+    margin: 2px 0 0;
+    font-size: 28px;
+}
+
+.queue-drawer .queue-list {
+    max-height: min(520px, calc(100vh - 230px));
+}
+
+.queue-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 2px;
 }
 
 .player-dock {
@@ -724,8 +797,8 @@ input[type="range"] {
     place-items: center;
     padding: 28px;
     background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .modal.open {
@@ -883,7 +956,7 @@ input[type="range"] {
     color: var(--text);
     transform: translateX(22px) scale(1.08);
     opacity: 1;
-    filter: drop-shadow(0 0 18px rgba(var(--accent-rgb), 0.22));
+    filter: drop-shadow(0 0 10px rgba(var(--accent-rgb), 0.18));
 }
 
 .lyric-line.active span {
@@ -1032,7 +1105,7 @@ input[type="range"] {
         grid-template-columns: 1fr;
     }
 
-    .queue-panel {
+    .now-panel {
         display: none;
     }
 

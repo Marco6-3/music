@@ -7,8 +7,8 @@
     <meta name="description" content="musiQ - 桌面音乐播放器">
     <meta name="theme-color" content="#07110d">
     <title>musiQ</title>
-    <link rel="icon" href="public/gw.png">
-    <link rel="stylesheet" href="css/style.css?v=2.0.0">
+    <link rel="icon" href="public/musiq-default.png">
+    <link rel="stylesheet" href="css/style.css?v=2.0.2">
 </head>
 
 <body>
@@ -22,10 +22,9 @@
     <div class="app-shell">
         <aside class="side-rail glass-panel">
             <div class="brand">
-                <img src="public/gw.png" alt="musiQ" class="brand-mark">
+                <img src="public/musiq-default.png" alt="musiQ" class="brand-mark">
                 <div>
                     <strong>musiQ</strong>
-                    <span>Desktop Player</span>
                 </div>
             </div>
             <nav class="nav-list" aria-label="主导航">
@@ -50,7 +49,6 @@
         <main class="main-stage">
             <header class="top-bar glass-panel">
                 <div>
-                    <p class="eyebrow">Local music gateway</p>
                     <h1 id="view-title">为今晚找一首歌</h1>
                 </div>
                 <form class="search-form" id="search-form">
@@ -75,20 +73,15 @@
                 <div class="content-panel glass-panel">
                     <div id="view-root"></div>
                 </div>
-                <aside class="queue-panel glass-panel">
+                <aside class="now-panel glass-panel">
                     <div class="now-card">
                         <div class="cover-wrap">
-                            <img src="public/gw.png" alt="当前封面" id="side-cover">
+                            <img src="public/musiq-default.png" alt="当前封面" id="side-cover">
                         </div>
                         <p class="eyebrow">Now Playing</p>
                         <h2 id="side-title">未选择歌曲</h2>
                         <p id="side-artist">未知艺术家</p>
                     </div>
-                    <div class="queue-head">
-                        <strong>播放队列</strong>
-                        <button class="text-btn" id="clear-queue-btn">清空</button>
-                    </div>
-                    <div class="queue-list" id="queue-list"></div>
                 </aside>
             </section>
         </main>
@@ -96,7 +89,7 @@
 
     <section class="player-dock glass-panel" aria-label="播放器">
         <div class="dock-song">
-            <img src="public/gw.png" alt="专辑封面" id="dock-cover">
+            <img src="public/musiq-default.png" alt="专辑封面" id="dock-cover">
             <div>
                 <strong id="dock-title">未选择歌曲</strong>
                 <span id="dock-artist">未知艺术家</span>
@@ -110,6 +103,7 @@
                 <button class="icon-btn" id="mode-btn" title="播放模式">顺序</button>
                 <button class="icon-btn" id="favorite-btn" title="收藏">♡</button>
                 <button class="icon-btn" id="add-playlist-btn" title="添加到歌单">＋</button>
+                <button class="icon-btn" id="queue-open-btn" title="播放队列">☰</button>
                 <button class="icon-btn" id="expand-btn" title="展开播放器">⛶</button>
             </div>
             <div class="progress-row">
@@ -124,12 +118,28 @@
         </div>
     </section>
 
+    <div class="modal" id="queue-modal" aria-hidden="true">
+        <div class="queue-drawer glass-panel">
+            <button class="close-btn" data-close-modal="queue-modal">×</button>
+            <div class="queue-head">
+                <div>
+                    <p class="eyebrow">Up Next</p>
+                    <h2>播放队列</h2>
+                </div>
+            </div>
+            <div class="queue-list" id="queue-list"></div>
+            <div class="queue-footer">
+                <button class="text-btn danger-text-btn" id="clear-queue-btn">清空队列</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="player-modal" aria-hidden="true">
         <div class="expanded-player glass-panel">
             <button class="close-btn" data-close-modal="player-modal">×</button>
             <div class="expanded-layout">
                 <div class="expanded-cover-shell">
-                    <img src="public/gw.png" alt="专辑封面" id="expanded-cover">
+                    <img src="public/musiq-default.png" alt="专辑封面" id="expanded-cover">
                 </div>
                 <div class="expanded-info">
                     <p class="eyebrow">Expanded Player</p>
@@ -188,8 +198,8 @@
 
     <div class="toast" id="toast"></div>
     <audio id="audio"></audio>
-    <script src="js/main.js?v=2.0.0"></script>
-    <script src="js/source-selector.js?v=1.0.0"></script>
+    <script src="js/main.js?v=2.1.0"></script>
+    <script src="js/source-selector.js?v=1.0.3"></script>
 </body>
 
 </html>
