@@ -217,11 +217,12 @@ async function collectResizeFrames(client) {
 
 function assertQa(result) {
   const failures = [];
+  const expectedAssets = readExpectedAssets();
 
   if (result.initial.title !== 'musiQ') failures.push(`Unexpected title: ${result.initial.title}`);
-  if (!result.initial.hrefCss.includes('style.css?v=2.0.2')) failures.push(`CSS cache version not loaded: ${result.initial.hrefCss}`);
-  if (!result.initial.scripts.some((script) => script.includes('main.js?v=2.1.0'))) failures.push('main.js cache version not loaded');
-  if (!result.initial.scripts.some((script) => script.includes('source-selector.js?v=1.0.3'))) failures.push('source-selector cache version not loaded');
+  if (!result.initial.hrefCss.includes(expectedAssets.css)) failures.push(`CSS cache version not loaded: ${result.initial.hrefCss}`);
+  if (!result.initial.scripts.some((script) => script.includes(expectedAssets.mainJs))) failures.push('main.js cache version not loaded');
+  if (!result.initial.scripts.some((script) => script.includes(expectedAssets.sourceSelectorJs))) failures.push('source-selector cache version not loaded');
   if (!result.initial.sourceButtonBg.includes('rgba(255, 255, 255, 0.07)')) failures.push(`Unexpected source button background: ${result.initial.sourceButtonBg}`);
   if (result.search.cards < 1) failures.push('Search did not render song cards');
   if (result.idleFrames.p95 > 16.7) failures.push(`Idle P95 frame time too high: ${result.idleFrames.p95}`);
@@ -239,6 +240,19 @@ function assertQa(result) {
     error.failures = failures;
     throw error;
   }
+}
+
+function readExpectedAssets() {
+  const indexHtml = fs.readFileSync(path.join(projectRoot, 'webroot', 'index.html'), 'utf8');
+  return {
+    css: matchAsset(indexHtml, /href="(css\/style\.css\?v=[^"]+)"/, 'css/style.css'),
+    mainJs: matchAsset(indexHtml, /src="(js\/main\.js\?v=[^"]+)"/, 'js/main.js'),
+    sourceSelectorJs: matchAsset(indexHtml, /src="(js\/source-selector\.js\?v=[^"]+)"/, 'js/source-selector.js')
+  };
+}
+
+function matchAsset(indexHtml, pattern, fallback) {
+  return indexHtml.match(pattern)?.[1] || fallback;
 }
 
 async function waitForDebugTarget(timeoutMs) {

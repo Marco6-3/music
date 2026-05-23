@@ -7,6 +7,7 @@ const initSqlJs = require('sql.js');
 
 const TOKEN_EXPIRY_SECONDS = 86400 * 30;
 const CODE_EXPIRY_SECONDS = 600;
+const PERSIST_DEBOUNCE_MS = 500;
 let tokenSecret = process.env.MUSIQ_TOKEN_SECRET || process.env.XCLOUD_TOKEN_SECRET || '';
 let sqlJsPromise;
 
@@ -63,6 +64,9 @@ class PersistentSqlJsDatabase {
   constructor(SQL, dbPath) {
     this.dbPath = dbPath;
     this.transactionDepth = 0;
+    this.dirty = false;
+    this.persistTimer = null;
+    this.closed = false;
     const bytes = fs.existsSync(dbPath) ? fs.readFileSync(dbPath) : null;
     this.raw = bytes && bytes.length ? new SQL.Database(bytes) : new SQL.Database();
   }
@@ -90,7 +94,8 @@ class PersistentSqlJsDatabase {
         const result = fn(...args);
         this.transactionDepth -= 1;
         this.raw.run('COMMIT');
-        this.persist();
+        this.markDirty();
+        this.flushPersist();
         return result;
       } catch (error) {
         this.transactionDepth -= 1;
@@ -103,19 +108,50 @@ class PersistentSqlJsDatabase {
   persistIfNeeded(sql) {
     if (this.transactionDepth > 0) return;
     if (!isWriteSql(sql)) return;
-    this.persist();
+    this.markDirty();
+    this.schedulePersist();
   }
 
   persist() {
+    this.markDirty();
+    this.flushPersist();
+  }
+
+  markDirty() {
+    this.dirty = true;
+  }
+
+  schedulePersist() {
+    if (this.closed || this.persistTimer) return;
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      try {
+        this.flushPersist();
+      } catch (error) {
+        console.error('[database] sql.js persist failed:', error);
+      }
+    }, PERSIST_DEBOUNCE_MS);
+    if (this.persistTimer.unref) this.persistTimer.unref();
+  }
+
+  flushPersist() {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+    }
+    if (!this.dirty) return;
     fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
     const data = Buffer.from(this.raw.export());
     const tempPath = `${this.dbPath}.tmp`;
     fs.writeFileSync(tempPath, data);
     fs.renameSync(tempPath, this.dbPath);
+    this.dirty = false;
   }
 
   close() {
-    this.persist();
+    if (this.closed) return;
+    this.flushPersist();
+    this.closed = true;
     this.raw.close();
   }
 }

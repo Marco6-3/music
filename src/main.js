@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, screen, nativeImage } = require('electron');
 const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -20,10 +20,15 @@ const {
 
 let mainWindow = null;
 let splashWindow = null;
+let tray = null;
 let lastWebVersion = null;
 let versionTimer = null;
 let localBackend = null;
+let pageLoadStartedAt = 0;
+let windowStateTimer = null;
+const appStartedAt = Date.now();
 const authStateFileName = 'auth-state.json';
+const windowStateFileName = 'window-state.json';
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -64,7 +69,7 @@ ipcMain.on('window-control', (_event, action) => {
 });
 
 ipcMain.on('window-reload', () => {
-  reloadMainWindow();
+  reloadMainWindow({ clearCache: true });
 });
 
 ipcMain.handle('auth-state:get', () => readAuthState());
@@ -83,10 +88,13 @@ async function createWindows() {
       preferredPort: localBackendPort,
       dataDir: path.join(app.getPath('userData'), 'server-data')
     });
+    console.log(`[desktop] backend ready in ${elapsedMs(appStartedAt)}ms at ${localBackend.url}`);
   }
 
   splashWindow = createSplashWindow();
   mainWindow = createMainWindow();
+  createTray();
+  console.log(`[desktop] main window created in ${elapsedMs(appStartedAt)}ms`);
 
   attachWindowStateEvents(mainWindow);
   attachNavigationGuards(mainWindow);
@@ -110,9 +118,10 @@ function createSplashWindow() {
 }
 
 function createMainWindow() {
+  const savedState = readWindowState();
+  const initialBounds = resolveInitialWindowBounds(savedState);
   const win = new BrowserWindow({
-    width: windowConfig.width,
-    height: windowConfig.height,
+    ...initialBounds,
     minWidth: windowConfig.minWidth,
     minHeight: windowConfig.minHeight,
     frame: false,
@@ -137,6 +146,7 @@ function createMainWindow() {
   });
 
   win.webContents.on('did-finish-load', () => {
+    console.log(`[desktop] page did-finish-load in ${elapsedMs(pageLoadStartedAt || appStartedAt)}ms`);
     closeSplashWindow();
     if (!win.isDestroyed()) {
       win.show();
@@ -152,6 +162,10 @@ function createMainWindow() {
     }
   });
 
+  if (savedState?.maximized) {
+    win.maximize();
+  }
+
   return win;
 }
 
@@ -159,21 +173,26 @@ function loadRemoteApp() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
   const appUrl = localBackend ? `${localBackend.url}/?from=musiqapp` : remoteUrl;
-
-  mainWindow.webContents.session.clearCache().finally(() => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    mainWindow.loadURL(appUrl);
-  });
+  pageLoadStartedAt = Date.now();
+  mainWindow.loadURL(appUrl);
 }
 
-function reloadMainWindow() {
+function reloadMainWindow({ clearCache = true } = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
-  mainWindow.webContents.session.clearCache().finally(() => {
+  const reload = () => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      pageLoadStartedAt = Date.now();
       mainWindow.reload();
     }
-  });
+  };
+
+  if (!clearCache) {
+    reload();
+    return;
+  }
+
+  mainWindow.webContents.session.clearCache().finally(reload);
 }
 
 function authStatePath() {
@@ -219,6 +238,11 @@ function attachWindowStateEvents(win) {
   win.on('restore', () => sendMaximizedState(win));
   win.on('enter-full-screen', () => sendMaximizedState(win));
   win.on('leave-full-screen', () => sendMaximizedState(win));
+  win.on('resize', () => scheduleWindowStateSave(win));
+  win.on('move', () => scheduleWindowStateSave(win));
+  win.on('maximize', () => saveWindowState(win));
+  win.on('unmaximize', () => saveWindowState(win));
+  win.on('close', () => saveWindowState(win));
 }
 
 function sendMaximizedState(win) {
@@ -280,7 +304,7 @@ function checkWebVersion() {
 
       if (payload.version !== lastWebVersion) {
         lastWebVersion = payload.version;
-        reloadMainWindow();
+        reloadMainWindow({ clearCache: true });
       }
     })
     .catch(() => {
@@ -326,6 +350,37 @@ function closeSplashWindow() {
   splashWindow = null;
 }
 
+function createTray() {
+  if (tray || process.platform !== 'win32') return;
+
+  const iconPath = resolveTrayIconPath();
+  const icon = iconPath ? nativeImage.createFromPath(iconPath) : nativeImage.createEmpty();
+  if (icon.isEmpty()) return;
+
+  tray = new Tray(icon.resize({ width: 16, height: 16 }));
+  tray.setToolTip(appName);
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: `显示 ${appName}`, click: focusMainWindow },
+    { label: '重新加载', click: () => reloadMainWindow({ clearCache: true }) },
+    { type: 'separator' },
+    { label: '退出', click: () => app.quit() }
+  ]));
+  tray.on('click', focusMainWindow);
+  tray.on('double-click', focusMainWindow);
+}
+
+function resolveTrayIconPath() {
+  const candidates = [
+    path.join(process.resourcesPath || '', 'webroot', 'public', 'musiq-default.png'),
+    path.join(projectRoot(), 'webroot', 'public', 'musiq-default.png')
+  ];
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || '';
+}
+
+function projectRoot() {
+  return path.resolve(__dirname, '..');
+}
+
 function focusMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
@@ -333,6 +388,77 @@ function focusMainWindow() {
     mainWindow.restore();
   }
   mainWindow.focus();
+}
+
+function windowStatePath() {
+  return path.join(app.getPath('userData'), windowStateFileName);
+}
+
+function readWindowState() {
+  try {
+    const file = windowStatePath();
+    if (!fs.existsSync(file)) return null;
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function resolveInitialWindowBounds(savedState) {
+  const defaults = {
+    width: windowConfig.width,
+    height: windowConfig.height
+  };
+  const bounds = savedState?.bounds;
+  if (!isUsableBounds(bounds)) return defaults;
+  return bounds;
+}
+
+function isUsableBounds(bounds) {
+  if (!bounds) return false;
+  const width = Number(bounds.width);
+  const height = Number(bounds.height);
+  const x = Number(bounds.x);
+  const y = Number(bounds.y);
+  if (![width, height, x, y].every(Number.isFinite)) return false;
+  if (width < windowConfig.minWidth || height < windowConfig.minHeight) return false;
+
+  return screen.getAllDisplays().some((display) => {
+    const area = display.workArea;
+    return x < area.x + area.width
+      && x + width > area.x
+      && y < area.y + area.height
+      && y + height > area.y;
+  });
+}
+
+function scheduleWindowStateSave(win) {
+  if (windowStateTimer) clearTimeout(windowStateTimer);
+  windowStateTimer = setTimeout(() => {
+    windowStateTimer = null;
+    saveWindowState(win);
+  }, 400);
+  if (windowStateTimer.unref) windowStateTimer.unref();
+}
+
+function saveWindowState(win) {
+  if (!win || win.isDestroyed()) return;
+  try {
+    const bounds = win.isMaximized() ? win.getNormalBounds() : win.getBounds();
+    const payload = {
+      bounds,
+      maximized: win.isMaximized(),
+      updatedAt: new Date().toISOString()
+    };
+    fs.mkdirSync(app.getPath('userData'), { recursive: true });
+    fs.writeFileSync(windowStatePath(), JSON.stringify(payload, null, 2), 'utf8');
+  } catch {
+    // 保存窗口状态失败不应影响应用退出或播放。
+  }
+}
+
+function elapsedMs(startedAt) {
+  return Math.max(0, Date.now() - startedAt);
 }
 
 function handleAllWindowsClosed() {

@@ -14,8 +14,10 @@ The current backend runs locally and can be started with plain Node. Do not rein
 npm start
 npm run dev
 npm run server
+npm test
 npm run probe:sources
 npm run probe:backend
+npm run qa:electron
 npm run dist
 npm run build
 npm run pack
@@ -34,14 +36,14 @@ npm run probe:sources -- --disable-meting
 
 ### Electron
 
-- `src/main.js`: Electron main process, window lifecycle, splash screen, backend startup, version polling.
+- `src/main.js`: Electron main process, window lifecycle, splash screen, backend startup, version polling, window-state persistence, tray entry, cache-aware reload.
 - `src/preload.js`: exposes safe renderer APIs through `contextBridge`.
 - `src/renderer/desktop-shell.js`: frameless window controls and desktop-specific UI behavior.
 
 ### Backend
 
 - `src/server/index.js`: Express backend. It serves `webroot/`, implements PHP-compatible routes, and proxies music API requests.
-- `src/server/database.js`: persistent SQLite-like storage using `sql.js` WASM. This avoids native module and Electron ABI problems.
+- `src/server/database.js`: persistent SQLite-like storage using `sql.js` WASM. Non-transaction writes are debounced, while transaction commits and close flush immediately. This avoids native module and Electron ABI problems.
 - `src/server/api-monitor.js`: periodic music source health checks, writing to `api_status`.
 - `src/server/play-history.js`: `/php/play_history.php` route for record, recent, top, and clear actions.
 
@@ -63,6 +65,7 @@ Provider code lives in `src/server/source-providers/`.
 - `webroot/index.html`: app shell.
 - `webroot/js/main.js`: main player UI and API client.
 - `webroot/js/source-selector.js`: source selector UI layered over the native source select.
+- `tests/database-persistence.test.js`: `node:test` coverage for `sql.js` persist behavior.
 
 ## Database
 

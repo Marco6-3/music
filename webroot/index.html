@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#07110d">
     <title>musiQ</title>
     <link rel="icon" href="public/musiq-default.png">
-    <link rel="stylesheet" href="css/style.css?v=2.0.2">
+    <link rel="stylesheet" href="css/style.css?v=2.0.3">
 </head>
 
 <body>
@@ -196,10 +196,38 @@
         </div>
     </div>
 
+    <div class="modal" id="source-diagnostics-modal" aria-hidden="true">
+        <div class="source-diagnostics glass-panel">
+            <button class="close-btn" data-close-modal="source-diagnostics-modal">×</button>
+            <div class="source-diagnostics-head">
+                <div>
+                    <p class="eyebrow">Source Diagnostics</p>
+                    <h2>音源状态</h2>
+                </div>
+                <button class="ghost-btn" id="source-diagnostics-refresh">刷新状态</button>
+            </div>
+            <div class="diagnostics-summary">
+                <div>
+                    <span>X-Music-Source</span>
+                    <strong id="diag-music-source">暂无</strong>
+                </div>
+                <div>
+                    <span>X-Cache</span>
+                    <strong id="diag-cache">暂无</strong>
+                </div>
+                <div>
+                    <span>最近请求</span>
+                    <strong id="diag-request-at">暂无</strong>
+                </div>
+            </div>
+            <div class="provider-status-list" id="provider-status-list"></div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
     <audio id="audio"></audio>
-    <script src="js/main.js?v=2.1.0"></script>
-    <script src="js/source-selector.js?v=1.0.3"></script>
+    <script src="js/main.js?v=2.1.2"></script>
+    <script src="js/source-selector.js?v=1.0.4"></script>
 </body>
 
 </html>

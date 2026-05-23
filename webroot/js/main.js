@@ -39,9 +39,25 @@
         pendingPlaylistSong: null,
         stallTimer: 0,
         qualityRetryLevel: 0,
-        currentQuality: '999'
+        currentQuality: '999',
+        recentPlays: [],
+        weeklyFavorites: [],
+        historyLoading: false,
+        historyLoadedForUser: '',
+        sourceDiagnostics: {
+            musicSource: '',
+            cache: '',
+            requestAt: '',
+            providers: {},
+            error: ''
+        }
     };
     const coverCache = new Map();
+    const coverInflight = new Map();
+    const coverResolveQueue = [];
+    const maxConcurrentCoverResolves = 4;
+    let activeCoverResolves = 0;
+    let songCoverObserver = null;
 
     const toplists = [
         ['soaring', '飙升榜', '正在被更多人听见'],
@@ -103,7 +119,12 @@
         playlistChoiceList: $('#playlist-choice-list'),
         createPlaylistForm: $('#create-playlist-form'),
         toast: $('#toast'),
-        sourceStatus: $('#source-status-btn')
+        sourceStatus: $('#source-status-btn'),
+        sourceDiagnosticsRefresh: $('#source-diagnostics-refresh'),
+        diagMusicSource: $('#diag-music-source'),
+        diagCache: $('#diag-cache'),
+        diagRequestAt: $('#diag-request-at'),
+        providerStatusList: $('#provider-status-list')
     };
 
     init();
@@ -143,9 +164,11 @@
         els.queueOpen.addEventListener('click', () => openModal('queue-modal'));
         els.expand.addEventListener('click', () => openModal('player-modal'));
         els.clearQueue.addEventListener('click', clearQueue);
+        bindQueueActions();
         els.loginOpen.addEventListener('click', () => openModal('auth-modal'));
         els.logout.addEventListener('click', logout);
         els.sourceStatus.addEventListener('click', showSourceStatus);
+        els.sourceDiagnosticsRefresh?.addEventListener('click', () => refreshSourceDiagnostics({ force: true }));
         bindWindowControls();
         bindWheelForwarding();
         bindResizePerformanceMode();
@@ -270,16 +293,23 @@
     }
 
     function setUser(user, token) {
+        const previousUserId = state.currentUser?.id ? String(state.currentUser.id) : '';
         state.currentUser = user;
         state.token = token || state.token;
         state.favorites = normalizeSongList(user.favorites || []);
         state.playlists = playlistsFromUser(user);
+        if (String(user.id) !== previousUserId) {
+            state.recentPlays = [];
+            state.weeklyFavorites = [];
+            state.historyLoadedForUser = '';
+        }
         localStorage.setItem(storage.userId, String(user.id));
         if (state.token) localStorage.setItem(storage.token, state.token);
         persistAuthState({ userId: String(user.id), token: state.token });
         updateUserUI();
         renderShell();
         renderView(state.view);
+        loadUserHistory({ silent: true });
     }
 
     function clearUser() {
@@ -287,6 +317,9 @@
         state.token = '';
         state.favorites = [];
         state.playlists = [];
+        state.recentPlays = [];
+        state.weeklyFavorites = [];
+        state.historyLoadedForUser = '';
         localStorage.removeItem(storage.token);
         localStorage.removeItem(storage.userId);
         localStorage.removeItem(legacyStorage.token);
@@ -344,6 +377,7 @@
                     <span class="meta">队列中的歌曲</span>
                 </div>
             </div>
+            ${renderHomeHistory()}
             <div class="section-head">
                 <div>
                     <h2>推荐榜单</h2>
@@ -371,8 +405,46 @@
         $$('[data-toplist]', els.viewRoot).forEach((button) => {
             button.addEventListener('click', () => loadToplist(button.dataset.toplist));
         });
+        $('#refresh-history-btn')?.addEventListener('click', () => loadUserHistory({ force: true }));
         bindSongActions(els.viewRoot);
         hydrateSongCardCovers(els.viewRoot);
+        ensureHomeHistoryLoaded();
+    }
+
+    function renderHomeHistory() {
+        if (!state.currentUser) return '';
+
+        const loadingText = state.historyLoading ? '<p class="meta">正在同步播放历史...</p>' : '';
+        return `
+            <div class="section-head" style="margin-top:18px">
+                <div>
+                    <h2>播放历史</h2>
+                    <p class="meta">最近播放和本周常听仅在登录后同步</p>
+                </div>
+                <button class="ghost-btn" id="refresh-history-btn">刷新历史</button>
+            </div>
+            ${loadingText}
+            <div class="home-history-grid">
+                <section class="home-history-section">
+                    <div class="section-head">
+                        <div>
+                            <h3>最近播放</h3>
+                            <p class="meta">${state.recentPlays.length ? `${state.recentPlays.length} 首` : '暂无记录'}</p>
+                        </div>
+                    </div>
+                    ${renderSongList(state.recentPlays, 'recent')}
+                </section>
+                <section class="home-history-section">
+                    <div class="section-head">
+                        <div>
+                            <h3>本周常听</h3>
+                            <p class="meta">${state.weeklyFavorites.length ? '按播放次数排序' : '暂无记录'}</p>
+                        </div>
+                    </div>
+                    ${renderSongList(state.weeklyFavorites, 'weekly')}
+                </section>
+            </div>
+        `;
     }
 
     function renderSearch() {
@@ -502,6 +574,8 @@
     }
 
     function hydrateSongCardCovers(scope) {
+        resetSongCoverObserver();
+        const observer = getSongCoverObserver();
         $$('.song-card', scope).forEach((card) => {
             const img = $('.song-cover', card);
             if (!img || img.dataset.coverHydrated === '1') return;
@@ -512,16 +586,53 @@
                 return;
             }
 
-            img.dataset.coverHydrated = '1';
-            resolveCachedCoverUrl(song, 120).then((coverUrl) => {
-                if (!coverUrl || coverUrl === fallbackCover || !card.isConnected) return;
-                const latestSong = decodeSong(card.dataset.song);
-                if (!sameSong(latestSong, song)) return;
+            if (observer) observer.observe(card);
+            else hydrateVisibleSongCardCover(card);
+        });
+    }
 
-                latestSong.cover_url = coverUrl;
-                card.dataset.song = encodeSong(latestSong);
-                swapImageWhenLoaded(img, coverUrl);
+    function getSongCoverObserver() {
+        if (!('IntersectionObserver' in window)) return null;
+        if (songCoverObserver) return songCoverObserver;
+        songCoverObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                songCoverObserver.unobserve(entry.target);
+                hydrateVisibleSongCardCover(entry.target);
             });
+        }, {
+            root: els.viewRoot,
+            rootMargin: '180px 0px',
+            threshold: 0.01
+        });
+        return songCoverObserver;
+    }
+
+    function resetSongCoverObserver() {
+        if (!songCoverObserver) return;
+        songCoverObserver.disconnect();
+        songCoverObserver = null;
+    }
+
+    function hydrateVisibleSongCardCover(card) {
+        const img = $('.song-cover', card);
+        if (!img || img.dataset.coverHydrated === '1') return;
+
+        const song = decodeSong(card.dataset.song);
+        if (!song?.pic_id || song.cover_url || /^https?:\/\//.test(song.pic_id) || song.pic_id.startsWith('uploads/')) {
+            img.dataset.coverHydrated = '1';
+            return;
+        }
+
+        img.dataset.coverHydrated = '1';
+        resolveCachedCoverUrl(song, 120).then((coverUrl) => {
+            if (!coverUrl || coverUrl === fallbackCover || !card.isConnected) return;
+            const latestSong = decodeSong(card.dataset.song);
+            if (!sameSong(latestSong, song)) return;
+
+            latestSong.cover_url = coverUrl;
+            card.dataset.song = encodeSong(latestSong);
+            swapImageWhenLoaded(img, coverUrl);
         });
     }
 
@@ -534,28 +645,71 @@
     }
 
     async function resolveCachedCoverUrl(song, size = 300) {
-        const key = `${song.source || 'netease'}:${song.pic_id}:${size}`;
+        const key = coverCacheKey(song, size);
         if (coverCache.has(key)) return coverCache.get(key);
+        if (coverInflight.has(key)) return coverInflight.get(key);
 
-        const coverUrl = await resolveCoverUrl(song, size);
-        coverCache.set(key, coverUrl);
-        return coverUrl;
+        const request = enqueueCoverResolve(() => resolveCoverUrl(song, size))
+            .then((coverUrl) => {
+                coverCache.set(key, coverUrl);
+                return coverUrl;
+            })
+            .finally(() => {
+                coverInflight.delete(key);
+            });
+        coverInflight.set(key, request);
+        return request;
+    }
+
+    function coverCacheKey(song, size) {
+        return `${song.source || 'netease'}:${song.pic_id}:${size}`;
+    }
+
+    function enqueueCoverResolve(task) {
+        return new Promise((resolve, reject) => {
+            coverResolveQueue.push({ task, resolve, reject });
+            pumpCoverResolveQueue();
+        });
+    }
+
+    function pumpCoverResolveQueue() {
+        while (activeCoverResolves < maxConcurrentCoverResolves && coverResolveQueue.length) {
+            const item = coverResolveQueue.shift();
+            activeCoverResolves += 1;
+            Promise.resolve()
+                .then(item.task)
+                .then(item.resolve, item.reject)
+                .finally(() => {
+                    activeCoverResolves -= 1;
+                    pumpCoverResolveQueue();
+                });
+        }
     }
 
     function bindSongActions(scope) {
-        $$('.song-card', scope).forEach((card) => {
+        if (scope.dataset.songActionsBound === '1') return;
+        scope.dataset.songActionsBound = '1';
+
+        scope.addEventListener('dblclick', (event) => {
+            const card = event.target.closest?.('.song-card');
+            if (!card || !scope.contains(card)) return;
             const song = decodeSong(card.dataset.song);
-            card.addEventListener('dblclick', () => playSong(song, { list: songsForCard(card) }));
-            $$('[data-action]', card).forEach((button) => {
-                button.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    const action = button.dataset.action;
-                    if (action === 'play') playSong(song, { list: songsForCard(card) });
-                    if (action === 'queue') enqueue(song);
-                    if (action === 'favorite') toggleFavorite(song);
-                    if (action === 'playlist') openPlaylistDialog(song);
-                });
-            });
+            playSong(song, { list: songsForCard(card) });
+        });
+
+        scope.addEventListener('click', (event) => {
+            const button = event.target.closest?.('[data-action]');
+            if (!button || !scope.contains(button)) return;
+            const card = button.closest('.song-card');
+            if (!card || !scope.contains(card)) return;
+
+            event.stopPropagation();
+            const song = decodeSong(card.dataset.song);
+            const action = button.dataset.action;
+            if (action === 'play') playSong(song, { list: songsForCard(card) });
+            if (action === 'queue') enqueue(song);
+            if (action === 'favorite') toggleFavorite(song);
+            if (action === 'playlist') openPlaylistDialog(song);
         });
     }
 
@@ -569,6 +723,8 @@
         if (context === 'search') return state.searchResults;
         if (context === 'favorites') return state.favorites;
         if (context === 'home') return state.homeSongs;
+        if (context === 'recent') return state.recentPlays;
+        if (context === 'weekly') return state.weeklyFavorites;
         if (context === 'playlist') return currentPlaylistSongs();
         return state.queue.length ? state.queue : [state.currentSong].filter(Boolean);
     }
@@ -617,8 +773,49 @@
         }
     }
 
+    function ensureHomeHistoryLoaded() {
+        if (!state.currentUser || state.historyLoading) return;
+        if (state.historyLoadedForUser === String(state.currentUser.id)) return;
+        loadUserHistory({ silent: true });
+    }
+
+    async function loadUserHistory({ force = false, silent = false } = {}) {
+        if (!state.currentUser || state.historyLoading) return;
+        const userId = String(state.currentUser.id);
+        if (!force && state.historyLoadedForUser === userId) return;
+
+        state.historyLoading = true;
+        if (state.view === 'home' && !silent) renderHome();
+
+        try {
+            const [recent, top] = await Promise.all([
+                apiPost('php/play_history.php', {
+                    action: 'recent',
+                    user_id: userId,
+                    limit: 8
+                }),
+                apiPost('php/play_history.php', {
+                    action: 'top',
+                    user_id: userId,
+                    days: 7,
+                    limit: 8
+                })
+            ]);
+            state.recentPlays = normalizeSongList(recent.history || []);
+            state.weeklyFavorites = normalizeSongList(top.songs || []);
+            state.historyLoadedForUser = userId;
+        } catch (error) {
+            state.historyLoadedForUser = userId;
+            if (!silent) showToast(error.message || '播放历史加载失败', 'error');
+        } finally {
+            state.historyLoading = false;
+            if (state.view === 'home') renderHome();
+        }
+    }
+
     async function playSong(song, options = {}) {
         if (!song || !song.id) return;
+        const previousSong = state.currentSong;
         const list = normalizeSongList(options.list || []);
         if (list.length) {
             state.queue = uniqueSongs(list);
@@ -635,7 +832,7 @@
         state.activeLyricIndex = -1;
         saveQueue();
         renderShell();
-        renderView(state.view);
+        updatePlayingSongCards(previousSong, state.currentSong);
 
         try {
             let [coverUrl, lyricData] = await Promise.all([
@@ -655,6 +852,7 @@
 
                 showToast(`当前音乐源不可用，已切换到酷我：${fallbackSong.name}`);
                 const originalSong = state.currentSong;
+                const beforeFallbackSong = state.currentSong;
                 state.currentSong = {
                     ...fallbackSong,
                     original_title: originalSong.original_title || originalSong.name,
@@ -663,6 +861,7 @@
                 if (state.currentIndex >= 0) state.queue[state.currentIndex] = state.currentSong;
                 saveQueue();
                 renderShell();
+                updatePlayingSongCards(beforeFallbackSong, state.currentSong);
 
                 const [fallbackCoverUrl, fallbackLyricData] = await Promise.all([
                     resolveCoverUrl(state.currentSong).catch(() => coverUrl),
@@ -680,6 +879,7 @@
             const queueSong = state.queue[state.currentIndex];
             if (queueSong && sameSong(queueSong, state.currentSong)) queueSong.cover_url = coverUrl;
             renderShell();
+            updateRenderedSongCardCover(state.currentSong, coverUrl);
             const url = urlData.url || urlData.data?.url;
             if (!url) throw new Error('没有可用播放地址');
             state.currentQuality = String(urlData.br || state.currentQuality);
@@ -690,9 +890,56 @@
             audio.src = url;
             audio.load();
             await audio.play();
+            recordSuccessfulPlay(state.currentSong);
         } catch (error) {
             showToast(error.message || '播放失败', 'error');
         }
+    }
+
+    function recordSuccessfulPlay(song) {
+        if (!state.currentUser || !song?.id) return;
+        apiPost('php/play_history.php', {
+            action: 'record',
+            user_id: state.currentUser.id,
+            ...songPayload(song)
+        }).then(() => {
+            state.historyLoadedForUser = '';
+            loadUserHistory({ silent: true });
+        }).catch((error) => {
+            console.warn('[play-history] record failed:', error.message || error);
+        });
+    }
+
+    function updatePlayingSongCards(previousSong, currentSong) {
+        const cards = new Set([
+            ...findRenderedSongCards(previousSong),
+            ...findRenderedSongCards(currentSong),
+            ...$$('.song-card.playing', els.viewRoot)
+        ]);
+        cards.forEach((card) => {
+            const cardSong = decodeSong(card.dataset.song);
+            card.classList.toggle('playing', Boolean(currentSong && sameSong(cardSong, currentSong)));
+        });
+    }
+
+    function updateRenderedSongCardCover(song, coverUrl) {
+        if (!song || !coverUrl || coverUrl === fallbackCover) return;
+        findRenderedSongCards(song).forEach((card) => {
+            const cardSong = decodeSong(card.dataset.song);
+            if (!cardSong) return;
+            cardSong.cover_url = coverUrl;
+            card.dataset.song = encodeSong(cardSong);
+            const img = $('.song-cover', card);
+            if (img) {
+                img.dataset.coverHydrated = '1';
+                swapImageWhenLoaded(img, coverUrl);
+            }
+        });
+    }
+
+    function findRenderedSongCards(song) {
+        if (!song) return [];
+        return $$('.song-card', els.viewRoot).filter((card) => sameSong(decodeSong(card.dataset.song), song));
     }
 
     function togglePlay() {
@@ -718,7 +965,7 @@
             state.currentIndex = Math.floor(Math.random() * state.queue.length);
         } else {
             state.currentIndex = state.currentIndex + 1;
-            if (state.currentIndex >= state.queue.length) state.currentIndex = state.playMode === 'loop' ? 0 : state.queue.length - 1;
+            if (state.currentIndex >= state.queue.length) state.currentIndex = 0;
         }
         playSong(state.queue[state.currentIndex], { list: state.queue });
     }
@@ -729,7 +976,7 @@
             audio.play().catch(() => {});
             return;
         }
-        if (state.currentIndex < state.queue.length - 1 || state.playMode === 'loop' || state.playMode === 'random') {
+        if (state.queue.length > 1 || state.playMode === 'loop' || state.playMode === 'random') {
             playNext();
         }
     }
@@ -905,18 +1152,24 @@
                 <button class="queue-remove-btn" data-action="remove-queue" title="从播放队列移除">×</button>
             </div>
         `).join('') || `<div class="empty-state">播放队列为空</div>`;
-        $$('.queue-song', els.queueList).forEach((item) => {
-            item.addEventListener('click', () => {
-                const index = Number(item.dataset.index);
-                playSong(state.queue[index], { list: state.queue });
-            });
-        });
-        $$('[data-action="remove-queue"]', els.queueList).forEach((button) => {
-            button.addEventListener('click', (event) => {
+    }
+
+    function bindQueueActions() {
+        if (els.queueList.dataset.queueActionsBound === '1') return;
+        els.queueList.dataset.queueActionsBound = '1';
+        els.queueList.addEventListener('click', (event) => {
+            const removeButton = event.target.closest?.('[data-action="remove-queue"]');
+            if (removeButton && els.queueList.contains(removeButton)) {
                 event.stopPropagation();
-                const item = button.closest('.queue-song');
+                const item = removeButton.closest('.queue-song');
                 removeQueueSong(Number(item?.dataset.index));
-            });
+                return;
+            }
+
+            const item = event.target.closest?.('.queue-song');
+            if (!item || !els.queueList.contains(item)) return;
+            const index = Number(item.dataset.index);
+            playSong(state.queue[index], { list: state.queue });
         });
     }
 
@@ -1181,13 +1434,75 @@
     }
 
     async function showSourceStatus() {
+        openModal('source-diagnostics-modal');
+        renderSourceDiagnostics();
+        await refreshSourceDiagnostics({ silent: true });
+    }
+
+    async function refreshSourceDiagnostics({ force = false, silent = false } = {}) {
+        if (!force && state.sourceDiagnostics.loading) return;
+        state.sourceDiagnostics.loading = true;
+        state.sourceDiagnostics.error = '';
+        renderSourceDiagnostics();
+
         try {
             const data = await apiGet('api_check/api_doubtful.php');
-            const text = Object.values(data).map((item) => `${item.name}: 搜索 ${item.search}, 播放 ${item.play}`).join('；');
-            showToast(text || '源状态正常');
-        } catch {
-            showToast('无法获取源状态', 'error');
+            state.sourceDiagnostics.providers = data && typeof data === 'object' ? data : {};
+        } catch (error) {
+            state.sourceDiagnostics.providers = {};
+            state.sourceDiagnostics.error = error.message || '无法获取源状态';
+            if (!silent) showToast(state.sourceDiagnostics.error, 'error');
+        } finally {
+            state.sourceDiagnostics.loading = false;
+            renderSourceDiagnostics();
         }
+    }
+
+    function renderSourceDiagnostics() {
+        if (!els.diagMusicSource || !els.providerStatusList) return;
+
+        els.diagMusicSource.textContent = state.sourceDiagnostics.musicSource || '暂无';
+        els.diagCache.textContent = state.sourceDiagnostics.cache || '暂无';
+        els.diagRequestAt.textContent = state.sourceDiagnostics.requestAt || '暂无';
+
+        if (state.sourceDiagnostics.loading) {
+            els.providerStatusList.innerHTML = loadingState('正在刷新音源状态');
+            return;
+        }
+
+        if (state.sourceDiagnostics.error) {
+            els.providerStatusList.innerHTML = emptyState('无法获取源状态', state.sourceDiagnostics.error);
+            return;
+        }
+
+        const providers = Object.entries(state.sourceDiagnostics.providers || {});
+        els.providerStatusList.innerHTML = providers.map(([source, item]) => {
+            const searchOk = item?.search === true || item?.search === 'true';
+            const playOk = item?.play === true || item?.play === 'true';
+            return `
+                <div class="provider-row">
+                    <div>
+                        <strong>${escapeHtml(item?.name || source)}</strong>
+                        <span class="provider-meta">last_check: ${escapeHtml(item?.last_check || '暂无')}</span>
+                    </div>
+                    <div class="provider-pills">
+                        <span class="status-pill ${searchOk ? 'ok' : 'bad'}">搜索 ${searchOk ? 'OK' : 'FAIL'}</span>
+                        <span class="status-pill ${playOk ? 'ok' : 'bad'}">播放 ${playOk ? 'OK' : 'FAIL'}</span>
+                    </div>
+                </div>
+            `;
+        }).join('') || emptyState('暂无音源检测记录', '后台监控完成后会显示每个 provider 的状态。');
+    }
+
+    function recordSourceHeaders(headers = {}) {
+        const musicSource = headers.musicSource || '';
+        const cache = headers.cache || '';
+        if (!musicSource && !cache) return;
+
+        state.sourceDiagnostics.musicSource = musicSource || '未返回';
+        state.sourceDiagnostics.cache = cache || '未返回';
+        state.sourceDiagnostics.requestAt = new Date().toLocaleString('zh-CN');
+        renderSourceDiagnostics();
     }
 
     function renderLyrics() {
@@ -1304,9 +1619,22 @@
     }
 
     async function apiGet(path, params = {}) {
+        const result = await apiGetWithMeta(path, params);
+        if (path === 'api.php' || path === 'php/toplist.php') recordSourceHeaders(result.headers);
+        return result.data;
+    }
+
+    async function apiGetWithMeta(path, params = {}) {
         const query = new URLSearchParams(params).toString();
         const response = await fetch(query ? `${path}?${query}` : path);
-        return parseResponse(response);
+        const data = await parseResponse(response);
+        return {
+            data,
+            headers: {
+                musicSource: response.headers.get('X-Music-Source') || '',
+                cache: response.headers.get('X-Cache') || response.headers.get('X-Toplist-Cache') || ''
+            }
+        };
     }
 
     async function apiPost(path, body = {}) {

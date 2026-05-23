@@ -21,8 +21,10 @@
 npm start
 npm run dev
 npm run server
+npm test
 npm run probe:sources
 npm run probe:backend
+npm run qa:electron
 npm run dist
 ```
 
@@ -36,13 +38,14 @@ npm run probe:sources -- --disable-meting
 
 ## Architecture Notes
 
-- `src/main.js`: Electron main process, window lifecycle, backend startup.
+- `src/main.js`: Electron main process, window lifecycle, backend startup, window-state persistence, tray entry, cache-aware reload.
 - `src/server/index.js`: Express backend, static frontend serving, PHP-compatible routes, music API proxy.
-- `src/server/database.js`: persistent `sql.js` database wrapper.
+- `src/server/database.js`: persistent `sql.js` database wrapper with debounced non-transaction writes and immediate transaction/close flush.
 - `src/server/source-providers/`: music provider implementations and dispatcher.
 - `src/server/api-monitor.js`: provider health checks, writes `api_status`.
 - `src/server/play-history.js`: `/php/play_history.php` play-history routes.
 - `webroot/js/source-selector.js`: source selector UI.
+- `tests/database-persistence.test.js`: `node:test` coverage for `sql.js` persist behavior.
 - `start-musiq.cmd`: Windows one-click startup script with first-run dependency install.
 
 ## Change Rules
