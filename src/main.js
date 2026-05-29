@@ -1,6 +1,10 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu, screen, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, screen, nativeImage, powerMonitor } = require('electron');
+
+if (process.env.MUSIC_DISABLE_GPU || process.env.MUSIQ_DISABLE_GPU) {
+  app.disableHardwareAcceleration();
+}
 const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -42,6 +46,13 @@ if (!gotSingleInstanceLock) {
   app.whenReady().then(createWindows);
   app.on('window-all-closed', handleAllWindowsClosed);
   app.on('activate', handleActivate);
+
+  // Refresh version check and health status after sleep/wake on Windows.
+  app.whenReady().then(() => {
+    powerMonitor.on('resume', () => {
+      checkWebVersion();
+    });
+  });
 }
 
 ipcMain.on('window-control', (_event, action) => {
@@ -83,6 +94,8 @@ ipcMain.handle('auth-state:clear', () => {
 });
 
 async function createWindows() {
+  splashWindow = createSplashWindow();
+
   if (useLocalBackend && !localBackend) {
     localBackend = await startLocalBackend({
       preferredPort: localBackendPort,
@@ -91,7 +104,6 @@ async function createWindows() {
     console.log(`[desktop] backend ready in ${elapsedMs(appStartedAt)}ms at ${localBackend.url}`);
   }
 
-  splashWindow = createSplashWindow();
   mainWindow = createMainWindow();
   createTray();
   console.log(`[desktop] main window created in ${elapsedMs(appStartedAt)}ms`);
@@ -172,7 +184,7 @@ function createMainWindow() {
 function loadRemoteApp() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
-  const appUrl = localBackend ? `${localBackend.url}/?from=musiqapp` : remoteUrl;
+  const appUrl = localBackend ? `${localBackend.url}/?from=musicapp` : remoteUrl;
   pageLoadStartedAt = Date.now();
   mainWindow.loadURL(appUrl);
 }
@@ -281,6 +293,7 @@ function startVersionPolling() {
   stopVersionPolling();
   checkWebVersion();
   versionTimer = setInterval(checkWebVersion, versionPollIntervalMs);
+  if (versionTimer.unref) versionTimer.unref();
 }
 
 function stopVersionPolling() {
@@ -371,8 +384,8 @@ function createTray() {
 
 function resolveTrayIconPath() {
   const candidates = [
-    path.join(process.resourcesPath || '', 'webroot', 'public', 'musiq-default.png'),
-    path.join(projectRoot(), 'webroot', 'public', 'musiq-default.png')
+    path.join(process.resourcesPath || '', 'webroot', 'public', 'music-default.png'),
+    path.join(projectRoot(), 'webroot', 'public', 'music-default.png')
   ];
   return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || '';
 }

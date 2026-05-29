@@ -2,7 +2,7 @@
 require_once __DIR__ . '/config.php';
 
 jsonResponse([
-    'name' => 'musiQ API',
+    'name' => 'music API',
     'version' => '1.7.2',
     'status' => 'running',
     'time' => date('Y-m-d H:i:s'),

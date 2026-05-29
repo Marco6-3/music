@@ -8,12 +8,13 @@
 
 ## Current Project State
 
-- Project name: `musiQ`.
+- Project name: `music`.
 - Platform: Windows desktop music player.
-- Stack: Electron + Express 5 + static frontend under `webroot/`.
+- Stack: Electron + Express 5 + static frontend/PWA under `webroot/`.
 - Local backend default port: `41731`.
 - The backend can run with plain Node. It does not need the old Electron Node wrapper.
 - Database: `sql.js` WASM SQLite. Do not restore `better-sqlite3`, native SQLite rebuilds, or Electron ABI workarounds.
+- Web/PWA mode must use HTTPS deployment for iPhone; keep Electron APIs behind feature detection and out of browser-only paths.
 
 ## Common Commands
 
@@ -21,7 +22,9 @@
 npm start
 npm run dev
 npm run server
+npm run web:start
 npm test
+npm run test:pwa
 npm run probe:sources
 npm run probe:backend
 npm run qa:electron
@@ -34,6 +37,7 @@ Fallback testing flags:
 npm run probe:sources -- --disable-gdstudio
 npm run probe:sources -- --disable-unm
 npm run probe:sources -- --disable-meting
+npm run probe:sources -- --disable-lrclib
 ```
 
 ## Architecture Notes
@@ -41,12 +45,17 @@ npm run probe:sources -- --disable-meting
 - `src/main.js`: Electron main process, window lifecycle, backend startup, window-state persistence, tray entry, cache-aware reload.
 - `src/server/index.js`: Express backend, static frontend serving, PHP-compatible routes, music API proxy.
 - `src/server/database.js`: persistent `sql.js` database wrapper with debounced non-transaction writes and immediate transaction/close flush.
+- `src/server/offline-cache.js`: playlist-driven offline audio cache. Songs in any local playlist are downloaded in the background at the highest requested quality (`br=999`); removing them from all playlists deletes the local audio file.
 - `src/server/source-providers/`: music provider implementations and dispatcher.
+- `src/server/source-providers/lrclib.js`: lyrics-only LRCLIB fallback provider; it needs song name/artist metadata and is not a search or playback URL source.
 - `src/server/api-monitor.js`: provider health checks, writes `api_status`.
 - `src/server/play-history.js`: `/php/play_history.php` play-history routes.
 - `webroot/js/source-selector.js`: source selector UI.
+- `webroot/js/pwa.js`: PWA registration, standalone detection, install/update/network prompts.
+- `webroot/sw.js`: Service Worker app shell cache; do not cache music audio URLs or third-party music API responses.
+- `webroot/manifest.webmanifest`: iPhone/standalone PWA metadata.
 - `tests/database-persistence.test.js`: `node:test` coverage for `sql.js` persist behavior.
-- `start-musiq.cmd`: Windows one-click startup script with first-run dependency install.
+- `start-music.cmd`: Windows one-click startup script with first-run dependency install.
 
 ## Change Rules
 

@@ -1,10 +1,10 @@
 'use strict';
 
 const CONTAINER_CLASS = 'electron-app-container';
-const STYLE_ID = 'musiq-desktop-shell-style';
+const STYLE_ID = 'music-desktop-shell-style';
 const CONTROLS_ID = 'window-controls';
 const DRAG_REGION_ID = 'titlebar-drag-region';
-const ERROR_ID = 'musiq-load-error';
+const ERROR_ID = 'music-load-error';
 
 function installDesktopShell(handlers) {
   ensureTheme();
@@ -234,9 +234,9 @@ function bindAppWindowControls(handlers) {
 }
 
 function observeThemeChanges() {
-  if (window.__musiqThemeObserver) return;
+  if (window.__musicThemeObserver) return;
 
-  window.__musiqThemeObserver = new MutationObserver((mutations) => {
+  window.__musicThemeObserver = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
         syncThemeVariables();
@@ -244,7 +244,7 @@ function observeThemeChanges() {
     }
   });
 
-  window.__musiqThemeObserver.observe(document.documentElement, {
+  window.__musicThemeObserver.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-theme']
   });
@@ -277,7 +277,7 @@ function showLoadError(message) {
 
   errorBox.innerHTML = `
     <h1>页面加载失败</h1>
-    <p>${escapeHtml(message || '无法连接到 musiQ 服务，请检查网络后重试。')}</p>
+    <p>${escapeHtml(message || '无法连接到 music 服务，请检查网络后重试。')}</p>
     <button id="retry-load-button" type="button">重新加载</button>
   `;
 

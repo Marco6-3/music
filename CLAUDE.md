@@ -4,9 +4,9 @@ This file gives Claude Code repository-specific guidance for this project.
 
 ## Project Overview
 
-`musiQ` is a Windows desktop music player rebuilt with Electron, an Express 5 local backend, and a static frontend under `webroot/`.
+`music` is a Windows desktop music player rebuilt with Electron, an Express 5 local backend, and a static frontend/PWA under `webroot/`.
 
-The current backend runs locally and can be started with plain Node. Do not reintroduce the old Electron Node wrapper or native SQLite dependency path.
+The current backend runs locally and can be started with plain Node. Web/PWA mode should be deployed over HTTPS for iPhone Safari/Home Screen use. Do not reintroduce the old Electron Node wrapper or native SQLite dependency path.
 
 ## Commands
 
@@ -14,7 +14,9 @@ The current backend runs locally and can be started with plain Node. Do not rein
 npm start
 npm run dev
 npm run server
+npm run web:start
 npm test
+npm run test:pwa
 npm run probe:sources
 npm run probe:backend
 npm run qa:electron
@@ -30,6 +32,7 @@ Fallback testing flags:
 npm run probe:sources -- --disable-gdstudio
 npm run probe:sources -- --disable-unm
 npm run probe:sources -- --disable-meting
+npm run probe:sources -- --disable-lrclib
 ```
 
 ## Architecture
@@ -44,6 +47,7 @@ npm run probe:sources -- --disable-meting
 
 - `src/server/index.js`: Express backend. It serves `webroot/`, implements PHP-compatible routes, and proxies music API requests.
 - `src/server/database.js`: persistent SQLite-like storage using `sql.js` WASM. Non-transaction writes are debounced, while transaction commits and close flush immediately. This avoids native module and Electron ABI problems.
+- `src/server/offline-cache.js`: playlist-driven offline audio cache. Songs present in any local playlist are downloaded in the background at `br=999`; when no playlist references a song, its local audio file is removed.
 - `src/server/api-monitor.js`: periodic music source health checks, writing to `api_status`.
 - `src/server/play-history.js`: `/php/play_history.php` route for record, recent, top, and clear actions.
 
@@ -57,6 +61,7 @@ Provider code lives in `src/server/source-providers/`.
 - `meting.js`: `@meting/core` multi-platform provider.
 - `unm.js`: local UNM resolver using `@unblockneteasemusic/server`.
 - `lyric-fallback.js`: wraps UNM with Meting lyric and cover fallback.
+- `lrclib.js`: lyrics-only LRCLIB fallback. It requires song name/artist metadata and should not be treated as a search or playback URL source.
 - `unm-external.js`: optional external UNM service provider, disabled by default.
 - `index.js`: `createDefaultDispatcher()` factory from `src/config.js`.
 
@@ -65,6 +70,9 @@ Provider code lives in `src/server/source-providers/`.
 - `webroot/index.html`: app shell.
 - `webroot/js/main.js`: main player UI and API client.
 - `webroot/js/source-selector.js`: source selector UI layered over the native source select.
+- `webroot/js/pwa.js`: Service Worker registration, standalone detection, install/update/network prompts.
+- `webroot/sw.js`: Service Worker app shell cache. It must not cache music audio URLs or third-party music API responses.
+- `webroot/manifest.webmanifest`: Web/PWA metadata for standalone installation.
 - `tests/database-persistence.test.js`: `node:test` coverage for `sql.js` persist behavior.
 
 ## Database
@@ -73,16 +81,17 @@ The project uses `sql.js`, not `better-sqlite3`.
 
 Data locations:
 
-- Desktop mode: `%APPDATA%/musiQ/server-data/`
+- Desktop mode: `%APPDATA%/music/server-data/`
 - Standalone backend: `data/` in the repo, ignored by git
 
-Tables are created automatically. Core tables include `users`, `favorites`, `playlists`, `playlist_songs`, `api_status`, and `play_history`.
+Tables are created automatically. Core tables include `users`, `favorites`, `playlists`, `playlist_songs`, `offline_tracks`, `api_status`, and `play_history`.
 
 ## Important Notes
 
 - `npm run server` uses plain Node and should work without Electron.
+- `npm run web:start` is the same plain Node Express backend for Web/PWA deployment; use HTTPS and same-origin APIs where possible.
 - `scripts/electron-node.js` was removed and should not be restored.
-- `start-musiq.cmd` is the Windows one-click startup script and installs dependencies on first launch.
+- `start-music.cmd` is the Windows one-click startup script and installs dependencies on first launch.
 - Verification codes are written to `<dataDir>/email_log.txt`; SMTP is not implemented.
 - `.claude/` is a local Claude Code worktree/cache directory and must not be committed.
 - If architecture, commands, database technology, or provider behavior changes, update both `CLAUDE.md` and `AGENTS.md`.

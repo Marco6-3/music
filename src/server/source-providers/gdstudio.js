@@ -1,10 +1,17 @@
 'use strict';
 
+const http = require('node:http');
+const https = require('node:https');
 const axios = require('axios');
 const { BaseProvider } = require('./base');
 
 const FAILURE_THRESHOLD = 3;
 const COOLDOWN_MS = 5 * 60 * 1000;
+const HEALTH_MAX_ENTRIES = 100;
+
+// Shared HTTP agents with keep-alive to avoid TCP handshake per request
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10 });
 
 // Gdstudio aggregate API provider with per-source health tracking.
 class GdstudioProvider extends BaseProvider {
@@ -20,9 +27,23 @@ class GdstudioProvider extends BaseProvider {
     return `${source || 'netease'}:${types || 'unknown'}`;
   }
 
+  _evictOldHealthEntries() {
+    const keys = Object.keys(this.sourceHealth);
+    if (keys.length <= HEALTH_MAX_ENTRIES) return;
+    // Remove entries that are healthy (not in cooldown) starting from oldest
+    const now = Date.now();
+    for (const key of keys) {
+      if (Object.keys(this.sourceHealth).length <= HEALTH_MAX_ENTRIES) break;
+      if (now > this.sourceHealth[key].unhealthyUntil) {
+        delete this.sourceHealth[key];
+      }
+    }
+  }
+
   _getHealth(source, types) {
     const key = this._healthKey(source, types);
     if (!this.sourceHealth[key]) {
+      this._evictOldHealthEntries();
       this.sourceHealth[key] = { failures: 0, unhealthyUntil: 0 };
     }
     return this.sourceHealth[key];
@@ -56,7 +77,9 @@ class GdstudioProvider extends BaseProvider {
         'User-Agent': this.userAgent,
         Accept: 'application/json, text/plain, */*',
         Referer: 'https://music.xcloudv.top/'
-      }
+      },
+      httpAgent,
+      httpsAgent
     });
     return Array.isArray(response.data) ? response.data : response.data?.data || [];
   }
@@ -69,7 +92,9 @@ class GdstudioProvider extends BaseProvider {
         'User-Agent': this.userAgent,
         Accept: 'application/json, text/plain, */*',
         Referer: 'https://music.xcloudv.top/'
-      }
+      },
+      httpAgent,
+      httpsAgent
     });
     return response.data;
   }
@@ -82,7 +107,9 @@ class GdstudioProvider extends BaseProvider {
         'User-Agent': this.userAgent,
         Accept: 'application/json, text/plain, */*',
         Referer: 'https://music.xcloudv.top/'
-      }
+      },
+      httpAgent,
+      httpsAgent
     });
     return response.data;
   }
@@ -95,7 +122,9 @@ class GdstudioProvider extends BaseProvider {
         'User-Agent': this.userAgent,
         Accept: 'application/json, text/plain, */*',
         Referer: 'https://music.xcloudv.top/'
-      }
+      },
+      httpAgent,
+      httpsAgent
     });
     return response.data;
   }
@@ -117,7 +146,9 @@ class GdstudioProvider extends BaseProvider {
           Referer: 'https://music.xcloudv.top/'
         },
         responseType: 'text',
-        transformResponse: [(data) => data]
+        transformResponse: [(data) => data],
+        httpAgent,
+        httpsAgent
       });
 
       const body = response.data;
@@ -156,4 +187,4 @@ class GdstudioProvider extends BaseProvider {
   }
 }
 
-module.exports = { GdstudioProvider };
+module.exports = { GdstudioProvider, httpAgent, httpsAgent };

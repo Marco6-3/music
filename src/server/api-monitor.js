@@ -8,6 +8,19 @@ const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 async function checkSourceHealth(provider) {
   const results = { search: false, play: false };
 
+  if (provider.capabilities?.search === false) {
+    results.search = null;
+    if (provider.capabilities?.lyric) {
+      try {
+        const lyric = await provider.lyric({ name: '晴天', artist: '周杰伦' });
+        results.play = Boolean(lyric && (lyric.lyric || lyric.tlyric));
+      } catch {
+        results.play = false;
+      }
+    }
+    return results;
+  }
+
   try {
     const platform = provider.options?.defaultPlatform || 'netease';
     const songs = await provider.search(platform, 'test', 1);
@@ -23,6 +36,8 @@ async function checkSourceHealth(provider) {
 
 function writeStatus(db, source, name, searchOk, playOk) {
   const now = formatDateTime(new Date());
+  const searchStatus = searchOk == null ? 'n/a' : searchOk ? 'true' : 'false';
+  const playStatus = playOk == null ? 'n/a' : playOk ? 'true' : 'false';
   db.prepare(`
     INSERT INTO api_status (source, name, search, play, last_check)
     VALUES (?, ?, ?, ?, ?)
@@ -31,7 +46,7 @@ function writeStatus(db, source, name, searchOk, playOk) {
       search = excluded.search,
       play = excluded.play,
       last_check = excluded.last_check
-  `).run(source, name, searchOk ? 'true' : 'false', playOk ? 'true' : 'false', now);
+  `).run(source, name, searchStatus, playStatus, now);
 }
 
 async function runHealthCheck(db, dispatcher, shouldContinue = () => true) {

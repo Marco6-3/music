@@ -4,11 +4,24 @@ const { createDefaultDispatcher } = require('../src/server/source-providers');
 const { musicSources } = require('../src/config');
 
 const rawArgs = process.argv.slice(2);
-const disableGdstudio = rawArgs.includes('--disable-gdstudio') || process.env.XCLOUD_DISABLE_GDSTUDIO === '1';
-const disableUnm = rawArgs.includes('--disable-unm') || process.env.XCLOUD_DISABLE_UNM === '1';
-const disableMeting = rawArgs.includes('--disable-meting') || process.env.XCLOUD_DISABLE_METING === '1';
+const disableGdstudio = rawArgs.includes('--disable-gdstudio') || envFlag('MUSIC_DISABLE_GDSTUDIO', 'MUSIQ_DISABLE_GDSTUDIO', 'XCLOUD_DISABLE_GDSTUDIO');
+const disableUnm = rawArgs.includes('--disable-unm') || envFlag('MUSIC_DISABLE_UNM', 'MUSIQ_DISABLE_UNM', 'XCLOUD_DISABLE_UNM');
+const disableMeting = rawArgs.includes('--disable-meting') || envFlag('MUSIC_DISABLE_METING', 'MUSIQ_DISABLE_METING', 'XCLOUD_DISABLE_METING');
+const disableLrclib = rawArgs.includes('--disable-lrclib') || envFlag('MUSIC_DISABLE_LRCLIB', 'MUSIQ_DISABLE_LRCLIB', 'XCLOUD_DISABLE_LRCLIB');
 const keyword = rawArgs.filter((arg) => !arg.startsWith('--')).join(' ') || '周杰伦 晴天';
-const platform = process.env.XCLOUD_PROBE_PLATFORM || 'netease';
+const platform = envValue('MUSIC_PROBE_PLATFORM', 'MUSIQ_PROBE_PLATFORM', 'XCLOUD_PROBE_PLATFORM') || 'netease';
+
+function envFlag(...names) {
+  return names.some((name) => process.env[name] === '1');
+}
+
+function envValue(...names) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value !== undefined && value !== '') return value;
+  }
+  return '';
+}
 
 const musicSourceConfig = {
   ...musicSources,
@@ -23,6 +36,10 @@ const musicSourceConfig = {
   meting: {
     ...musicSources.meting,
     enabled: disableMeting ? false : musicSources.meting?.enabled
+  },
+  lrclib: {
+    ...musicSources.lrclib,
+    enabled: disableLrclib ? false : musicSources.lrclib?.enabled
   }
 };
 

@@ -8,7 +8,7 @@ const initSqlJs = require('sql.js');
 const TOKEN_EXPIRY_SECONDS = 86400 * 30;
 const CODE_EXPIRY_SECONDS = 600;
 const PERSIST_DEBOUNCE_MS = 500;
-let tokenSecret = process.env.MUSIQ_TOKEN_SECRET || process.env.XCLOUD_TOKEN_SECRET || '';
+let tokenSecret = process.env.MUSIC_TOKEN_SECRET || process.env.MUSIQ_TOKEN_SECRET || process.env.XCLOUD_TOKEN_SECRET || '';
 let sqlJsPromise;
 
 async function createDataStore(dataDir) {
@@ -16,7 +16,7 @@ async function createDataStore(dataDir) {
   const releaseLock = acquireDataStoreLock(dataDir);
   ensureTokenSecret(dataDir);
   try {
-    const dbPath = resolveDataFile(dataDir, 'musiq.db', 'xcloud_music.db');
+    const dbPath = resolveDataFile(dataDir, 'music.db', 'musiq.db', 'xcloud_music.db');
     const SQL = await loadSqlJs();
     const db = new PersistentSqlJsDatabase(SQL, dbPath);
     db.pragma('journal_mode = DELETE');
@@ -51,11 +51,18 @@ function loadSqlJs() {
   return sqlJsPromise;
 }
 
-function resolveDataFile(dataDir, fileName, legacyFileName) {
+function resolveDataFile(dataDir, fileName, ...legacyFileNames) {
   const dbPath = path.join(dataDir, fileName);
-  const legacyPath = path.join(dataDir, legacyFileName);
-  if (!fs.existsSync(dbPath) && fs.existsSync(legacyPath)) {
-    fs.copyFileSync(legacyPath, dbPath);
+  if (fs.existsSync(dbPath)) {
+    return dbPath;
+  }
+
+  for (const legacyFileName of legacyFileNames) {
+    const legacyPath = path.join(dataDir, legacyFileName);
+    if (fs.existsSync(legacyPath)) {
+      fs.copyFileSync(legacyPath, dbPath);
+      break;
+    }
   }
   return dbPath;
 }
@@ -144,8 +151,25 @@ class PersistentSqlJsDatabase {
     const data = Buffer.from(this.raw.export());
     const tempPath = `${this.dbPath}.tmp`;
     fs.writeFileSync(tempPath, data);
-    fs.renameSync(tempPath, this.dbPath);
+    this._renameWithRetry(tempPath, this.dbPath);
     this.dirty = false;
+  }
+
+  _renameWithRetry(src, dst, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        fs.renameSync(src, dst);
+        return;
+      } catch (error) {
+        if (error.code === 'EBUSY' && i < retries - 1) {
+          // Windows Defender or other file scanners may briefly lock the file.
+          const start = Date.now();
+          while (Date.now() - start < 50) { /* busy-wait 50ms */ }
+        } else {
+          throw error;
+        }
+      }
+    }
   }
 
   close() {
@@ -214,7 +238,7 @@ function isWriteSql(sql) {
 }
 
 function acquireDataStoreLock(dataDir) {
-  const lockPath = path.join(dataDir, 'musiq.lock');
+  const lockPath = path.join(dataDir, 'music.lock');
 
   for (;;) {
     try {
@@ -343,6 +367,27 @@ function initDb(db) {
       search TEXT DEFAULT 'true',
       play TEXT DEFAULT 'true',
       last_check TEXT DEFAULT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS offline_tracks (
+      cache_key TEXT PRIMARY KEY,
+      song_id TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'netease',
+      name TEXT DEFAULT NULL,
+      artist TEXT DEFAULT NULL,
+      album TEXT DEFAULT NULL,
+      pic_id TEXT DEFAULT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      file_path TEXT DEFAULT NULL,
+      content_type TEXT DEFAULT NULL,
+      br INTEGER DEFAULT NULL,
+      size INTEGER DEFAULT NULL,
+      error TEXT DEFAULT NULL,
+      attempts INTEGER DEFAULT 0,
+      created_at INTEGER DEFAULT (strftime('%s', 'now')),
+      updated_at INTEGER DEFAULT (strftime('%s', 'now')),
+      downloaded_at INTEGER DEFAULT NULL,
+      UNIQUE(song_id, source)
     );
   `);
 

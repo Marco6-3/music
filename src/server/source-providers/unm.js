@@ -25,6 +25,7 @@ function loadUnmModules() {
 }
 
 const MIN_SONG_SIZE_BYTES = 500 * 1024; // 500KB — ads/jingles are typically < 200KB
+const SYNTHETIC_SONGS_MAX = 500;
 
 function headContentLength(url) {
   return new Promise((resolve) => {
@@ -62,6 +63,7 @@ class UnmProvider extends BaseProvider {
     this.sources = options.sources || ['kuwo', 'kugou', 'bodian', 'bilibili'];
     this.timeout = options.timeout || 10_000;
     this.syntheticSongs = new Map();
+    this._syntheticOrder = []; // Track insertion order for LRU eviction
   }
 
   async search(platform, keyword, count = 30) {
@@ -96,7 +98,7 @@ class UnmProvider extends BaseProvider {
             sourceName,
             directUrl: result
           });
-          this.syntheticSongs.set(id, song);
+          this._addToSyntheticSongs(id, song);
           results.push({
             id,
             name: song.name,
@@ -113,7 +115,7 @@ class UnmProvider extends BaseProvider {
             source: sourceName,
             album: result.album?.name || ''
           };
-          this.syntheticSongs.set(id, song);
+          this._addToSyntheticSongs(id, song);
           results.push({
             id: String(result.id),
             name: song.name,
@@ -271,6 +273,19 @@ class UnmProvider extends BaseProvider {
 
   _syntheticId(sourceName, index) {
     return `${sourceName}_${Date.now()}_${index}`;
+  }
+
+  _addToSyntheticSongs(id, song) {
+    if (this.syntheticSongs.size >= SYNTHETIC_SONGS_MAX) {
+      // Evict oldest entries
+      const toEvict = Math.max(1, Math.floor(SYNTHETIC_SONGS_MAX * 0.2));
+      for (let i = 0; i < toEvict && this._syntheticOrder.length > 0; i++) {
+        const oldId = this._syntheticOrder.shift();
+        this.syntheticSongs.delete(oldId);
+      }
+    }
+    this.syntheticSongs.set(id, song);
+    this._syntheticOrder.push(id);
   }
 
   _buildSyntheticSong({ id, keyword, sourceName, directUrl }) {

@@ -5,18 +5,19 @@
     const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
     const audio = $('#audio');
     const root = document.documentElement;
-    const fallbackCover = 'public/musiq-default.png';
+    const fallbackCover = 'public/music-default.png';
+    const runtimeConfig = readRuntimeConfig();
     const storage = {
-        token: 'musiq_token',
-        userId: 'musiq_user_id',
-        volume: 'musiq_volume',
-        queue: 'musiq_queue'
+        token: 'music_token',
+        userId: 'music_user_id',
+        volume: 'music_volume',
+        queue: 'music_queue'
     };
     const legacyStorage = {
-        token: 'xcloud_token',
-        userId: 'xcloud_user_id',
-        volume: 'xcloud_volume',
-        queue: 'xcloud_queue'
+        token: ['musiq_token', 'xcloud_token'],
+        userId: ['musiq_user_id', 'xcloud_user_id'],
+        volume: ['musiq_volume', 'xcloud_volume'],
+        queue: ['musiq_queue', 'xcloud_queue']
     };
 
     const state = {
@@ -44,6 +45,8 @@
         weeklyFavorites: [],
         historyLoading: false,
         historyLoadedForUser: '',
+        playerStatus: '准备就绪',
+        progressDragging: false,
         sourceDiagnostics: {
             musicSource: '',
             cache: '',
@@ -52,8 +55,37 @@
             error: ''
         }
     };
+    const COVER_CACHE_MAX = 200;
     const coverCache = new Map();
     const coverInflight = new Map();
+
+    function coverCacheSet(key, value) {
+        if (coverCache.size >= COVER_CACHE_MAX) {
+            // Evict oldest entry
+            const oldest = coverCache.keys().next().value;
+            coverCache.delete(oldest);
+        }
+        coverCache.set(key, value);
+    }
+
+    // O(1) favorites lookup Set: "source:id"
+    const favoriteKeys = new Set();
+
+    function rebuildFavoriteKeys() {
+        favoriteKeys.clear();
+        for (const item of state.favorites) {
+            favoriteKeys.add(`${item.source || 'netease'}:${item.id}`);
+        }
+    }
+
+    // Reusable offscreen canvas for cover theme extraction
+    const _coverCanvas = document.createElement('canvas');
+    _coverCanvas.width = 24;
+    _coverCanvas.height = 24;
+    const _coverCtx = _coverCanvas.getContext('2d', { willReadFrequently: true });
+    const _coverImage = new Image();
+    _coverImage.crossOrigin = 'anonymous';
+    _coverImage.decoding = 'async';
     const coverResolveQueue = [];
     const maxConcurrentCoverResolves = 4;
     let activeCoverResolves = 0;
@@ -87,9 +119,11 @@
         sideCover: $('#side-cover'),
         sideTitle: $('#side-title'),
         sideArtist: $('#side-artist'),
+        dockSong: $('#dock-song'),
         dockCover: $('#dock-cover'),
         dockTitle: $('#dock-title'),
         dockArtist: $('#dock-artist'),
+        dockStatus: $('#dock-status'),
         play: $('#play-btn'),
         prev: $('#prev-btn'),
         next: $('#next-btn'),
@@ -109,6 +143,7 @@
         expandedPlay: $('#expanded-play-btn'),
         expandedPrev: $('#expanded-prev-btn'),
         expandedNext: $('#expanded-next-btn'),
+        expandedStatus: $('#expanded-status'),
         expandedQuality: $('#expanded-quality'),
         lyricBox: $('#lyric-box'),
         authModal: $('#auth-modal'),
@@ -135,8 +170,16 @@
         bindEvents();
         verifySession();
         renderShell();
-        renderView('home');
+        const launchParams = new URLSearchParams(window.location.search);
+        const initialView = ['home', 'search', 'favorites', 'playlists'].includes(launchParams.get('view'))
+            ? launchParams.get('view')
+            : 'home';
+        renderView(initialView);
         loadToplist('soaring', true);
+        if (launchParams.get('panel') === 'queue') {
+            setTimeout(() => openModal('queue-modal'), 0);
+        }
+        setupMediaSessionHandlers();
     }
 
     function bindEvents() {
@@ -163,6 +206,15 @@
         els.addPlaylist.addEventListener('click', () => openPlaylistDialog(state.currentSong));
         els.queueOpen.addEventListener('click', () => openModal('queue-modal'));
         els.expand.addEventListener('click', () => openModal('player-modal'));
+        els.dockSong?.addEventListener('click', () => {
+            if (state.currentSong) openModal('player-modal');
+        });
+        els.dockSong?.addEventListener('keydown', (event) => {
+            if ((event.key === 'Enter' || event.key === ' ') && state.currentSong) {
+                event.preventDefault();
+                openModal('player-modal');
+            }
+        });
         els.clearQueue.addEventListener('click', clearQueue);
         bindQueueActions();
         els.loginOpen.addEventListener('click', () => openModal('auth-modal'));
@@ -172,11 +224,13 @@
         bindWindowControls();
         bindWheelForwarding();
         bindResizePerformanceMode();
+        bindBottomSheetGestures();
 
-        els.progress.addEventListener('input', () => {
-            if (!Number.isFinite(audio.duration)) return;
-            audio.currentTime = (Number(els.progress.value) / 1000) * audio.duration;
-        });
+        els.progress.addEventListener('pointerdown', beginProgressDrag);
+        els.progress.addEventListener('input', handleProgressInput);
+        els.progress.addEventListener('change', commitProgressSeek);
+        window.addEventListener('pointerup', commitProgressSeek, { passive: true });
+        window.addEventListener('pointercancel', cancelProgressDrag, { passive: true });
 
         els.volume.addEventListener('input', () => {
             audio.volume = Number(els.volume.value) / 100;
@@ -186,8 +240,16 @@
             if (state.currentSong) showToast(`下一首将使用${qualityLabel(els.qualitySelect.value)}`);
         });
 
-        audio.addEventListener('play', updatePlayButtons);
-        audio.addEventListener('pause', updatePlayButtons);
+        audio.addEventListener('play', () => {
+            setPlayerStatus('正在播放');
+            updatePlayButtons();
+            updateMediaSessionPlaybackState();
+        });
+        audio.addEventListener('pause', () => {
+            setPlayerStatus(state.currentSong ? '已暂停' : '准备就绪');
+            updatePlayButtons();
+            updateMediaSessionPlaybackState();
+        });
         audio.addEventListener('timeupdate', updateProgress);
         audio.addEventListener('loadedmetadata', updateProgress);
         audio.addEventListener('ended', handleEnded);
@@ -195,7 +257,11 @@
         audio.addEventListener('stalled', handleBuffering);
         audio.addEventListener('canplay', clearBuffering);
         audio.addEventListener('playing', clearBuffering);
-        audio.addEventListener('error', () => showToast('播放失败，音乐源暂时不可用', 'error'));
+        audio.addEventListener('error', () => {
+            setPlayerStatus('播放失败');
+            updateMediaSessionPlaybackState();
+            showToast('播放失败，音乐源暂时不可用', 'error');
+        });
 
         $$('.close-btn').forEach((button) => {
             button.addEventListener('click', () => closeModal(button.dataset.closeModal));
@@ -271,6 +337,37 @@
         }, { passive: true });
     }
 
+    function bindBottomSheetGestures() {
+        $$('.queue-drawer, .expanded-player, .auth-card, .playlist-dialog, .source-diagnostics').forEach((panel) => {
+            let startY = 0;
+            let dragging = false;
+
+            panel.addEventListener('touchstart', (event) => {
+                if (!event.touches.length || panel.scrollTop > 0) return;
+                startY = event.touches[0].clientY;
+                dragging = true;
+            }, { passive: true });
+
+            panel.addEventListener('touchmove', (event) => {
+                if (!dragging || !event.touches.length) return;
+                const deltaY = event.touches[0].clientY - startY;
+                if (deltaY <= 0 || panel.scrollTop > 0) return;
+                panel.style.transform = `translateY(${Math.min(deltaY, 120)}px)`;
+                event.preventDefault();
+            }, { passive: false });
+
+            panel.addEventListener('touchend', (event) => {
+                if (!dragging) return;
+                dragging = false;
+                const modal = panel.closest('.modal');
+                const touch = event.changedTouches[0];
+                const deltaY = touch ? touch.clientY - startY : 0;
+                panel.style.transform = '';
+                if (deltaY > 88 && modal) closeModal(modal.id);
+            }, { passive: true });
+        });
+    }
+
     async function verifySession() {
         const persistedAuth = await readPersistedAuthState();
         if (!state.token && persistedAuth.token) state.token = persistedAuth.token;
@@ -297,6 +394,7 @@
         state.currentUser = user;
         state.token = token || state.token;
         state.favorites = normalizeSongList(user.favorites || []);
+        rebuildFavoriteKeys();
         state.playlists = playlistsFromUser(user);
         if (String(user.id) !== previousUserId) {
             state.recentPlays = [];
@@ -316,14 +414,12 @@
         state.currentUser = null;
         state.token = '';
         state.favorites = [];
+        rebuildFavoriteKeys();
         state.playlists = [];
         state.recentPlays = [];
         state.weeklyFavorites = [];
         state.historyLoadedForUser = '';
-        localStorage.removeItem(storage.token);
-        localStorage.removeItem(storage.userId);
-        localStorage.removeItem(legacyStorage.token);
-        localStorage.removeItem(legacyStorage.userId);
+        removeLocalKeys(storage.token, storage.userId, legacyStorage.token, legacyStorage.userId);
         clearPersistedAuthState();
         updateUserUI();
     }
@@ -333,7 +429,7 @@
         els.loginOpen.hidden = loggedIn;
         els.userChip.hidden = !loggedIn;
         if (!loggedIn) return;
-        els.userName.textContent = state.currentUser.username || 'musiQ用户';
+        els.userName.textContent = state.currentUser.username || 'music用户';
         els.userAvatar.src = state.currentUser.avatar || 'public/avatars/default1.png';
     }
 
@@ -564,7 +660,7 @@
                     <div class="song-subtitle">${escapeHtml(formatArtists(song.artist))} · ${escapeHtml(song.album || song.source || '')}</div>
                 </div>
                 <div class="song-actions">
-                    <button class="icon-btn" data-action="play" title="播放">▶</button>
+                    <button class="icon-btn play-icon-btn" data-action="play" title="播放" aria-label="播放"></button>
                     <button class="icon-btn" data-action="queue" title="加入队列">＋</button>
                     <button class="icon-btn" data-action="favorite" title="收藏">${isFavorite(song) ? '♥' : '♡'}</button>
                     <button class="icon-btn" data-action="playlist" title="添加到歌单">≡</button>
@@ -651,7 +747,7 @@
 
         const request = enqueueCoverResolve(() => resolveCoverUrl(song, size))
             .then((coverUrl) => {
-                coverCache.set(key, coverUrl);
+                coverCacheSet(key, coverUrl);
                 return coverUrl;
             })
             .finally(() => {
@@ -830,6 +926,7 @@
         state.qualityRetryLevel = 0;
         state.currentQuality = normalizeRequestedQuality(els.qualitySelect.value);
         state.activeLyricIndex = -1;
+        setPlayerStatus('正在解析音源');
         saveQueue();
         renderShell();
         updatePlayingSongCards(previousSong, state.currentSong);
@@ -840,7 +937,10 @@
                 apiGet('api.php', {
                     types: 'lyric',
                     source: state.currentSong.source || 'netease',
-                    id: state.currentSong.lyric_id || state.currentSong.id
+                    id: state.currentSong.lyric_id || state.currentSong.id,
+                    name: state.currentSong.name || '',
+                    artist: formatArtists(state.currentSong.artist),
+                    album: state.currentSong.album || ''
                 }).catch(() => ({ lyric: '' }))
             ]);
             let urlData;
@@ -850,6 +950,7 @@
                 const fallbackSong = await resolvePlaybackFallbackSong(state.currentSong);
                 if (!fallbackSong) throw error;
 
+                setPlayerStatus('正在换源');
                 showToast(`当前音乐源不可用，已切换到酷我：${fallbackSong.name}`);
                 const originalSong = state.currentSong;
                 const beforeFallbackSong = state.currentSong;
@@ -868,7 +969,10 @@
                     apiGet('api.php', {
                         types: 'lyric',
                         source: state.currentSong.source || 'kuwo',
-                        id: state.currentSong.lyric_id || state.currentSong.id
+                        id: state.currentSong.lyric_id || state.currentSong.id,
+                        name: state.currentSong.name || '',
+                        artist: formatArtists(state.currentSong.artist),
+                        album: state.currentSong.album || ''
                     }).catch(() => lyricData)
                 ]);
                 coverUrl = fallbackCoverUrl;
@@ -886,12 +990,21 @@
             updateQualityBadge(urlData);
             state.lyrics = parseLyrics(lyricData.lyric || lyricData.lrc?.lyric || '');
             renderLyrics();
+            setPlayerStatus('正在连接播放器');
+            updateMediaSessionMetadata();
             audio.preload = 'auto';
             audio.src = url;
             audio.load();
             await audio.play();
             recordSuccessfulPlay(state.currentSong);
         } catch (error) {
+            if (error?.name === 'NotAllowedError') {
+                setPlayerStatus('点按播放继续');
+                showToast('iPhone Safari 需要再次点按播放按钮开始播放', 'error');
+                return;
+            }
+            setPlayerStatus('播放失败');
+            updateMediaSessionPlaybackState();
             showToast(error.message || '播放失败', 'error');
         }
     }
@@ -948,8 +1061,14 @@
             if (first) playSong(first, { list: state.queue.length ? state.queue : state.homeSongs });
             return;
         }
-        if (audio.paused) audio.play().catch(() => showToast('播放失败', 'error'));
-        else audio.pause();
+        if (audio.paused) {
+            audio.play().catch((error) => {
+                setPlayerStatus(error?.name === 'NotAllowedError' ? '点按播放继续' : '播放失败');
+                showToast(error?.name === 'NotAllowedError' ? '请点按播放按钮开始播放' : '播放失败', 'error');
+            });
+        } else {
+            audio.pause();
+        }
     }
 
     function playPrevious() {
@@ -983,6 +1102,8 @@
 
     function handleBuffering() {
         if (!state.currentSong || audio.paused) return;
+        setPlayerStatus('正在缓冲');
+        updateMediaSessionPlaybackState();
         showToast('正在缓冲当前音乐源...');
         clearTimeout(state.stallTimer);
         state.stallTimer = setTimeout(() => {
@@ -993,6 +1114,10 @@
     function clearBuffering() {
         clearTimeout(state.stallTimer);
         state.stallTimer = 0;
+        if (state.currentSong) {
+            setPlayerStatus(audio.paused ? '已暂停' : '正在播放');
+            updateMediaSessionPlaybackState();
+        }
     }
 
     async function recoverHighQualityStream() {
@@ -1001,6 +1126,7 @@
         const retryQuality = requested === '999' && state.qualityRetryLevel === 0 ? '320' : requested;
         state.qualityRetryLevel += 1;
         const resumeAt = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+        setPlayerStatus(retryQuality === '320' && requested === '999' ? '已切换 HQ' : '正在刷新音源');
         showToast(retryQuality === '320' && requested === '999'
             ? 'SQ 源不稳定，已切换到极高 HQ 继续播放'
             : '正在刷新高音质播放直链');
@@ -1184,6 +1310,8 @@
             audio.load();
             state.currentSong = null;
             state.currentIndex = -1;
+            setPlayerStatus('准备就绪');
+            updateMediaSessionMetadata();
             saveQueue();
             renderShell();
             renderView(state.view);
@@ -1215,16 +1343,25 @@
         [els.dockArtist, els.sideArtist, els.expandedArtist].forEach((el) => {
             el.textContent = artist;
         });
+        [els.dockStatus, els.expandedStatus].forEach((el) => {
+            if (el) el.textContent = state.playerStatus || '准备就绪';
+        });
         els.favorite.textContent = song && isFavorite(song) ? '♥' : '♡';
         updateQualityBadge();
         updatePlayButtons();
         updateCoverTheme(cover);
+        updateMediaSessionMetadata();
     }
 
     function updatePlayButtons() {
-        const label = audio.paused ? '▶' : '⏸';
-        els.play.textContent = label;
-        els.expandedPlay.textContent = label;
+        const playing = !audio.paused;
+        [els.play, els.expandedPlay].forEach((button) => {
+            if (!button) return;
+            button.textContent = '';
+            button.classList.toggle('is-playing', playing);
+            button.title = playing ? '暂停' : '播放';
+            button.setAttribute('aria-label', playing ? '暂停' : '播放');
+        });
     }
 
     function updateProgress() {
@@ -1232,8 +1369,48 @@
         const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
         els.currentTime.textContent = formatTime(current);
         els.durationTime.textContent = formatTime(duration);
-        els.progress.value = duration ? String(Math.round((current / duration) * 1000)) : '0';
+        if (!state.progressDragging) {
+            els.progress.value = duration ? String(Math.round((current / duration) * 1000)) : '0';
+        }
         updateActiveLyric(current);
+    }
+
+    function setPlayerStatus(status) {
+        state.playerStatus = status || '准备就绪';
+        [els.dockStatus, els.expandedStatus].forEach((el) => {
+            if (el) el.textContent = state.playerStatus;
+        });
+    }
+
+    function beginProgressDrag() {
+        if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+        state.progressDragging = true;
+    }
+
+    function handleProgressInput() {
+        if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+        const preview = progressValueToSeconds();
+        els.currentTime.textContent = formatTime(preview);
+        if (!state.progressDragging) commitProgressSeek();
+    }
+
+    function commitProgressSeek() {
+        if (!state.progressDragging && document.activeElement !== els.progress) return;
+        if (Number.isFinite(audio.duration) && audio.duration > 0) {
+            audio.currentTime = progressValueToSeconds();
+        }
+        state.progressDragging = false;
+        updateProgress();
+    }
+
+    function cancelProgressDrag() {
+        if (!state.progressDragging) return;
+        state.progressDragging = false;
+        updateProgress();
+    }
+
+    function progressValueToSeconds() {
+        return (Number(els.progress.value) / 1000) * audio.duration;
     }
 
     async function toggleFavorite(song = state.currentSong) {
@@ -1250,8 +1427,13 @@
                 user_id: state.currentUser.id,
                 ...songPayload(song)
             });
-            if (favorite) state.favorites = state.favorites.filter((item) => !sameSong(item, song));
-            else state.favorites.unshift(normalizeSong(song));
+            if (favorite) {
+                state.favorites = state.favorites.filter((item) => !sameSong(item, song));
+                favoriteKeys.delete(`${song.source || 'netease'}:${song.id}`);
+            } else {
+                state.favorites.unshift(normalizeSong(song));
+                favoriteKeys.add(`${song.source || 'netease'}:${song.id}`);
+            }
             updateUserCollections();
             showToast(favorite ? '已取消收藏' : '已收藏', 'success');
             renderShell();
@@ -1477,8 +1659,9 @@
 
         const providers = Object.entries(state.sourceDiagnostics.providers || {});
         els.providerStatusList.innerHTML = providers.map(([source, item]) => {
-            const searchOk = item?.search === true || item?.search === 'true';
-            const playOk = item?.play === true || item?.play === 'true';
+            const searchStatus = statusMeta(item?.search);
+            const playStatus = statusMeta(item?.play);
+            const secondLabel = searchStatus.label === 'N/A' ? '歌词' : '播放';
             return `
                 <div class="provider-row">
                     <div>
@@ -1486,12 +1669,18 @@
                         <span class="provider-meta">last_check: ${escapeHtml(item?.last_check || '暂无')}</span>
                     </div>
                     <div class="provider-pills">
-                        <span class="status-pill ${searchOk ? 'ok' : 'bad'}">搜索 ${searchOk ? 'OK' : 'FAIL'}</span>
-                        <span class="status-pill ${playOk ? 'ok' : 'bad'}">播放 ${playOk ? 'OK' : 'FAIL'}</span>
+                        <span class="status-pill ${searchStatus.className}">搜索 ${searchStatus.label}</span>
+                        <span class="status-pill ${playStatus.className}">${secondLabel} ${playStatus.label}</span>
                     </div>
                 </div>
             `;
         }).join('') || emptyState('暂无音源检测记录', '后台监控完成后会显示每个 provider 的状态。');
+    }
+
+    function statusMeta(value) {
+        if (value === true || value === 'true') return { className: 'ok', label: 'OK' };
+        if (value === null || value === 'n/a') return { className: '', label: 'N/A' };
+        return { className: 'bad', label: 'FAIL' };
     }
 
     function recordSourceHeaders(headers = {}) {
@@ -1514,6 +1703,7 @@
                 </div>
             `).join('')
             : `<div class="empty-state">暂无歌词</div>`;
+        updateActiveLyric(Number.isFinite(audio.currentTime) ? audio.currentTime : 0);
     }
 
     function updateActiveLyric(current) {
@@ -1524,10 +1714,13 @@
             else break;
         }
         if (active === state.activeLyricIndex) return;
+        // Only toggle two elements instead of iterating all lines
+        const prevLine = $(`.lyric-line[data-lyric-index="${state.activeLyricIndex}"]`, els.lyricBox);
+        if (prevLine) prevLine.classList.remove('active');
         state.activeLyricIndex = active;
-        $$('.lyric-line', els.lyricBox).forEach((line, index) => line.classList.toggle('active', index === active));
         const activeLine = $(`.lyric-line[data-lyric-index="${active}"]`, els.lyricBox);
         if (!activeLine) return;
+        activeLine.classList.add('active');
         const now = performance.now();
         const shouldSmooth = now - state.lastLyricScrollAt > 420;
         state.lastLyricScrollAt = now;
@@ -1543,7 +1736,8 @@
         const quality = String(data?.br || state.currentQuality || els.qualitySelect.value || '999');
         const size = Number(data?.size || 0);
         const sizeText = size ? ` · ${formatBytes(size)}` : '';
-        els.expandedQuality.textContent = `${qualityLabel(quality)}${sizeText}`;
+        const offlineText = data?.offline ? ' · 本地' : '';
+        els.expandedQuality.textContent = `${qualityLabel(quality)}${sizeText}${offlineText}`;
     }
 
     function normalizeRequestedQuality(value) {
@@ -1567,18 +1761,10 @@
 
     function updateCoverTheme(src) {
         if (!src) return setAccent(30, 215, 96);
-        const image = new Image();
-        image.crossOrigin = 'anonymous';
-        image.decoding = 'async';
-        image.onload = () => {
+        _coverImage.onload = () => {
             try {
-                const canvas = document.createElement('canvas');
-                const size = 24;
-                canvas.width = size;
-                canvas.height = size;
-                const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                ctx.drawImage(image, 0, 0, size, size);
-                const data = ctx.getImageData(0, 0, size, size).data;
+                _coverCtx.drawImage(_coverImage, 0, 0, 24, 24);
+                const data = _coverCtx.getImageData(0, 0, 24, 24).data;
                 let r = 0;
                 let g = 0;
                 let b = 0;
@@ -1599,8 +1785,8 @@
                 setAccent(30, 215, 96);
             }
         };
-        image.onerror = () => setAccent(30, 215, 96);
-        image.src = src;
+        _coverImage.onerror = () => setAccent(30, 215, 96);
+        _coverImage.src = src;
     }
 
     function setAccent(r, g, b) {
@@ -1618,15 +1804,123 @@
         return [r, g, b].map((value) => Math.max(44, Math.min(235, Math.round(value * factor))));
     }
 
+    function setupMediaSessionHandlers() {
+        if (!('mediaSession' in navigator)) return;
+
+        const handlers = {
+            play: () => togglePlay(),
+            pause: () => audio.pause(),
+            previoustrack: () => playPrevious(),
+            nexttrack: () => playNext(),
+            seekto: (details) => {
+                if (!Number.isFinite(details?.seekTime) || !Number.isFinite(audio.duration)) return;
+                audio.currentTime = Math.max(0, Math.min(details.seekTime, audio.duration));
+                updateProgress();
+            }
+        };
+
+        Object.entries(handlers).forEach(([action, handler]) => {
+            try {
+                navigator.mediaSession.setActionHandler(action, handler);
+            } catch {
+                // Older Safari versions expose only part of the Media Session API.
+            }
+        });
+        updateMediaSessionMetadata();
+    }
+
+    function updateMediaSessionMetadata() {
+        if (!('mediaSession' in navigator)) return;
+
+        const song = state.currentSong;
+        if (!song) {
+            navigator.mediaSession.metadata = null;
+            updateMediaSessionPlaybackState();
+            return;
+        }
+
+        const cover = absolutizeAssetUrl(song.cover_url || getCoverUrl(song, 512) || fallbackCover);
+        try {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: song.name || '未知歌曲',
+                artist: formatArtists(song.artist),
+                album: song.album || 'music',
+                artwork: [
+                    { src: cover, sizes: '96x96', type: 'image/png' },
+                    { src: cover, sizes: '192x192', type: 'image/png' },
+                    { src: cover, sizes: '512x512', type: 'image/png' }
+                ]
+            });
+        } catch {
+            // Metadata is progressive enhancement only.
+        }
+        updateMediaSessionPlaybackState();
+    }
+
+    function updateMediaSessionPlaybackState() {
+        if (!('mediaSession' in navigator)) return;
+        try {
+            navigator.mediaSession.playbackState = state.currentSong
+                ? (audio.paused ? 'paused' : 'playing')
+                : 'none';
+        } catch {}
+    }
+
+    function absolutizeAssetUrl(value) {
+        try {
+            return new URL(value || fallbackCover, window.location.href).href;
+        } catch {
+            return fallbackCover;
+        }
+    }
+
+    function readRuntimeConfig() {
+        const metaApiBase = document.querySelector('meta[name="music-api-base-url"]')?.content
+            || document.querySelector('meta[name="musiq-api-base-url"]')?.content
+            || '';
+        let globalConfig = {};
+        if (window.__MUSIC_CONFIG__ && typeof window.__MUSIC_CONFIG__ === 'object') {
+            globalConfig = window.__MUSIC_CONFIG__;
+        } else if (window.__MUSIQ_CONFIG__ && typeof window.__MUSIQ_CONFIG__ === 'object') {
+            globalConfig = window.__MUSIQ_CONFIG__;
+        }
+        return {
+            apiBaseUrl: normalizeApiBaseUrl(globalConfig.apiBaseUrl || globalConfig.api_base_url || metaApiBase),
+            credentials: globalConfig.credentials || 'same-origin'
+        };
+    }
+
+    function normalizeApiBaseUrl(value) {
+        return String(value || '').trim().replace(/\/+$/, '');
+    }
+
+    function buildApiUrl(path, params = {}) {
+        const cleanPath = String(path || '').replace(/^\/+/, '');
+        const query = new URLSearchParams(params).toString();
+        if (!runtimeConfig.apiBaseUrl) return query ? `${cleanPath}?${query}` : cleanPath;
+
+        const base = runtimeConfig.apiBaseUrl.endsWith('/')
+            ? runtimeConfig.apiBaseUrl
+            : `${runtimeConfig.apiBaseUrl}/`;
+        const url = new URL(cleanPath, base);
+        if (query) url.search = query;
+        return url.toString();
+    }
+
+    function isApiPath(path, target) {
+        return String(path || '').replace(/^\/+/, '') === target;
+    }
+
     async function apiGet(path, params = {}) {
         const result = await apiGetWithMeta(path, params);
-        if (path === 'api.php' || path === 'php/toplist.php') recordSourceHeaders(result.headers);
+        if (isApiPath(path, 'api.php') || isApiPath(path, 'php/toplist.php')) recordSourceHeaders(result.headers);
         return result.data;
     }
 
     async function apiGetWithMeta(path, params = {}) {
-        const query = new URLSearchParams(params).toString();
-        const response = await fetch(query ? `${path}?${query}` : path);
+        const response = await fetch(buildApiUrl(path, params), {
+            credentials: runtimeConfig.credentials
+        });
         const data = await parseResponse(response);
         return {
             data,
@@ -1638,9 +1932,10 @@
     }
 
     async function apiPost(path, body = {}) {
-        const response = await fetch(path, {
+        const response = await fetch(buildApiUrl(path), {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            credentials: runtimeConfig.credentials,
             body: new URLSearchParams(body)
         });
         return parseResponse(response);
@@ -1726,7 +2021,8 @@
     }
 
     function isFavorite(song) {
-        return state.favorites.some((item) => sameSong(item, song));
+        const key = `${song.source || 'netease'}:${song.id}`;
+        return favoriteKeys.has(key);
     }
 
     function getCoverUrl(song, size = 300) {
@@ -1827,6 +2123,7 @@
         if (id === 'queue-modal') renderQueue();
         modal.classList.add('open');
         modal.setAttribute('aria-hidden', 'false');
+        updateModalBodyLock();
     }
 
     function closeModal(id) {
@@ -1834,6 +2131,11 @@
         if (!modal) return;
         modal.classList.remove('open');
         modal.setAttribute('aria-hidden', 'true');
+        updateModalBodyLock();
+    }
+
+    function updateModalBodyLock() {
+        document.body.classList.toggle('modal-open', Boolean($('.modal.open')));
     }
 
     let toastTimer = 0;
@@ -1853,9 +2155,25 @@
     function readLocalValue(key, legacyKey) {
         const value = localStorage.getItem(key);
         if (value !== null) return value;
-        const legacyValue = legacyKey ? localStorage.getItem(legacyKey) : null;
-        if (legacyValue !== null) localStorage.setItem(key, legacyValue);
-        return legacyValue;
+        for (const candidate of flattenKeys(legacyKey)) {
+            const legacyValue = localStorage.getItem(candidate);
+            if (legacyValue !== null) {
+                localStorage.setItem(key, legacyValue);
+                return legacyValue;
+            }
+        }
+        return null;
+    }
+
+    function removeLocalKeys(...keys) {
+        for (const key of flattenKeys(keys)) {
+            localStorage.removeItem(key);
+        }
+    }
+
+    function flattenKeys(keys) {
+        if (!keys) return [];
+        return Array.isArray(keys) ? keys.flatMap(flattenKeys) : [keys];
     }
 
     async function readPersistedAuthState() {

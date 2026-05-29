@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#07110d">
+    <title>music 离线</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #06100d;
+            --panel: rgba(255, 255, 255, 0.08);
+            --border: rgba(255, 255, 255, 0.16);
+            --text: #f3fff9;
+            --muted: rgba(243, 255, 249, 0.66);
+            --accent: #1ed760;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100dvh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: calc(24px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
+            font-family: "SF Pro SC", "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+            background:
+                radial-gradient(circle at 20% 18%, rgba(30, 215, 96, 0.2), transparent 34%),
+                linear-gradient(135deg, #030706, var(--bg));
+            color: var(--text);
+        }
+
+        main {
+            width: min(420px, 100%);
+            padding: 24px;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            background: var(--panel);
+            text-align: center;
+        }
+
+        img {
+            width: 86px;
+            height: 86px;
+            border-radius: 24px;
+        }
+
+        h1 {
+            margin: 18px 0 8px;
+            font-size: 24px;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        a {
+            display: inline-flex;
+            margin-top: 18px;
+            min-height: 44px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 18px;
+            border-radius: 999px;
+            color: #03150a;
+            background: var(--accent);
+            font-weight: 700;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <img src="public/music-default.png" alt="music">
+        <h1>当前处于离线状态</h1>
+        <p>music 已缓存应用外壳。搜索、播放、换源、歌词同步和账号数据需要网络连接与可用后端。</p>
+        <a href="/">重新尝试</a>
+    </main>
+</body>
+</html>

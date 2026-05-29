@@ -1,6 +1,6 @@
 <?php
 /**
- * musiQ Music Backend Configuration
+ * music Music Backend Configuration
  * Reverse-engineered from frontend code
  */
 
@@ -20,8 +20,8 @@ error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
 // Database configuration (SQLite)
-define('DB_PATH', __DIR__ . '/data/musiq.db');
-define('JWT_SECRET', 'musiq_secret_key_change_in_production');
+define('DB_PATH', __DIR__ . '/data/music.db');
+define('JWT_SECRET', 'music_secret_key_change_in_production');
 define('TOKEN_EXPIRY', 86400 * 30); // 30 days
 define('CODE_EXPIRY', 600); // 10 minutes for verification codes
 
@@ -174,7 +174,7 @@ function generateCode(): string {
  * In production, configure SMTP here
  */
 function sendVerificationEmail(string $to, string $code, string $purpose = 'verification'): bool {
-    $subject = 'musiQ - 验证码';
+    $subject = 'music - 验证码';
     $message = "您的验证码是：{$code}\n\n验证码10分钟内有效，请勿泄露给他人。\n\n如非本人操作，请忽略此邮件。";
     $headers = 'From: noreply@xcloudv.top' . "\r\n";
     

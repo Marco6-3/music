@@ -2,6 +2,7 @@
 
 const axios = require('axios');
 const { BaseProvider } = require('./base');
+const { httpAgent } = require('./gdstudio');
 
 class UnmExternalProvider extends BaseProvider {
   constructor(options = {}) {
@@ -15,7 +16,8 @@ class UnmExternalProvider extends BaseProvider {
       const response = await axios.get(`${this.baseUrl}${endpoint}`, {
         timeout: this.timeout,
         params,
-        headers: { Accept: 'application/json' }
+        headers: { Accept: 'application/json' },
+        httpAgent
       });
       return response.data;
     } catch {

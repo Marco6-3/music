@@ -10,11 +10,19 @@
     { value: 'bilibili', label: 'B站' }
   ];
 
-  const STORAGE_KEY = 'musiq_selected_source';
+  const STORAGE_KEY = 'music_selected_source';
+  const LEGACY_STORAGE_KEY = 'musiq_selected_source';
 
   function getSavedSource() {
     try {
-      return localStorage.getItem(STORAGE_KEY) || 'netease';
+      const value = localStorage.getItem(STORAGE_KEY);
+      if (value) return value;
+      const legacyValue = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacyValue) {
+        localStorage.setItem(STORAGE_KEY, legacyValue);
+        return legacyValue;
+      }
+      return 'netease';
     } catch {
       return 'netease';
     }
@@ -125,6 +133,16 @@
       }
       .source-option.active .check {
         opacity: 1;
+      }
+      @media (max-width: 760px) {
+        .source-dropdown {
+          max-height: min(280px, calc(100dvh - 96px));
+          border-radius: 14px;
+        }
+        .source-option {
+          min-height: 44px;
+          font-size: 16px;
+        }
       }
     `;
     document.head.appendChild(style);

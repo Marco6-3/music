@@ -1,0 +1,52 @@
+{
+  "id": "/",
+  "name": "music",
+  "short_name": "music",
+  "description": "music 音乐播放器",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#06100d",
+  "theme_color": "#07110d",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/public/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/public/music-default.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/public/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "搜索音乐",
+      "short_name": "搜索",
+      "url": "/?view=search",
+      "icons": [{ "src": "/public/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "我的收藏",
+      "short_name": "收藏",
+      "url": "/?view=favorites",
+      "icons": [{ "src": "/public/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "播放队列",
+      "short_name": "队列",
+      "url": "/?panel=queue",
+      "icons": [{ "src": "/public/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

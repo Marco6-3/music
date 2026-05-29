@@ -1,11 +1,11 @@
 'use strict';
 
 module.exports = {
-  appId: 'com.musiq.music',
-  appName: 'musiQ',
+  appId: 'com.music.music',
+  appName: 'music',
   useLocalBackend: true,
   localBackendPort: 41731,
-  remoteUrl: 'https://music.xcloudv.top/?from=musiqapp',
+  remoteUrl: 'https://music.xcloudv.top/?from=musicapp',
   versionApiUrl: 'https://music.xcloudv.top/php/check_version.php',
   versionPollIntervalMs: 30_000,
   requestTimeoutMs: 10_000,
@@ -37,6 +37,10 @@ module.exports = {
       enabled: false,
       baseUrl: 'http://127.0.0.1:8080',
       timeout: 10000
+    },
+    lrclib: {
+      enabled: true,
+      timeout: 8000
     }
   }
 };

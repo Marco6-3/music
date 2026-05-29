@@ -15,7 +15,7 @@ function delay(ms) {
 }
 
 function createTempDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'musiq-db-test-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'music-db-test-'));
 }
 
 function removeTempDir(dir) {

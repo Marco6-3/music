@@ -7,13 +7,18 @@ const { startLocalBackend } = require('../src/server');
 const { musicSources } = require('../src/config');
 
 const rawArgs = process.argv.slice(2);
-const disableGdstudio = rawArgs.includes('--disable-gdstudio') || process.env.XCLOUD_DISABLE_GDSTUDIO === '1';
-const disableUnm = rawArgs.includes('--disable-unm') || process.env.XCLOUD_DISABLE_UNM === '1';
-const disableMeting = rawArgs.includes('--disable-meting') || process.env.XCLOUD_DISABLE_METING === '1';
+const disableGdstudio = rawArgs.includes('--disable-gdstudio') || envFlag('MUSIC_DISABLE_GDSTUDIO', 'MUSIQ_DISABLE_GDSTUDIO', 'XCLOUD_DISABLE_GDSTUDIO');
+const disableUnm = rawArgs.includes('--disable-unm') || envFlag('MUSIC_DISABLE_UNM', 'MUSIQ_DISABLE_UNM', 'XCLOUD_DISABLE_UNM');
+const disableMeting = rawArgs.includes('--disable-meting') || envFlag('MUSIC_DISABLE_METING', 'MUSIQ_DISABLE_METING', 'XCLOUD_DISABLE_METING');
+const disableLrclib = rawArgs.includes('--disable-lrclib') || envFlag('MUSIC_DISABLE_LRCLIB', 'MUSIQ_DISABLE_LRCLIB', 'XCLOUD_DISABLE_LRCLIB');
 const keyword = rawArgs.filter((arg) => !arg.startsWith('--')).join(' ') || '周杰伦 晴天';
 
+function envFlag(...names) {
+  return names.some((name) => process.env[name] === '1');
+}
+
 async function main() {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'musiq-backend-probe-'));
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'music-backend-probe-'));
   const musicSourceConfig = {
     ...musicSources,
     gdstudio: {
@@ -27,6 +32,10 @@ async function main() {
     meting: {
       ...musicSources.meting,
       enabled: disableMeting ? false : musicSources.meting?.enabled
+    },
+    lrclib: {
+      ...musicSources.lrclib,
+      enabled: disableLrclib ? false : musicSources.lrclib?.enabled
     }
   };
   const server = await startLocalBackend({ preferredPort: 41931, dataDir, musicSourceConfig });
@@ -49,7 +58,8 @@ async function main() {
       enabledProviders: [
         musicSourceConfig.gdstudio?.enabled !== false ? 'gdstudio' : null,
         musicSourceConfig.unm?.enabled ? 'unm' : null,
-        musicSourceConfig.meting?.enabled ? 'meting' : null
+        musicSourceConfig.meting?.enabled ? 'meting' : null,
+        musicSourceConfig.lrclib?.enabled ? 'lrclib' : null
       ].filter(Boolean),
       resultCount: Array.isArray(parsed) ? parsed.length : 0,
       first: Array.isArray(parsed) && parsed[0] ? {

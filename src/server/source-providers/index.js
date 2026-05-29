@@ -6,6 +6,7 @@ const { UnmProvider } = require('./unm');
 const { MetingProvider } = require('./meting');
 const { LyricFallbackProvider } = require('./lyric-fallback');
 const { UnmExternalProvider } = require('./unm-external');
+const { LrclibProvider } = require('./lrclib');
 const { Dispatcher } = require('./dispatcher');
 
 function createDefaultDispatcher(config = {}) {
@@ -32,6 +33,10 @@ function createDefaultDispatcher(config = {}) {
     providers.push(new UnmExternalProvider(config.unmExternal));
   }
 
+  if (config.lrclib && config.lrclib.enabled) {
+    providers.push(new LrclibProvider(config.lrclib));
+  }
+
   return new Dispatcher(providers, { strategy: config.strategy || 'fallback' });
 }
 
@@ -42,6 +47,7 @@ module.exports = {
   MetingProvider,
   LyricFallbackProvider,
   UnmExternalProvider,
+  LrclibProvider,
   Dispatcher,
   createDefaultDispatcher
 };

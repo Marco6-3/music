@@ -1,6 +1,6 @@
 <?php
 /**
- * musiQ Music API Proxy
+ * music Music API Proxy
  * Compatible with GD-Studio API format
  * Provides caching and fallback for music data
  */

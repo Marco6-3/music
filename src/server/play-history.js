@@ -13,6 +13,7 @@ const TABLE_SQL = `
     played_at INTEGER DEFAULT (strftime('%s', 'now'))
   );
   CREATE INDEX IF NOT EXISTS idx_play_history_user ON play_history(user_id, played_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_play_history_song_recent ON play_history(user_id, song_id, source, id DESC);
 `;
 
 function initPlayHistory(db) {
@@ -37,12 +38,18 @@ function recordPlay(db, userId, song) {
 
 function getRecentPlays(db, userId, limit = 50) {
   return db.prepare(`
-    SELECT song_id AS id, source, name, artist, album, pic_id, played_at
-    FROM play_history
-    WHERE user_id = ?
-    ORDER BY played_at DESC
+    SELECT ph.song_id AS id, ph.source, ph.name, ph.artist, ph.album, ph.pic_id, ph.played_at
+    FROM play_history ph
+    INNER JOIN (
+      SELECT song_id, source, MAX(id) AS latest_id
+      FROM play_history
+      WHERE user_id = ?
+      GROUP BY song_id, source
+    ) latest ON latest.latest_id = ph.id
+    WHERE ph.user_id = ?
+    ORDER BY ph.played_at DESC, ph.id DESC
     LIMIT ?
-  `).all(Number(userId), Math.min(Number(limit) || 50, 200));
+  `).all(Number(userId), Number(userId), Math.min(Number(limit) || 50, 200));
 }
 
 function getDailyTop(db, userId, days = 7, limit = 30) {

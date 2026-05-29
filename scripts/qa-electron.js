@@ -5,10 +5,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const projectRoot = path.resolve(__dirname, '..');
-const appExe = path.join(projectRoot, 'dist', 'win-unpacked', 'musiQ.exe');
-const debugPort = Number(process.env.MUSIQ_QA_DEBUG_PORT || 9323);
+const appExe = path.join(projectRoot, 'dist', 'win-unpacked', 'music.exe');
+const debugPort = Number(process.env.MUSIC_QA_DEBUG_PORT || process.env.MUSIQ_QA_DEBUG_PORT || 9323);
 const cdpUrl = `http://127.0.0.1:${debugPort}/json/list`;
-const screenshotPath = path.join(projectRoot, 'dist', 'qa', 'musiq-electron-qa.png');
+const screenshotPath = path.join(projectRoot, 'dist', 'qa', 'music-electron-qa.png');
 
 main().catch((error) => {
   console.error(error);
@@ -113,7 +113,7 @@ async function waitForAppReady(client) {
         scripts: Array.from(document.querySelectorAll('script[src]')).length
       }))()`, { timeoutMs: 3_000 });
 
-      if (ready.title === 'musiQ' && ready.hasSearch && ready.hasSourceSelector && ready.hasStyle && ready.scripts >= 2) {
+      if (ready.title === 'music' && ready.hasSearch && ready.hasSourceSelector && ready.hasStyle && ready.scripts >= 2) {
         return ready;
       }
     } catch {
@@ -123,7 +123,7 @@ async function waitForAppReady(client) {
     await delay(250);
   }
 
-  throw new Error('Timed out waiting for musiQ renderer to finish initializing');
+  throw new Error('Timed out waiting for music renderer to finish initializing');
 }
 
 async function collectIdleFrames(client) {
@@ -162,15 +162,15 @@ async function collectIdleFrames(client) {
 
 async function collectResizeFrames(client) {
   await client.evaluate(`(() => {
-    window.__musiqResizeMonitor = { samples: [], active: true, classHits: 0 };
+    window.__musicResizeMonitor = { samples: [], active: true, classHits: 0 };
     let last = performance.now();
 
     function step() {
-      if (!window.__musiqResizeMonitor.active) return;
+      if (!window.__musicResizeMonitor.active) return;
       const now = performance.now();
-      window.__musiqResizeMonitor.samples.push(now - last);
+      window.__musicResizeMonitor.samples.push(now - last);
       if (document.body.classList.contains('is-window-resizing')) {
-        window.__musiqResizeMonitor.classHits += 1;
+        window.__musicResizeMonitor.classHits += 1;
       }
       last = now;
       requestAnimationFrame(step);
@@ -183,7 +183,7 @@ async function collectResizeFrames(client) {
   await delay(250);
 
   const statsJson = await client.evaluate(`JSON.stringify((() => {
-    const monitor = window.__musiqResizeMonitor || { samples: [], classHits: 0, active: false };
+    const monitor = window.__musicResizeMonitor || { samples: [], classHits: 0, active: false };
     monitor.active = false;
     const samples = monitor.samples.slice(1);
     const sorted = samples.slice().sort((a, b) => a - b);
@@ -219,7 +219,7 @@ function assertQa(result) {
   const failures = [];
   const expectedAssets = readExpectedAssets();
 
-  if (result.initial.title !== 'musiQ') failures.push(`Unexpected title: ${result.initial.title}`);
+  if (result.initial.title !== 'music') failures.push(`Unexpected title: ${result.initial.title}`);
   if (!result.initial.hrefCss.includes(expectedAssets.css)) failures.push(`CSS cache version not loaded: ${result.initial.hrefCss}`);
   if (!result.initial.scripts.some((script) => script.includes(expectedAssets.mainJs))) failures.push('main.js cache version not loaded');
   if (!result.initial.scripts.some((script) => script.includes(expectedAssets.sourceSelectorJs))) failures.push('source-selector cache version not loaded');
@@ -343,9 +343,9 @@ async function runResizePowerShell() {
   const script = `
 $definition = 'using System; using System.Runtime.InteropServices; public static class Win32ResizeQa { [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); }'
 Add-Type -TypeDefinition $definition
-$exe = $env:MUSIQ_EXE
+$exe = $env:MUSIC_EXE
 $proc = Get-Process | Where-Object { $_.Path -eq $exe -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-if (-not $proc) { throw "No running musiQ window found" }
+if (-not $proc) { throw "No running music window found" }
 [void][Win32ResizeQa]::ShowWindow($proc.MainWindowHandle, 9)
 Start-Sleep -Milliseconds 150
 $sizes = @(
@@ -360,7 +360,7 @@ for ($round = 0; $round -lt 10; $round++) {
 }
 `;
 
-  runPowerShell(script, { MUSIQ_EXE: appExe });
+  runPowerShell(script, { MUSIC_EXE: appExe });
 }
 
 async function captureWindow() {
@@ -370,10 +370,10 @@ async function captureWindow() {
 $definition = 'using System; using System.Runtime.InteropServices; public static class Win32CaptureQa { [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect); [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, uint nFlags); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow); public struct RECT { public int Left; public int Top; public int Right; public int Bottom; } }'
 Add-Type -TypeDefinition $definition
 Add-Type -AssemblyName System.Drawing
-$exe = $env:MUSIQ_EXE
-$out = $env:MUSIQ_SCREENSHOT
+$exe = $env:MUSIC_EXE
+$out = $env:MUSIC_SCREENSHOT
 $proc = Get-Process | Where-Object { $_.Path -eq $exe -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-if (-not $proc) { throw "No visible musiQ window found" }
+if (-not $proc) { throw "No visible music window found" }
 [void][Win32CaptureQa]::ShowWindow($proc.MainWindowHandle, 9)
 Start-Sleep -Milliseconds 300
 $rect = New-Object Win32CaptureQa+RECT
@@ -391,8 +391,8 @@ $bitmap.Dispose()
 `;
 
   const output = runPowerShell(script, {
-    MUSIQ_EXE: appExe,
-    MUSIQ_SCREENSHOT: screenshotPath
+    MUSIC_EXE: appExe,
+    MUSIC_SCREENSHOT: screenshotPath
   });
 
   return JSON.parse(output);
@@ -400,8 +400,8 @@ $bitmap.Dispose()
 
 async function stopPackagedApp(startedPid) {
   const script = `
-$exe = $env:MUSIQ_EXE
-$startedPid = $env:MUSIQ_STARTED_PID
+$exe = $env:MUSIC_EXE
+$startedPid = $env:MUSIC_STARTED_PID
 $targets = Get-Process | Where-Object {
   $_.Path -eq $exe -and (-not $startedPid -or $_.Id -eq [int]$startedPid)
 }
@@ -420,8 +420,8 @@ if ($remaining) {
 `;
 
   runPowerShell(script, {
-    MUSIQ_EXE: appExe,
-    MUSIQ_STARTED_PID: startedPid ? String(startedPid) : ''
+    MUSIC_EXE: appExe,
+    MUSIC_STARTED_PID: startedPid ? String(startedPid) : ''
   });
 }
 

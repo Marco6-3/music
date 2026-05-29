@@ -1,6 +1,6 @@
-# musiQ 音乐桌面端
+# music 音乐桌面端
 
-这是一个基于 Electron + Express + `sql.js` WASM SQLite 的 musiQ 音乐桌面客户端项目。项目目标是把原本依赖远端页面和 PHP 后端的桌面应用，整理成一个可以本地运行、继续开发、打包发布的 Windows 桌面应用。
+这是一个基于 Electron + Express + `sql.js` WASM SQLite 的 music 音乐桌面客户端项目。项目目标是把原本依赖远端页面和 PHP 后端的桌面应用，整理成一个可以本地运行、继续开发、打包发布的 Windows 桌面应用。
 
 当前版本已经包含：
 
@@ -41,7 +41,7 @@ npm start
 也可以双击项目根目录下的：
 
 ```text
-start-musiq.cmd
+start-music.cmd
 ```
 
 只启动内置后端：
@@ -51,6 +51,64 @@ npm run server
 ```
 
 `npm run server` 会直接使用普通 Node 启动 `src/server/index.js`。
+
+## iPhone Web / PWA 使用说明
+
+music 现在可以作为 iPhone Safari / 主屏幕 PWA 使用。Web 版仍然复用同一套 Express 后端和 `webroot/` 前端，搜索、播放、换源、歌词、收藏、歌单、播放历史、离线音频缓存策略和音源健康检测都通过后端接口保留，不把 `sql.js` 数据库放进浏览器。
+
+本地预览：
+
+```powershell
+npm run web:start
+```
+
+默认仍监听：
+
+```text
+http://127.0.0.1:41731/
+```
+
+iPhone 真机不能访问你电脑里的 Electron `127.0.0.1`。要在 iPhone 上使用，请把 Express 服务部署到 HTTPS 域名，推荐同源部署：同一个 HTTPS origin 同时提供 `webroot/`、`/api.php`、`/php/*`、`/api_check/*`、`/offline/audio/*` 和 `/uploads/*`。
+
+当前 PWA manifest 和 Service Worker 按站点根路径 `/` 设计，生产部署优先使用独立域名或根路径；子路径部署需要额外调整 `start_url`、`scope` 和静态资源路径。
+
+如果需要让后端在局域网或反向代理后监听非默认地址，可以设置：
+
+```powershell
+$env:MUSIC_HOST="0.0.0.0"
+$env:MUSIC_PORT="41731"
+$env:MUSIC_DATA_DIR="D:\music-data"
+npm run web:start
+```
+
+跨域前后端分离不是默认推荐路径。如果必须跨域，前端可以在 `webroot/index.html` 的 `window.__MUSIC_CONFIG__` 或 `music-api-base-url` meta 中配置 HTTPS API base URL；后端需要显式配置 CORS，例如：
+
+```powershell
+$env:MUSIC_CORS_ORIGIN="https://你的前端域名"
+```
+
+浏览器端只保存 token、用户 ID、播放队列、音量和轻量 UI 状态。不要在浏览器配置里暴露服务端密钥。
+
+### 添加到 iPhone 主屏幕
+
+1. 用 HTTPS URL 在 iPhone Safari 打开 music。
+2. 点击分享按钮，选择“添加到主屏幕”。
+3. 从主屏幕图标打开，确认没有 Safari 地址栏或底部工具栏。
+4. 检查顶部状态栏、刘海区域和 Home Indicator 没有遮挡 UI。
+5. 搜索歌曲、播放歌曲、切换音源，打开歌词、队列、登录、歌单和源状态面板。
+6. 播放后切后台或锁屏，观察系统是否显示歌曲信息和播放/暂停/上一首/下一首控制；这些能力由 iOS Safari 的 Media Session 支持情况决定。
+7. 打开弹窗和播放器面板，确认 bottom sheet 可以滚动，页面背景不滚动穿透。
+8. 断网后重新打开，确认能看到已缓存应用壳或友好离线提示。
+9. 网络恢复后刷新或继续使用。
+10. 至少确认竖屏稳定；横屏不是当前 PWA 的主要布局目标。
+
+### Web/PWA 能力边界
+
+- Service Worker 只缓存应用外壳、静态 CSS/JS、manifest 和默认图片，不缓存音乐直链、第三方音源 API 或带临时 token 的响应。
+- 搜索、播放、换源、歌词、收藏、歌单、播放历史和源状态都需要可访问的后端和网络。
+- iOS 自动播放受浏览器限制，首次播放必须来自用户点按；如果 Safari 丢失用户手势，界面会提示再次点按播放。
+- 后台播放、锁屏信息和控制中心按钮受 iOS / Safari 版本和系统策略限制，代码只做 feature detection，不承诺所有设备一致可用。
+- 主屏幕 PWA 和 Service Worker 需要 HTTPS；`localhost` 仅适合桌面开发。
 
 ## 验证音源
 
@@ -111,16 +169,16 @@ npm run installer
 npm run qa:electron
 ```
 
-该脚本会启动 `dist/win-unpacked/musiQ.exe` 并做基础渲染、搜索、性能和控制台错误检查，因此需要先完成 `npm run dist`。
+该脚本会启动 `dist/win-unpacked/music.exe` 并做基础渲染、搜索、性能和控制台错误检查，因此需要先完成 `npm run dist`。
 
 ## 工程结构
 
 ```text
-musiq/
+music/
 ├─ package.json
 ├─ package-lock.json
 ├─ README.md
-├─ start-musiq.cmd
+├─ start-music.cmd
 ├─ scripts/
 │  ├─ probe-backend.js
 │  ├─ probe-music-sources.js
@@ -192,7 +250,7 @@ X-Music-Source: meting
 Electron 桌面端运行时，用户数据保存在：
 
 ```text
-%APPDATA%/musiQ/server-data/
+%APPDATA%/music/server-data/
 ```
 
 单独运行后端时，默认使用项目内的：
@@ -209,11 +267,13 @@ data/
 |---|---|
 | `npm start` | 启动 Electron 桌面应用 |
 | `npm run server` | 使用普通 Node 启动本地后端 |
+| `npm run web:start` | 使用普通 Node 托管 Web/PWA 版和后端接口 |
+| `npm run test:pwa` | 静态检查 manifest、Apple meta、Service Worker 和 PWA hooks |
 | `npm test` | 运行 `node:test` 单元测试 |
 | `npm run probe:sources` | 验证音源 Provider 层 |
 | `npm run probe:backend` | 验证真实 Express 后端 `/api.php` |
 | `npm run dist` | 构建 unpacked Windows 应用目录 |
-| `npm run qa:electron` | 对已打包的 `dist/win-unpacked/musiQ.exe` 做基础 QA |
+| `npm run qa:electron` | 对已打包的 `dist/win-unpacked/music.exe` 做基础 QA |
 | `npm run installer` | 构建安装包 |
 
 ## 完整验证流程
@@ -227,6 +287,8 @@ node -c src/server/index.js
 node -c src/server/database.js
 node -c webroot/js/main.js
 node -c webroot/js/source-selector.js
+node -c webroot/sw.js
+npm run test:pwa
 npm run probe:backend -- "周杰伦 晴天"
 npm run probe:sources -- "周杰伦 晴天"
 npm run dist

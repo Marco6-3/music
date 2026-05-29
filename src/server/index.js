@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -31,11 +31,41 @@ const {
 const { createDefaultDispatcher } = require('./source-providers');
 const { registerPlayHistory } = require('./play-history');
 const { startMonitoring } = require('./api-monitor');
+const { OfflineMusicCache, offlineAudioUrl } = require('./offline-cache');
 const { musicSources } = require('../config');
 
 const projectRoot = path.resolve(__dirname, '../..');
 const webroot = resolveWebroot();
 const MUSIC_API_CACHE_VERSION = 'music-api-v3';
+
+// In-memory LRU cache for hot API responses (search, url, lyric)
+const memCache = new Map();
+const MEM_CACHE_MAX = 300;
+
+function memCacheGet(key) {
+  const entry = memCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    memCache.delete(key);
+    return null;
+  }
+  // Move to end (most recently used)
+  memCache.delete(key);
+  memCache.set(key, entry);
+  return entry.data;
+}
+
+function memCacheSet(key, data, ttlMs) {
+  if (memCache.size >= MEM_CACHE_MAX) {
+    // Evict oldest entry (first in map)
+    const oldest = memCache.keys().next().value;
+    memCache.delete(oldest);
+  }
+  memCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
+
+// In-flight request deduplication
+const inflightRequests = new Map();
 
 function resolveWebroot() {
   const resourceWebroot = process.resourcesPath ? path.join(process.resourcesPath, 'webroot') : null;
@@ -45,35 +75,54 @@ function resolveWebroot() {
   return path.join(projectRoot, 'webroot');
 }
 
-async function startLocalBackend({ preferredPort = 41731, dataDir, musicSourceConfig } = {}) {
-  const resolvedDataDir = dataDir || process.env.XCLOUD_DATA_DIR || path.join(projectRoot, 'data');
+function envValue(...names) {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value !== undefined && value !== '') return value;
+  }
+  return '';
+}
+
+async function startLocalBackend({ preferredPort = 41731, host, dataDir, musicSourceConfig } = {}) {
+  const resolvedPort = Number(envValue('MUSIC_PORT', 'MUSIQ_PORT', 'PORT') || preferredPort) || preferredPort;
+  const resolvedHost = host || envValue('MUSIC_HOST', 'MUSIQ_HOST') || '127.0.0.1';
+  const resolvedDataDir = dataDir || envValue('MUSIC_DATA_DIR', 'MUSIQ_DATA_DIR', 'XCLOUD_DATA_DIR') || path.join(projectRoot, 'data');
   const uploadsDir = path.join(resolvedDataDir, 'uploads', 'avatars');
   const cacheDir = path.join(resolvedDataDir, 'cache');
   fs.mkdirSync(uploadsDir, { recursive: true });
   fs.mkdirSync(cacheDir, { recursive: true });
-  pruneCacheDir(cacheDir);
+  // Prune cache after server starts (non-blocking)
+  setImmediate(() => pruneCacheDirAsync(cacheDir));
+  // Periodic cache prune every 10 minutes
+  const pruneTimer = setInterval(() => pruneCacheDirAsync(cacheDir), 10 * 60 * 1000);
+  if (pruneTimer.unref) pruneTimer.unref();
 
   const store = await createDataStore(resolvedDataDir);
   const dispatcher = createDefaultDispatcher(musicSourceConfig || musicSources);
-  const app = createExpressApp({ store, uploadsDir, cacheDir, dispatcher });
+  const offlineCache = new OfflineMusicCache({ db: store.db, dataDir: resolvedDataDir, dispatcher });
+  offlineCache.scheduleSync(500);
+  const app = createExpressApp({ store, uploadsDir, cacheDir, dispatcher, offlineCache });
   const stopMonitor = startMonitoring(store.db, dispatcher);
   const server = http.createServer(app);
-  const port = await listen(server, preferredPort);
+  const port = await listen(server, resolvedPort, resolvedHost);
+  const urlHost = resolvedHost === '0.0.0.0' ? '127.0.0.1' : resolvedHost;
 
   return {
     port,
-    url: `http://127.0.0.1:${port}`,
+    host: resolvedHost,
+    url: `http://${urlHost}:${port}`,
     mode: 'express-sqlite',
     dbPath: store.dbPath,
     close: () => {
       stopMonitor();
+      offlineCache.close();
       server.close();
       store.close();
     }
   };
 }
 
-function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefaultDispatcher(musicSources) }) {
+function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefaultDispatcher(musicSources), offlineCache = null }) {
   const app = express();
   const db = store.db;
   const upload = createUploadMiddleware(uploadsDir);
@@ -83,10 +132,10 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
 
   app.disable('x-powered-by');
   app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', envValue('MUSIC_CORS_ORIGIN', 'MUSIQ_CORS_ORIGIN') || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-    res.setHeader('X-musiQ-Backend', 'express-sqlite');
+    res.setHeader('X-Music-Backend', 'express-sqlite');
     if (req.method === 'OPTIONS') {
       res.sendStatus(204);
       return;
@@ -99,6 +148,16 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
   app.get('/', sendIndex);
   app.get('/index.html', sendIndex);
   app.get('/index.php', sendIndex);
+  app.get('/manifest.webmanifest', (_req, res) => {
+    res.type('application/manifest+json').sendFile(path.join(webroot, 'manifest.webmanifest'));
+  });
+  app.get('/sw.js', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.type('application/javascript').sendFile(path.join(webroot, 'sw.js'));
+  });
+  app.get('/offline.html', (_req, res) => {
+    res.type('html').sendFile(path.join(webroot, 'offline.html'));
+  });
   app.use('/css', express.static(path.join(webroot, 'css'), { fallthrough: false }));
   app.use('/js', express.static(path.join(webroot, 'js'), { fallthrough: false }));
   app.use('/public', express.static(path.join(webroot, 'public'), { fallthrough: false }));
@@ -107,7 +166,8 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
     res.type('html').sendFile(path.join(webroot, 'api_check', 'check_api.php'));
   });
   app.get('/api_check/api_doubtful.php', (_req, res) => handleApiDoubtful(db, res));
-  app.get('/api.php', (req, res) => proxyMusicApi(req, res, cacheDir, dispatcher));
+  app.get('/offline/audio/:key', (req, res) => handleOfflineAudio(req, res, offlineCache));
+  app.get('/api.php', (req, res) => proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache));
 
   app.get('/php/check_version.php', (_req, res) => {
     res.json({
@@ -135,11 +195,11 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
   app.post('/php/favorite.php', parseForm, (req, res) => handleFavorite(db, req, res));
   app.post('/php/get_favorites.php', parseForm, (req, res) => handleGetFavorites(db, req, res));
   app.post('/php/sync_favorites.php', parseForm, (req, res) => handleSyncFavorites(db, req, res));
-  app.post('/php/playlist.php', parseForm, (req, res) => handlePlaylist(db, req, res));
+  app.post('/php/playlist.php', parseForm, (req, res) => handlePlaylist(db, req, res, offlineCache));
   app.post('/php/get_playlists.php', parseForm, (req, res) => handleGetPlaylists(db, req, res));
   app.post('/php/get_playlist_id.php', parseForm, (req, res) => handleGetPlaylistId(db, req, res));
   app.post('/php/rename_playlist.php', parseForm, (req, res) => handleRenamePlaylist(db, req, res));
-  app.post('/php/sync_playlists.php', parseForm, (req, res) => handleSyncPlaylists(db, req, res));
+  app.post('/php/sync_playlists.php', parseForm, (req, res) => handleSyncPlaylists(db, req, res, offlineCache));
   registerPlayHistory(app, db);
 
   app.use((req, res) => {
@@ -188,11 +248,20 @@ function extensionFromFile(file) {
 
 function createRateLimiter({ windowMs, max }) {
   const hits = new Map();
+  let lastCleanup = Date.now();
 
   return (req, res, next) => {
     const now = Date.now();
     const key = `${req.ip || req.socket.remoteAddress || 'local'}:${req.path}`;
     const record = hits.get(key);
+
+    // Clean expired entries periodically (every 5 minutes)
+    if (now - lastCleanup > 300_000) {
+      lastCleanup = now;
+      for (const [k, v] of hits) {
+        if (now > v.resetAt) hits.delete(k);
+      }
+    }
 
     if (!record || now > record.resetAt) {
       hits.set(key, { count: 1, resetAt: now + windowMs });
@@ -486,7 +555,7 @@ function handleSyncFavorites(db, req, res) {
   return res.json({ success: true, message: '收藏同步成功' });
 }
 
-function handlePlaylist(db, req, res) {
+function handlePlaylist(db, req, res, offlineCache) {
   const userId = Number(req.body.user_id || 0);
   const action = stringValue(req.body.action);
   if (!userId) return res.json({ success: false, message: '缺少用户ID' });
@@ -504,6 +573,7 @@ function handlePlaylist(db, req, res) {
     if (!playlistId || !song.id) return res.json({ success: false, message: '缺少必要参数' });
     if (!ownsPlaylist(db, userId, playlistId)) return res.json({ success: false, message: '歌单不存在' });
     insertPlaylistSong(db, playlistId, song);
+    scheduleOfflineSync(offlineCache);
     return res.json({ success: true, message: '已添加到歌单' });
   }
 
@@ -511,13 +581,21 @@ function handlePlaylist(db, req, res) {
     const playlistId = Number(req.body.playlist_id || 0);
     const songId = stringValue(req.body.song_id);
     const source = stringValue(req.body.source || 'netease');
+    if (!ownsPlaylist(db, userId, playlistId)) return res.json({ success: false, message: '歌单不存在' });
     db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ? AND song_id = ? AND source = ?').run(playlistId, songId, source);
+    scheduleOfflineSync(offlineCache);
     return res.json({ success: true, message: '已从歌单移除' });
   }
 
   if (action === 'delete') {
     const playlistId = Number(req.body.playlist_id || 0);
-    db.prepare('DELETE FROM playlists WHERE id = ? AND user_id = ?').run(playlistId, userId);
+    if (!ownsPlaylist(db, userId, playlistId)) return res.json({ success: false, message: '歌单不存在' });
+    const deletePlaylist = db.transaction(() => {
+      db.prepare('DELETE FROM playlist_songs WHERE playlist_id = ?').run(playlistId);
+      db.prepare('DELETE FROM playlists WHERE id = ? AND user_id = ?').run(playlistId, userId);
+    });
+    deletePlaylist();
+    scheduleOfflineSync(offlineCache);
     return res.json({ success: true, message: '歌单已删除' });
   }
 
@@ -551,6 +629,7 @@ function handlePlaylist(db, req, res) {
       }
     });
     update();
+    scheduleOfflineSync(offlineCache);
     return res.json({ success: true, message: '歌曲导入成功' });
   }
 
@@ -585,7 +664,7 @@ function handleRenamePlaylist(db, req, res) {
   return res.json({ success: true, message: '歌单已重命名' });
 }
 
-function handleSyncPlaylists(db, req, res) {
+function handleSyncPlaylists(db, req, res, offlineCache) {
   const userId = Number(req.body.user_id || 0);
   if (!userId) return res.json({ success: false, message: '缺少用户ID' });
 
@@ -606,6 +685,7 @@ function handleSyncPlaylists(db, req, res) {
     }
   });
   sync();
+  scheduleOfflineSync(offlineCache);
   return res.json({ success: true, message: '歌单同步成功' });
 }
 
@@ -702,7 +782,6 @@ function writeDailyToplistCache(cacheDir, type, payload) {
   const dateKey = localDateKey();
   fs.writeFileSync(toplistCacheFile(cacheDir, type, dateKey), JSON.stringify(payload), 'utf8');
   pruneToplistCache(cacheDir, type, dateKey);
-  pruneCacheDir(cacheDir);
 }
 
 function pruneToplistCache(cacheDir, type, keepDateKey) {
@@ -901,40 +980,114 @@ function handleApiDoubtful(db, res) {
   return res.json(result);
 }
 
-async function proxyMusicApi(req, res, cacheDir, dispatcher) {
-  const query = new URLSearchParams(req.query).toString();
-  const upstreamUrl = `https://music-api.gdstudio.xyz/api.php?${query}`;
-  const cacheFile = path.join(cacheDir, `${crypto.createHash('sha256').update(`${MUSIC_API_CACHE_VERSION}:${query}`).digest('hex')}.json`);
-  const cacheTtl = cacheTtlForType(req.query.types);
+function handleOfflineAudio(req, res, offlineCache) {
+  if (!offlineCache) return res.status(404).json({ success: false, message: '离线缓存未启用' });
 
-  if (fs.existsSync(cacheFile) && Date.now() - fs.statSync(cacheFile).mtimeMs < cacheTtl) {
-    res.setHeader('X-Cache', 'HIT');
-    res.type('json').send(fs.readFileSync(cacheFile, 'utf8'));
+  const key = stringValue(req.params.key);
+  const track = offlineCache.getTrackByKey(key);
+  if (!track || track.status !== 'downloaded' || !track.file_path || !fs.existsSync(track.file_path)) {
+    return res.status(404).json({ success: false, message: '离线音频不存在' });
+  }
+
+  const stat = fs.statSync(track.file_path);
+  const contentType = track.content_type || 'audio/mpeg';
+  const range = req.headers.range;
+
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+
+  if (!range) {
+    res.setHeader('Content-Length', stat.size);
+    fs.createReadStream(track.file_path).pipe(res);
     return;
   }
 
-  if (dispatcher && req.query.types) {
-    try {
-      const params = Object.fromEntries(Object.entries(req.query).filter(([key]) => key !== 'types'));
-      const result = await dispatcher.proxy(req.query.types, params);
-      if (result) {
-        const body = typeof result === 'string' ? result : result.data;
-        const contentType = typeof result === 'string' ? 'application/json' : result.contentType;
-        if (typeof body === 'string' && /^[\[{]/.test(body.trim())) {
-          fs.writeFileSync(cacheFile, body, 'utf8');
-          pruneCacheDir(cacheDir);
-        }
-        res.setHeader('X-Cache', 'MISS');
-        res.setHeader('X-Music-Source', result.providerName || 'dispatcher');
-        res.type(contentType || 'application/json').send(body);
-        return;
-      }
-    } catch (error) {
-      console.warn('[proxyMusicApi] dispatcher request failed:', error.message);
+  const parsed = parseRangeHeader(range, stat.size);
+  if (!parsed) {
+    res.status(416).setHeader('Content-Range', `bytes */${stat.size}`);
+    res.end();
+    return;
+  }
+
+  res.status(206);
+  res.setHeader('Content-Range', `bytes ${parsed.start}-${parsed.end}/${stat.size}`);
+  res.setHeader('Content-Length', parsed.end - parsed.start + 1);
+  fs.createReadStream(track.file_path, parsed).pipe(res);
+}
+
+async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache) {
+  if (req.query.types === 'url' && offlineCache) {
+    const track = offlineCache.getPlayableTrack(req.query.source || 'netease', req.query.id);
+    if (track) {
+      res.setHeader('X-Cache', 'OFFLINE');
+      res.setHeader('X-Music-Source', 'offline');
+      res.json({
+        url: offlineAudioUrl(track),
+        br: track.br || Number(req.query.br) || 999,
+        size: track.size || 0,
+        offline: true
+      });
+      return;
     }
   }
 
-  try {
+  const query = new URLSearchParams(req.query).toString();
+  const cacheKey = crypto.createHash('sha256').update(`${MUSIC_API_CACHE_VERSION}:${query}`).digest('hex');
+  const cacheFile = path.join(cacheDir, `${cacheKey}.json`);
+  const cacheTtl = cacheTtlForType(req.query.types);
+
+  // Check in-memory cache first
+  const memCached = memCacheGet(cacheKey);
+  if (memCached) {
+    res.setHeader('X-Cache', 'MEM-HIT');
+    res.type('json').send(memCached);
+    return;
+  }
+
+  // Check file cache
+  if (fs.existsSync(cacheFile) && Date.now() - fs.statSync(cacheFile).mtimeMs < cacheTtl) {
+    const data = fs.readFileSync(cacheFile, 'utf8');
+    memCacheSet(cacheKey, data, cacheTtl);
+    res.setHeader('X-Cache', 'HIT');
+    res.type('json').send(data);
+    return;
+  }
+
+  // Deduplicate identical concurrent requests
+  if (inflightRequests.has(cacheKey)) {
+    try {
+      const body = await inflightRequests.get(cacheKey);
+      res.setHeader('X-Cache', 'DEDUP');
+      res.type('json').send(body);
+      return;
+    } catch {
+      // Fall through to make a new request
+    }
+  }
+
+  // Wrap actual fetch in a dedup promise
+  const fetchPromise = (async () => {
+    const upstreamUrl = `https://music-api.gdstudio.xyz/api.php?${query}`;
+
+    if (dispatcher && req.query.types) {
+      try {
+        const params = Object.fromEntries(Object.entries(req.query).filter(([key]) => key !== 'types'));
+        const result = await dispatcher.proxy(req.query.types, params);
+        if (result) {
+          const body = typeof result === 'string' ? result : result.data;
+          const contentType = typeof result === 'string' ? 'application/json' : result.contentType;
+          if (typeof body === 'string' && /^[\[{]/.test(body.trim())) {
+            fs.writeFileSync(cacheFile, body, 'utf8');
+            memCacheSet(cacheKey, body, cacheTtl);
+          }
+          return { body, contentType: contentType || 'application/json', source: result.providerName || 'dispatcher' };
+        }
+      } catch (error) {
+        console.warn('[proxyMusicApi] dispatcher request failed:', error.message);
+      }
+    }
+
     const response = await axios.get(upstreamUrl, {
       timeout: 15_000,
       responseType: 'text',
@@ -949,10 +1102,18 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher) {
     const body = response.data;
     if (typeof body === 'string' && /^[\[{]/.test(body.trim())) {
       fs.writeFileSync(cacheFile, body, 'utf8');
-      pruneCacheDir(cacheDir);
+      memCacheSet(cacheKey, body, cacheTtl);
     }
+    return { body, contentType: response.headers['content-type'] || 'application/json', source: null };
+  })();
+
+  inflightRequests.set(cacheKey, fetchPromise.then((r) => r.body));
+
+  try {
+    const result = await fetchPromise;
     res.setHeader('X-Cache', 'MISS');
-    res.type(response.headers['content-type'] || 'application/json').send(body);
+    if (result.source) res.setHeader('X-Music-Source', result.source);
+    res.type(result.contentType).send(result.body);
   } catch {
     if (fs.existsSync(cacheFile)) {
       res.setHeader('X-Cache', 'STALE');
@@ -960,6 +1121,8 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher) {
       return;
     }
     res.status(503).json({ error: '音乐服务暂时不可用，请稍后重试' });
+  } finally {
+    inflightRequests.delete(cacheKey);
   }
 }
 
@@ -995,11 +1158,80 @@ function pruneCacheDir(cacheDir, { maxFiles = 800, maxAgeMs = 14 * 24 * 60 * 60 
   }
 }
 
+async function pruneCacheDirAsync(cacheDir, opts) {
+  try {
+    const { promises: fsp } = fs;
+    if (!(await fsp.stat(cacheDir).catch(() => null))) return;
+
+    const maxFiles = opts?.maxFiles ?? 800;
+    const maxAgeMs = opts?.maxAgeMs ?? 14 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const entries = await fsp.readdir(cacheDir);
+    const files = [];
+
+    for (const name of entries) {
+      if (!name.endsWith('.json')) continue;
+      const file = path.join(cacheDir, name);
+      try {
+        const stat = await fsp.stat(file);
+        files.push({ file, mtimeMs: stat.mtimeMs });
+      } catch { /* skip */ }
+    }
+
+    files.sort((a, b) => a.mtimeMs - b.mtimeMs);
+
+    for (const item of files) {
+      if (now - item.mtimeMs > maxAgeMs) {
+        await fsp.unlink(item.file).catch(() => {});
+      }
+    }
+
+    const remaining = [];
+    for (const item of files) {
+      if (await fsp.stat(item.file).catch(() => null)) remaining.push(item);
+    }
+
+    const overflow = remaining.length - maxFiles;
+    if (overflow <= 0) return;
+
+    for (const item of remaining.slice(0, overflow)) {
+      await fsp.unlink(item.file).catch(() => {});
+    }
+  } catch (error) {
+    console.warn('[express-backend] async cache prune failed:', error.message);
+  }
+}
+
 function ownsPlaylist(db, userId, playlistId) {
   return Boolean(db.prepare('SELECT id FROM playlists WHERE id = ? AND user_id = ?').get(playlistId, userId));
 }
 
-function listen(server, preferredPort) {
+function scheduleOfflineSync(offlineCache) {
+  if (offlineCache) offlineCache.scheduleSync();
+}
+
+function parseRangeHeader(range, size) {
+  const match = String(range || '').match(/^bytes=(\d*)-(\d*)$/);
+  if (!match || size <= 0) return null;
+
+  let start;
+  let end;
+  if (match[1] === '') {
+    const suffix = Number(match[2]);
+    if (!Number.isFinite(suffix) || suffix <= 0) return null;
+    start = Math.max(0, size - suffix);
+    end = size - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] === '' ? size - 1 : Number(match[2]);
+  }
+
+  if (!Number.isInteger(start) || !Number.isInteger(end)) return null;
+  if (start < 0 || end < start || start >= size) return null;
+  return { start, end: Math.min(end, size - 1) };
+}
+
+function listen(server, preferredPort, host = '127.0.0.1') {
   return new Promise((resolve, reject) => {
     const tryListen = (port) => {
       server.once('error', (error) => {
@@ -1010,7 +1242,7 @@ function listen(server, preferredPort) {
         reject(error);
       });
 
-      server.listen(port, '127.0.0.1', () => resolve(port));
+      server.listen(port, host, () => resolve(port));
     };
     tryListen(preferredPort);
   });
@@ -1051,7 +1283,7 @@ function isEmail(value) {
 
 if (require.main === module) {
   startLocalBackend().then((server) => {
-    console.log(`musiQ Express backend running at ${server.url}`);
+    console.log(`music Express backend running at ${server.url}`);
     console.log(`SQLite database: ${server.dbPath}`);
   }).catch((error) => {
     console.error(error);

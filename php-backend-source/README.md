@@ -1,6 +1,6 @@
-# musiQ 后端 API
+# music 后端 API
 
-> 本后端代码通过逆向工程从前端代码还原实现，完全兼容 musiQ 音乐播放器前端。
+> 本后端代码通过逆向工程从前端代码还原实现，完全兼容 music 音乐播放器前端。
 
 ## 项目结构
 
@@ -141,5 +141,5 @@ GET /api.php?types=pic&source=netease&id=封面ID&size=300
 
 ## 数据库
 
-使用 SQLite，数据库文件自动创建于 `data/musiq.db`，无需手动配置。
+使用 SQLite，数据库文件自动创建于 `data/music.db`，无需手动配置。
 首次访问任意接口时会自动初始化表结构。
