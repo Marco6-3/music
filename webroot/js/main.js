@@ -6,6 +6,10 @@
     const audio = $('#audio');
     const root = document.documentElement;
     const fallbackCover = 'public/music-default.png';
+    const fallbackArtwork = 'public/icons/icon-192.png';
+    const musiqRuntime = window.__musiqRuntime || createRuntimeFallback();
+    const pwaDebugEnabled = new URLSearchParams(window.location.search).get('debugPwa') === '1';
+    const mediaSessionActions = ['play', 'pause', 'previoustrack', 'nexttrack', 'seekto', 'seekbackward', 'seekforward', 'stop'];
     const runtimeConfig = readRuntimeConfig();
     const storage = {
         token: 'music_token',
@@ -53,7 +57,9 @@
             requestAt: '',
             providers: {},
             error: ''
-        }
+        },
+        lowPowerMode: document.hidden,
+        mediaSessionHandlersRegistered: false
     };
     const COVER_CACHE_MAX = 200;
     const coverCache = new Map();
@@ -159,15 +165,28 @@
         diagMusicSource: $('#diag-music-source'),
         diagCache: $('#diag-cache'),
         diagRequestAt: $('#diag-request-at'),
-        providerStatusList: $('#provider-status-list')
+        providerStatusList: $('#provider-status-list'),
+        pwaDiagnostics: $('#pwa-diagnostics'),
+        pwaDiagnosticsGrid: $('#pwa-diagnostics-grid'),
+        pwaCopyDiagnostics: $('#pwa-copy-diagnostics'),
+        pwaClearState: $('#pwa-clear-state'),
+        pwaClearQueue: $('#pwa-clear-queue'),
+        pwaReload: $('#pwa-reload'),
+        inAppPlaybackModal: $('#in-app-playback-modal'),
+        inAppPlaybackSteps: $('#in-app-playback-steps'),
+        copySafariLink: $('#copy-safari-link-btn'),
+        showIosInstallSteps: $('#show-ios-install-steps-btn'),
+        browseOnly: $('#browse-only-btn')
     };
 
     init();
 
     function init() {
+        refreshRuntimeState();
         audio.volume = Number(readLocalValue(storage.volume, legacyStorage.volume) || 70) / 100;
         els.volume.value = String(Math.round(audio.volume * 100));
         bindEvents();
+        bindRuntimeEvents();
         verifySession();
         renderShell();
         const launchParams = new URLSearchParams(window.location.search);
@@ -175,11 +194,14 @@
             ? launchParams.get('view')
             : 'home';
         renderView(initialView);
+        markRouteRestore();
         loadToplist('soaring', true);
         if (launchParams.get('panel') === 'queue') {
             setTimeout(() => openModal('queue-modal'), 0);
         }
         setupMediaSessionHandlers();
+        applyRuntimePlaybackGuidance();
+        initPwaDiagnostics();
     }
 
     function bindEvents() {
@@ -221,6 +243,15 @@
         els.logout.addEventListener('click', logout);
         els.sourceStatus.addEventListener('click', showSourceStatus);
         els.sourceDiagnosticsRefresh?.addEventListener('click', () => refreshSourceDiagnostics({ force: true }));
+        els.pwaCopyDiagnostics?.addEventListener('click', copyPwaDiagnostics);
+        els.pwaClearState?.addEventListener('click', clearLocalPwaState);
+        els.pwaClearQueue?.addEventListener('click', clearPlaybackQueueForDiagnostics);
+        els.pwaReload?.addEventListener('click', () => window.location.reload());
+        els.copySafariLink?.addEventListener('click', copySafariLaunchLink);
+        els.showIosInstallSteps?.addEventListener('click', () => {
+            if (els.inAppPlaybackSteps) els.inAppPlaybackSteps.hidden = false;
+        });
+        els.browseOnly?.addEventListener('click', () => closeModal('in-app-playback-modal'));
         bindWindowControls();
         bindWheelForwarding();
         bindResizePerformanceMode();
@@ -241,14 +272,18 @@
         });
 
         audio.addEventListener('play', () => {
+            musiqRuntime.markAudioError?.('');
             setPlayerStatus('正在播放');
             updatePlayButtons();
+            updateMediaSessionMetadata({ afterPlaybackStart: true });
             updateMediaSessionPlaybackState();
+            renderPwaDiagnostics();
         });
         audio.addEventListener('pause', () => {
             setPlayerStatus(state.currentSong ? '已暂停' : '准备就绪');
             updatePlayButtons();
             updateMediaSessionPlaybackState();
+            renderPwaDiagnostics();
         });
         audio.addEventListener('timeupdate', updateProgress);
         audio.addEventListener('loadedmetadata', updateProgress);
@@ -258,8 +293,10 @@
         audio.addEventListener('canplay', clearBuffering);
         audio.addEventListener('playing', clearBuffering);
         audio.addEventListener('error', () => {
+            musiqRuntime.markAudioError?.(audio.error?.code || '');
             setPlayerStatus('播放失败');
             updateMediaSessionPlaybackState();
+            renderPwaDiagnostics();
             showToast('播放失败，音乐源暂时不可用', 'error');
         });
 
@@ -286,6 +323,46 @@
                 togglePlay();
             }
             if (event.key === 'Escape') $$('.modal.open').forEach((modal) => closeModal(modal.id));
+        });
+    }
+
+    function bindRuntimeEvents() {
+        window.addEventListener('pageshow', (event) => {
+            refreshRuntimeState();
+            musiqRuntime.pageshowPersisted = Boolean(event.persisted);
+            markRouteRestore();
+            setupMediaSessionHandlers();
+            if (isIosInAppPlaybackBlocked()) stopBlockedRuntimeMedia();
+            renderShell();
+            renderPwaDiagnostics();
+            if (musiqRuntime.reinstallRecommended) {
+                showToast('建议删除旧图标后从 Safari 重新添加 musiQ 到主屏幕');
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            state.lowPowerMode = document.hidden;
+            refreshRuntimeState();
+            document.body.classList.toggle('is-low-power-runtime', state.lowPowerMode && !audio.paused);
+            if (document.hidden) {
+                if (audio.paused) clearOrDegradeMediaSession('hidden-paused');
+                renderPwaDiagnostics();
+                return;
+            }
+
+            updatePlayButtons();
+            updateProgress();
+            if (!audio.paused) {
+                setupMediaSessionHandlers();
+                updateMediaSessionMetadata({ afterPlaybackStart: true });
+            }
+            renderPwaDiagnostics();
+        });
+
+        window.addEventListener('musiq-runtime:manifest', renderPwaDiagnostics);
+        navigator.serviceWorker?.addEventListener?.('controllerchange', () => {
+            refreshRuntimeState();
+            renderPwaDiagnostics();
         });
     }
 
@@ -440,6 +517,7 @@
 
     function renderView(view) {
         state.view = view;
+        markRouteRestore();
         if (view !== 'playlists') state.activePlaylistName = null;
         $$('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.view === view));
         const titles = {
@@ -911,6 +989,7 @@
 
     async function playSong(song, options = {}) {
         if (!song || !song.id) return;
+        if (guardPlaybackForRuntime()) return;
         const previousSong = state.currentSong;
         const list = normalizeSongList(options.list || []);
         if (list.length) {
@@ -991,11 +1070,14 @@
             state.lyrics = parseLyrics(lyricData.lyric || lyricData.lrc?.lyric || '');
             renderLyrics();
             setPlayerStatus('正在连接播放器');
-            updateMediaSessionMetadata();
             audio.preload = 'auto';
             audio.src = url;
             audio.load();
-            await audio.play();
+            await playAudioWithRuntimeGuard({
+                notAllowedMessage: 'iPhone Safari 需要再次点按播放按钮开始播放',
+                genericMessage: '播放失败'
+            });
+            updateMediaSessionMetadata({ afterPlaybackStart: true });
             recordSuccessfulPlay(state.currentSong);
         } catch (error) {
             if (error?.name === 'NotAllowedError') {
@@ -1056,13 +1138,18 @@
     }
 
     function togglePlay() {
+        if (guardPlaybackForRuntime()) return;
         if (!state.currentSong) {
             const first = state.queue[0] || state.homeSongs[0] || state.searchResults[0];
             if (first) playSong(first, { list: state.queue.length ? state.queue : state.homeSongs });
             return;
         }
         if (audio.paused) {
-            audio.play().catch((error) => {
+            playAudioWithRuntimeGuard({
+                notAllowedMessage: '请点按播放按钮开始播放',
+                genericMessage: '播放失败'
+            }).catch((error) => {
+                if (error?.name === 'RuntimePlaybackBlocked') return;
                 setPlayerStatus(error?.name === 'NotAllowedError' ? '点按播放继续' : '播放失败');
                 showToast(error?.name === 'NotAllowedError' ? '请点按播放按钮开始播放' : '播放失败', 'error');
             });
@@ -1072,6 +1159,7 @@
     }
 
     function playPrevious() {
+        if (guardPlaybackForRuntime()) return;
         if (!state.queue.length) return;
         if (state.playMode === 'random') state.currentIndex = Math.floor(Math.random() * state.queue.length);
         else state.currentIndex = Math.max(0, state.currentIndex - 1);
@@ -1079,6 +1167,7 @@
     }
 
     function playNext() {
+        if (guardPlaybackForRuntime()) return;
         if (!state.queue.length) return;
         if (state.playMode === 'random') {
             state.currentIndex = Math.floor(Math.random() * state.queue.length);
@@ -1091,12 +1180,15 @@
 
     function handleEnded() {
         if (state.playMode === 'single') {
+            if (guardPlaybackForRuntime()) return;
             audio.currentTime = 0;
-            audio.play().catch(() => {});
+            playAudioWithRuntimeGuard().catch(() => {});
             return;
         }
         if (state.queue.length > 1 || state.playMode === 'loop' || state.playMode === 'random') {
             playNext();
+        } else {
+            clearOrDegradeMediaSession('ended');
         }
     }
 
@@ -1121,6 +1213,7 @@
     }
 
     async function recoverHighQualityStream() {
+        if (guardPlaybackForRuntime()) return;
         if (!state.currentSong || audio.paused) return;
         const requested = normalizeRequestedQuality(els.qualitySelect.value);
         const retryQuality = requested === '999' && state.qualityRetryLevel === 0 ? '320' : requested;
@@ -1155,7 +1248,8 @@
                 if (resumeAt > 0 && Number.isFinite(audio.duration)) {
                     audio.currentTime = Math.min(resumeAt, Math.max(0, audio.duration - 0.5));
                 }
-                audio.play().catch(() => showToast('高音质重试播放失败', 'error'));
+                playAudioWithRuntimeGuard({ genericMessage: '高音质重试播放失败' })
+                    .catch(() => showToast('高音质重试播放失败', 'error'));
             }, { once: true });
         } catch {
             showToast('高音质重试失败，请手动切换到 HQ 或换源', 'error');
@@ -1267,6 +1361,23 @@
         renderQueue();
     }
 
+    function clearPlaybackQueueForDiagnostics() {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        state.queue = [];
+        state.currentSong = null;
+        state.currentIndex = -1;
+        state.lyrics = [];
+        setPlayerStatus('准备就绪');
+        clearOrDegradeMediaSession('queue-cleared');
+        saveQueue();
+        renderShell();
+        renderView(state.view);
+        renderPwaDiagnostics();
+        showToast('已清理播放器队列', 'success');
+    }
+
     function renderQueue() {
         els.queueList.innerHTML = state.queue.map((song, index) => `
             <div class="queue-song ${state.currentSong && sameSong(state.currentSong, song) ? 'active' : ''}" data-index="${index}">
@@ -1349,8 +1460,8 @@
         els.favorite.textContent = song && isFavorite(song) ? '♥' : '♡';
         updateQualityBadge();
         updatePlayButtons();
-        updateCoverTheme(cover);
-        updateMediaSessionMetadata();
+        if (!(document.hidden && !audio.paused)) updateCoverTheme(cover);
+        updateMediaSessionPlaybackState();
     }
 
     function updatePlayButtons() {
@@ -1365,6 +1476,7 @@
     }
 
     function updateProgress() {
+        if (document.hidden && !audio.paused) return;
         const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
         const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
         els.currentTime.textContent = formatTime(current);
@@ -1707,6 +1819,7 @@
     }
 
     function updateActiveLyric(current) {
+        if (document.hidden && !audio.paused) return;
         if (!state.lyrics.length || !els.playerModal.classList.contains('open')) return;
         let active = 0;
         for (let i = 0; i < state.lyrics.length; i += 1) {
@@ -1760,6 +1873,7 @@
     }
 
     function updateCoverTheme(src) {
+        if (document.hidden && !audio.paused) return;
         if (!src) return setAccent(30, 215, 96);
         _coverImage.onload = () => {
             try {
@@ -1804,8 +1918,60 @@
         return [r, g, b].map((value) => Math.max(44, Math.min(235, Math.round(value * factor))));
     }
 
+    function refreshRuntimeState() {
+        return musiqRuntime.refresh?.() || musiqRuntime;
+    }
+
+    function isIosInAppPlaybackBlocked() {
+        refreshRuntimeState();
+        return Boolean(musiqRuntime.isIOS && musiqRuntime.isInAppBrowser);
+    }
+
+    function guardPlaybackForRuntime() {
+        if (!isIosInAppPlaybackBlocked()) return false;
+        stopBlockedRuntimeMedia();
+        showInAppPlaybackModal();
+        return true;
+    }
+
+    function stopBlockedRuntimeMedia() {
+        try {
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
+        } catch {}
+        musiqRuntime.mediaSessionEnabled = false;
+        musiqRuntime.mediaSessionBlockedReason = 'in-app-browser';
+        musiqRuntime.clearMediaSession?.('in-app-browser');
+        setPlayerStatus('仅浏览模式');
+        updatePlayButtons();
+        renderPwaDiagnostics();
+    }
+
+    function playAudioWithRuntimeGuard() {
+        if (guardPlaybackForRuntime()) {
+            const error = new Error('Playback is blocked in iOS in-app browsers');
+            error.name = 'RuntimePlaybackBlocked';
+            return Promise.reject(error);
+        }
+        return audio.play();
+    }
+
     function setupMediaSessionHandlers() {
-        if (!('mediaSession' in navigator)) return;
+        refreshRuntimeState();
+        if (!musiqRuntime.hasMediaSession) return;
+
+        if (isIosInAppPlaybackBlocked()) {
+            musiqRuntime.clearMediaSession?.('in-app-browser');
+            return;
+        }
+
+        if (!canUseFullMediaSession()) {
+            clearMediaSessionActionHandlers();
+            musiqRuntime.mediaSessionEnabled = false;
+            musiqRuntime.mediaSessionBlockedReason = mediaSessionUnavailableReason();
+            return;
+        }
 
         const handlers = {
             play: () => togglePlay(),
@@ -1826,44 +1992,148 @@
                 // Older Safari versions expose only part of the Media Session API.
             }
         });
-        updateMediaSessionMetadata();
+        state.mediaSessionHandlersRegistered = true;
+        musiqRuntime.mediaSessionEnabled = true;
+        musiqRuntime.mediaSessionBlockedReason = '';
     }
 
-    function updateMediaSessionMetadata() {
-        if (!('mediaSession' in navigator)) return;
+    function updateMediaSessionMetadata({ afterPlaybackStart = false } = {}) {
+        refreshRuntimeState();
+        if (!musiqRuntime.hasMediaSession) return;
+
+        if (isIosInAppPlaybackBlocked()) {
+            musiqRuntime.clearMediaSession?.('in-app-browser');
+            return;
+        }
 
         const song = state.currentSong;
         if (!song) {
-            navigator.mediaSession.metadata = null;
+            clearOrDegradeMediaSession('no-song');
+            return;
+        }
+
+        const fullSession = canUseFullMediaSession();
+        if (!fullSession) {
+            clearOrDegradeMediaSession(mediaSessionUnavailableReason());
+            return;
+        }
+
+        if (!afterPlaybackStart && audio.paused) {
             updateMediaSessionPlaybackState();
             return;
         }
 
-        const cover = absolutizeAssetUrl(song.cover_url || getCoverUrl(song, 512) || fallbackCover);
-        try {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: song.name || '未知歌曲',
-                artist: formatArtists(song.artist),
-                album: song.album || 'music',
-                artwork: [
-                    { src: cover, sizes: '96x96', type: 'image/png' },
-                    { src: cover, sizes: '192x192', type: 'image/png' },
-                    { src: cover, sizes: '512x512', type: 'image/png' }
-                ]
-            });
-        } catch {
-            // Metadata is progressive enhancement only.
+        setupMediaSessionHandlers();
+
+        const preferredArtwork = chooseMediaArtwork(song);
+        if (trySetMediaMetadata(song, preferredArtwork)) {
+            updateMediaSessionPlaybackState();
+            return;
         }
+        trySetMediaMetadata(song, absolutizeAssetUrl(fallbackArtwork));
         updateMediaSessionPlaybackState();
     }
 
     function updateMediaSessionPlaybackState() {
-        if (!('mediaSession' in navigator)) return;
+        refreshRuntimeState();
+        if (!musiqRuntime.hasMediaSession) return;
+
+        const fullSession = canUseFullMediaSession();
+        if (isIosInAppPlaybackBlocked()) {
+            musiqRuntime.clearMediaSession?.('in-app-browser');
+            renderPwaDiagnostics();
+            return;
+        }
         try {
-            navigator.mediaSession.playbackState = state.currentSong
-                ? (audio.paused ? 'paused' : 'playing')
+            navigator.mediaSession.playbackState = state.currentSong && audio.src && fullSession
+                ? (audio.ended ? 'none' : (audio.paused ? 'paused' : 'playing'))
                 : 'none';
         } catch {}
+        renderPwaDiagnostics();
+    }
+
+    function clearOrDegradeMediaSession(reason = '') {
+        refreshRuntimeState();
+        if (!musiqRuntime.hasMediaSession) return;
+        clearMediaSessionActionHandlers();
+        musiqRuntime.mediaSessionEnabled = false;
+        musiqRuntime.mediaSessionBlockedReason = reason || mediaSessionUnavailableReason();
+        try {
+            navigator.mediaSession.playbackState = 'none';
+        } catch {}
+        try {
+            navigator.mediaSession.metadata = null;
+        } catch {}
+        renderPwaDiagnostics();
+    }
+
+    function clearMediaSessionActionHandlers() {
+        if (!musiqRuntime.hasMediaSession) return;
+        mediaSessionActions.forEach((action) => {
+            try {
+                navigator.mediaSession.setActionHandler(action, null);
+            } catch {}
+        });
+        state.mediaSessionHandlersRegistered = false;
+    }
+
+    function canUseFullMediaSession() {
+        return Boolean(musiqRuntime.canUseFullMediaSession?.()
+            || (musiqRuntime.hasMediaSession
+                && musiqRuntime.isSecureContext
+                && musiqRuntime.isStandalonePwa
+                && !musiqRuntime.isInAppBrowser));
+    }
+
+    function mediaSessionUnavailableReason() {
+        if (!musiqRuntime.hasMediaSession) return 'no-media-session';
+        if (!musiqRuntime.isSecureContext) return 'insecure-context';
+        if (musiqRuntime.isInAppBrowser) return 'in-app-browser';
+        if (!musiqRuntime.isStandalonePwa) return musiqRuntime.isIOS && musiqRuntime.isSafari
+            ? 'safari-browser'
+            : 'not-standalone-pwa';
+        return '';
+    }
+
+    function trySetMediaMetadata(song, artwork) {
+        if (typeof MediaMetadata !== 'function') return false;
+        try {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: song.name || '未知歌曲',
+                artist: formatArtists(song.artist),
+                album: song.album || 'musiQ',
+                artwork: buildArtworkSet(artwork)
+            });
+            musiqRuntime.markMetadata?.({
+                title: song.name || '未知歌曲',
+                artwork
+            });
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    function buildArtworkSet(src) {
+        const artwork = absolutizeAssetUrl(src || fallbackArtwork);
+        const type = /\.jpe?g(?:$|\?)/i.test(artwork) ? 'image/jpeg' : 'image/png';
+        return [
+            { src: artwork, sizes: '96x96', type },
+            { src: artwork, sizes: '192x192', type },
+            { src: artwork, sizes: '512x512', type }
+        ];
+    }
+
+    function chooseMediaArtwork(song) {
+        const candidate = absolutizeAssetUrl(song.cover_url || getCoverUrl(song, 512) || fallbackArtwork);
+        const fallback = absolutizeAssetUrl(fallbackArtwork);
+        try {
+            const url = new URL(candidate, window.location.href);
+            if (url.origin === window.location.origin || ['data:', 'blob:'].includes(url.protocol)) return candidate;
+            return candidate || fallback;
+        } catch {
+            return fallback;
+        }
     }
 
     function absolutizeAssetUrl(value) {
@@ -1872,6 +2142,225 @@
         } catch {
             return fallbackCover;
         }
+    }
+
+    function showInAppPlaybackModal() {
+        if (els.inAppPlaybackSteps) els.inAppPlaybackSteps.hidden = true;
+        openModal('in-app-playback-modal');
+    }
+
+    function copySafariLaunchLink() {
+        const url = canonicalSafariLaunchUrl();
+        writeClipboard(url).then(() => {
+            showToast('已复制 Safari 打开链接', 'success');
+        }).catch(() => {
+            showToast('复制失败，请手动复制地址栏链接', 'error');
+        });
+    }
+
+    function canonicalSafariLaunchUrl() {
+        const url = new URL(window.location.href);
+        const clean = new URL('/?source=pwa', url.origin);
+        const view = url.searchParams.get('view');
+        const panel = url.searchParams.get('panel');
+        const debugPwa = url.searchParams.get('debugPwa');
+        if (view) clean.searchParams.set('view', view);
+        if (panel) clean.searchParams.set('panel', panel);
+        if (debugPwa) clean.searchParams.set('debugPwa', debugPwa);
+        return clean.href;
+    }
+
+    async function writeClipboard(text) {
+        if (navigator.clipboard?.writeText && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        if (!copied) throw new Error('copy failed');
+    }
+
+    function applyRuntimePlaybackGuidance() {
+        refreshRuntimeState();
+        document.body.classList.toggle('is-safari-browser-pwa-candidate', Boolean(
+            musiqRuntime.isIOS && musiqRuntime.isSafari && !musiqRuntime.isStandalonePwa
+        ));
+        if (isIosInAppPlaybackBlocked()) {
+            stopBlockedRuntimeMedia();
+            return;
+        }
+        if (musiqRuntime.isIOS && musiqRuntime.isSafari && !musiqRuntime.isStandalonePwa && !state.currentSong) {
+            setPlayerStatus('添加到主屏幕体验更好');
+        }
+    }
+
+    function initPwaDiagnostics() {
+        if (!pwaDebugEnabled) {
+            renderPwaDiagnostics();
+            return;
+        }
+        if (els.pwaDiagnostics) els.pwaDiagnostics.hidden = false;
+        renderPwaDiagnostics();
+        setTimeout(() => openModal('source-diagnostics-modal'), 0);
+    }
+
+    function renderPwaDiagnostics() {
+        if (!els.pwaDiagnosticsGrid) return;
+        if (!pwaDebugEnabled && els.pwaDiagnostics?.hidden) return;
+        if (els.pwaDiagnostics) els.pwaDiagnostics.hidden = false;
+
+        const diagnostics = collectPwaDiagnostics();
+        els.pwaDiagnosticsGrid.innerHTML = Object.entries(diagnostics).map(([label, value]) => `
+            <div>
+                <span>${escapeHtml(label)}</span>
+                <strong>${escapeHtml(formatDiagnosticValue(value))}</strong>
+            </div>
+        `).join('');
+    }
+
+    function collectPwaDiagnostics() {
+        refreshRuntimeState();
+        const audioSrc = audio.currentSrc || audio.src || '';
+        let audioHost = '';
+        try {
+            audioHost = audioSrc ? new URL(audioSrc, window.location.href).host : '';
+        } catch {
+            audioHost = 'invalid-url';
+        }
+        return {
+            UA: musiqRuntime.ua || navigator.userAgent || '',
+            isIOS: musiqRuntime.isIOS,
+            isSafari: musiqRuntime.isSafari,
+            isStandalonePwa: musiqRuntime.isStandalonePwa,
+            isInAppBrowser: musiqRuntime.isInAppBrowser,
+            inAppHost: musiqRuntime.inAppHost || '',
+            isSecureContext: musiqRuntime.isSecureContext,
+            hasMediaSession: musiqRuntime.hasMediaSession,
+            mediaSessionEnabled: musiqRuntime.mediaSessionEnabled,
+            mediaSessionBlockedReason: musiqRuntime.mediaSessionBlockedReason || '',
+            'serviceWorker.controller': musiqRuntime.serviceWorkerController,
+            'manifest id': musiqRuntime.manifestId || '',
+            'manifest start_url': musiqRuntime.manifestStartUrl || '',
+            'current URL': window.location.href,
+            referrer: document.referrer || '',
+            'last metadata title': musiqRuntime.lastMetadataTitle || '',
+            'last metadata artwork': musiqRuntime.lastMetadataArtwork || '',
+            'audio.paused': audio.paused,
+            'audio.src host': audioHost,
+            'document.visibilityState': document.visibilityState,
+            'pageshow persisted flag': musiqRuntime.pageshowPersisted,
+            'last audio error code': musiqRuntime.lastAudioErrorCode || '',
+            'last route restore time': musiqRuntime.lastRouteRestoreTime || ''
+        };
+    }
+
+    function formatDiagnosticValue(value) {
+        if (value === true) return 'true';
+        if (value === false) return 'false';
+        return value ?? '';
+    }
+
+    function copyPwaDiagnostics() {
+        const diagnostics = collectPwaDiagnostics();
+        const text = Object.entries(diagnostics)
+            .map(([key, value]) => `${key}: ${formatDiagnosticValue(value)}`)
+            .join('\n');
+        writeClipboard(text).then(() => {
+            showToast('已复制 PWA 诊断信息', 'success');
+        }).catch(() => {
+            showToast('复制诊断信息失败', 'error');
+        });
+    }
+
+    async function clearLocalPwaState() {
+        const removableKeys = [
+            'music_ios_install_dismissed',
+            'musiq_ios_install_dismissed',
+            'music_pwa_update_dismissed',
+            'musiq_pwa_update_dismissed'
+        ];
+        removableKeys.forEach((key) => localStorage.removeItem(key));
+        if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys
+                .filter((key) => key.startsWith('music-pwa-') || key.startsWith('musiq-pwa-'))
+                .map((key) => caches.delete(key)));
+        }
+        renderPwaDiagnostics();
+        showToast('已清理本地 PWA 状态', 'success');
+    }
+
+    function markRouteRestore() {
+        musiqRuntime.markRouteRestore?.();
+        renderPwaDiagnostics();
+    }
+
+    function createRuntimeFallback() {
+        const fallback = {
+            refresh() {
+                const ua = navigator.userAgent || '';
+                this.ua = ua;
+                this.isIOS = /iPad|iPhone|iPod/.test(ua)
+                    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                this.isStandalonePwa = window.navigator.standalone === true
+                    || window.matchMedia?.('(display-mode: standalone)').matches === true;
+                this.inAppHost = detectFallbackInAppHost(ua);
+                this.isInAppBrowser = Boolean(this.inAppHost);
+                this.isSafari = /Safari/i.test(ua)
+                    && !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Chromium|Android/i.test(ua)
+                    && !this.isInAppBrowser;
+                this.isSecureContext = Boolean(window.isSecureContext);
+                this.hasMediaSession = 'mediaSession' in navigator;
+                this.serviceWorkerController = Boolean(navigator.serviceWorker?.controller);
+                return this;
+            },
+            canUseFullMediaSession() {
+                this.refresh();
+                return Boolean(this.hasMediaSession && this.isSecureContext && this.isStandalonePwa && !this.isInAppBrowser);
+            },
+            clearMediaSession(reason = '') {
+                this.mediaSessionEnabled = false;
+                this.mediaSessionBlockedReason = reason;
+            },
+            markMetadata({ title = '', artwork = '' } = {}) {
+                this.lastMetadataAt = new Date().toISOString();
+                this.lastMetadataTitle = title;
+                this.lastMetadataArtwork = artwork;
+            },
+            markAudioError(errorCode) {
+                this.lastAudioErrorCode = errorCode ? String(errorCode) : '';
+            },
+            markRouteRestore() {
+                this.lastRouteRestoreTime = new Date().toISOString();
+            },
+            mediaSessionEnabled: false,
+            mediaSessionBlockedReason: ''
+        };
+        return fallback.refresh();
+    }
+
+    function detectFallbackInAppHost(ua) {
+        if (typeof window.AlipayJSBridge !== 'undefined') return 'alipay';
+        if (typeof window.AlipayJSBridgeReady !== 'undefined') return 'alipay';
+        if (typeof window.WeixinJSBridge !== 'undefined') return 'wechat';
+        if (/AlipayClient|AliApp\(AP\/|\bAliApp\b|AlipayDefined|APWebView|\bNebula\b|\bmPaaS\b/i.test(ua)) return 'alipay';
+        if (/MicroMessenger/i.test(ua)) return 'wechat';
+        if (/\bQQ\//i.test(ua)) return 'qq';
+        if (/Weibo/i.test(ua)) return 'weibo';
+        if (/DingTalk/i.test(ua)) return 'dingtalk';
+        if (/Feishu|Lark/i.test(ua)) return 'feishu';
+        if (/UCBrowser/i.test(ua)) return 'uc';
+        if (/Quark/i.test(ua)) return 'quark';
+        if (/Baidu/i.test(ua)) return 'baidu';
+        if (/SogouMobileBrowser/i.test(ua)) return 'sogou';
+        return '';
     }
 
     function readRuntimeConfig() {
@@ -2140,6 +2629,7 @@
 
     let toastTimer = 0;
     function showToast(message, type = 'info') {
+        if (document.hidden && !audio.paused && type === 'info') return;
         clearTimeout(toastTimer);
         els.toast.textContent = message;
         els.toast.className = `toast show ${type}`;

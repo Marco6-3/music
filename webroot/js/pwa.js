@@ -3,12 +3,20 @@
 
     const storageKeys = {
         iosInstallDismissed: ['music_ios_install_dismissed', 'musiq_ios_install_dismissed'],
+        inAppNoticeDismissed: ['music_in_app_notice_dismissed', 'musiq_in_app_notice_dismissed'],
+        reinstallNoticeDismissed: ['music_pwa_reinstall_dismissed', 'musiq_pwa_reinstall_dismissed'],
         updateDismissed: ['music_pwa_update_dismissed', 'musiq_pwa_update_dismissed']
     };
-    const isStandalone = window.navigator.standalone === true
+    const runtime = window.__musiqRuntime || {};
+    runtime.refresh?.();
+    const isStandalone = Boolean(runtime.isStandalonePwa)
+        || window.navigator.standalone === true
         || window.matchMedia('(display-mode: standalone)').matches;
-    const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    const isIos = Boolean(runtime.isIOS)
+        || /iPad|iPhone|iPod/.test(navigator.userAgent)
         || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isInAppBrowser = Boolean(runtime.isInAppBrowser);
+    const isSafari = Boolean(runtime.isSafari);
     const isBrowserClient = !window.electronAPI;
 
     document.documentElement.classList.toggle('is-standalone-pwa', isStandalone);
@@ -24,11 +32,16 @@
     function init() {
         document.body.classList.toggle('is-standalone-pwa', isStandalone);
         document.body.classList.toggle('is-ios-webkit', isIos);
+        document.body.classList.toggle('is-in-app-browser', isInAppBrowser);
+        document.body.classList.toggle('is-safari', isSafari);
+        document.body.classList.toggle('is-secure-context', Boolean(runtime.isSecureContext));
         document.body.classList.toggle('is-browser-client', isBrowserClient);
 
         registerServiceWorker();
         bindNetworkStatus();
+        showInAppBrowserNotice();
         showIosInstallHint();
+        showStandaloneReinstallNotice();
         bindChromiumInstallPrompt();
     }
 
@@ -99,14 +112,43 @@
 
     function showIosInstallHint() {
         if (!isIos || isStandalone || !isBrowserClient) return;
+        if (isInAppBrowser) return;
         if (readLocal(storageKeys.iosInstallDismissed) === '1') return;
 
         showNotice({
             id: 'pwa-ios-install-notice',
-            message: '在 iPhone Safari 中添加到主屏幕可获得 App 体验',
+            message: '锁屏/灵动岛返回体验只有从主屏幕 App 打开时最稳定。请在 Safari 中添加到主屏幕。',
             actionText: '知道了',
             onAction: () => writeLocal(storageKeys.iosInstallDismissed, '1'),
             onClose: () => writeLocal(storageKeys.iosInstallDismissed, '1'),
+            timeoutMs: 0
+        });
+    }
+
+    function showInAppBrowserNotice() {
+        if (!isIos || !isInAppBrowser || !isBrowserClient) return;
+        if (readLocal(storageKeys.inAppNoticeDismissed) === '1') return;
+
+        showNotice({
+            id: 'pwa-in-app-browser-notice',
+            message: '当前在支付宝/微信等内置浏览器中，musiQ 会禁止播放以避免 iOS 锁屏入口回到错误 App。请复制链接到 Safari 并添加到主屏幕。',
+            actionText: '知道了',
+            onAction: () => writeLocal(storageKeys.inAppNoticeDismissed, '1'),
+            onClose: () => writeLocal(storageKeys.inAppNoticeDismissed, '1'),
+            timeoutMs: 0
+        });
+    }
+
+    function showStandaloneReinstallNotice() {
+        if (!isStandalone || !runtime.reinstallRecommended) return;
+        if (readLocal(storageKeys.reinstallNoticeDismissed) === '1') return;
+
+        showNotice({
+            id: 'pwa-reinstall-notice',
+            message: '建议删除旧图标后从 Safari 重新添加 musiQ 到主屏幕。',
+            actionText: '知道了',
+            onAction: () => writeLocal(storageKeys.reinstallNoticeDismissed, '1'),
+            onClose: () => writeLocal(storageKeys.reinstallNoticeDismissed, '1'),
             timeoutMs: 0
         });
     }
@@ -190,6 +232,6 @@
     }
 
     function CACHE_BUST_KEY() {
-        return 'v1';
+        return 'v2';
     }
 })();

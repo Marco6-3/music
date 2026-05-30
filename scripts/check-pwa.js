@@ -33,6 +33,11 @@ function checkManifest() {
     expect(Boolean(manifest[field]), `manifest missing ${field}`);
   }
   expect(manifest.display === 'standalone', 'manifest display must be standalone');
+  expect(manifest.id === '/?app=musiq-pwa', 'manifest id must be fixed to /?app=musiq-pwa');
+  expect(manifest.start_url === '/?source=pwa', 'manifest start_url must be canonical PWA URL');
+  expect(manifest.scope === '/', 'manifest scope must be /');
+  expect(manifest.name === 'musiQ', 'manifest name must be musiQ');
+  expect(manifest.short_name === 'musiQ', 'manifest short_name must be musiQ');
   expect(Array.isArray(manifest.icons), 'manifest icons must be an array');
   const iconSizes = (manifest.icons || []).flatMap((icon) => String(icon.sizes || '').split(/\s+/));
   expect(iconSizes.includes('192x192'), 'manifest missing 192x192 icon');
@@ -58,6 +63,7 @@ function checkIndex() {
   has(html, 'apple-touch-icon', 'apple touch icon');
   has(html, 'name="theme-color"', 'theme-color meta');
   has(html, 'window.__MUSIC_CONFIG__', 'runtime config hook');
+  has(html, 'js/pwa-runtime.js', 'PWA runtime detection script');
   has(html, 'js/pwa.js', 'PWA script');
 }
 
@@ -70,7 +76,7 @@ function checkServiceWorker() {
   for (const handler of ["'install'", "'activate'", "'fetch'"]) {
     has(sw, `addEventListener(${handler}`, `service worker ${handler} handler`);
   }
-  for (const asset of ['/', 'index.html', 'offline.html', 'manifest.webmanifest', 'css/style.css', 'js/main.js', 'js/source-selector.js', 'js/pwa.js', 'public/music-default.png']) {
+  for (const asset of ['/', 'index.html', 'offline.html', 'manifest.webmanifest', 'css/style.css', 'js/pwa-runtime.js', 'js/main.js', 'js/source-selector.js', 'js/pwa.js', 'public/music-default.png']) {
     has(sw, asset, `service worker cache asset ${asset}`);
   }
   expect(!/music-api\.gdstudio\.xyz|https:\/\/.*api\.php/.test(sw), 'service worker must not cache third-party music API URLs');
@@ -81,9 +87,23 @@ function checkPwaJs() {
   const js = read('webroot/js/pwa.js');
   has(js, 'serviceWorker', 'service worker registration');
   has(js, 'is-standalone-pwa', 'standalone class hook');
+  has(js, 'is-in-app-browser', 'in-app browser class hook');
   has(js, 'offline', 'offline listener');
   has(js, 'online', 'online listener');
   has(js, 'beforeinstallprompt', 'Chromium install prompt hook');
+}
+
+function checkPwaRuntimeJs() {
+  const js = read('webroot/js/pwa-runtime.js');
+  has(js, 'window.__musiqRuntime', 'global runtime object');
+  for (const token of ['AlipayClient', 'AliApp', 'AlipayJSBridge', 'MicroMessenger', 'WeixinJSBridge', 'QQ\\/', 'Weibo', 'DingTalk', 'Feishu', 'Lark', 'UCBrowser', 'Quark', 'Baidu', 'SogouMobileBrowser']) {
+    has(js, token, `in-app browser detection ${token}`);
+  }
+  has(js, 'inAppHost', 'in-app host diagnostics');
+  has(js, 'isStandalonePwa', 'standalone runtime flag');
+  has(js, 'isSecureContext', 'secure-context runtime flag');
+  has(js, 'hasMediaSession', 'Media Session runtime flag');
+  has(js, 'serviceWorkerController', 'service worker controller runtime flag');
 }
 
 function checkMainJs() {
@@ -91,6 +111,9 @@ function checkMainJs() {
   has(js, 'buildApiUrl', 'API URL builder');
   has(js, 'window.__MUSIC_CONFIG__', 'window runtime config');
   has(js, "'mediaSession' in navigator", 'Media Session feature detection');
+  has(js, 'mediaSessionBlockedReason', 'Media Session blocked reason diagnostics');
+  has(js, 'in-app-playback-modal', 'in-app browser playback block modal');
+  has(js, 'debugPwa', 'PWA diagnostics query flag');
   has(js, 'modal-open', 'modal body lock');
 }
 
@@ -106,6 +129,7 @@ checkManifest();
 checkIndex();
 checkServiceWorker();
 checkPwaJs();
+checkPwaRuntimeJs();
 checkMainJs();
 checkCss();
 

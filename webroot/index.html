@@ -4,17 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="music - 音乐播放器">
+    <meta name="description" content="musiQ - 音乐播放器">
     <meta name="theme-color" content="#07110d">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="music">
+    <meta name="apple-mobile-web-app-title" content="musiQ">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="music-api-base-url" content="">
-    <title>music</title>
+    <title>musiQ</title>
     <link rel="icon" href="public/music-default.png">
     <link rel="apple-touch-icon" href="public/icons/apple-touch-icon-180.png">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="css/style.css?v=2.0.10">
+    <link rel="stylesheet" href="css/style.css?v=2.1.1">
     <script>
         window.__MUSIC_CONFIG__ = window.__MUSIC_CONFIG__ || window.__MUSIQ_CONFIG__ || {};
         window.__MUSIQ_CONFIG__ = window.__MUSIC_CONFIG__;
@@ -37,9 +37,9 @@
     <div class="app-shell">
         <aside class="side-rail glass-panel">
             <div class="brand">
-                <img src="public/music-default.png" alt="music" class="brand-mark">
+                <img src="public/music-default.png" alt="musiQ" class="brand-mark">
                 <div>
-                    <strong>music</strong>
+                    <strong>musiQ</strong>
                 </div>
             </div>
             <nav class="nav-list" aria-label="主导航">
@@ -273,14 +273,51 @@
                 </div>
             </div>
             <div class="provider-status-list" id="provider-status-list"></div>
+            <div class="pwa-diagnostics" id="pwa-diagnostics" hidden>
+                <div class="source-diagnostics-head">
+                    <div>
+                        <p class="eyebrow">PWA Diagnostics</p>
+                        <h2>PWA 诊断</h2>
+                    </div>
+                    <div class="pwa-diagnostics-actions">
+                        <button class="ghost-btn" id="pwa-copy-diagnostics">复制诊断信息</button>
+                        <button class="ghost-btn" id="pwa-clear-state">清理本地 PWA 状态</button>
+                        <button class="ghost-btn" id="pwa-clear-queue">清理播放器队列</button>
+                        <button class="ghost-btn" id="pwa-reload">重新加载</button>
+                    </div>
+                </div>
+                <div class="pwa-diagnostics-grid" id="pwa-diagnostics-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="in-app-playback-modal" aria-hidden="true">
+        <div class="runtime-dialog glass-panel">
+            <button class="close-btn" data-close-modal="in-app-playback-modal">×</button>
+            <p class="eyebrow">iOS Playback Host</p>
+            <h2>请用 Safari 或主屏幕 App 播放</h2>
+            <p>当前在支付宝/微信等内置浏览器中。如果在这里播放，iOS 锁屏/灵动岛可能返回支付宝/微信，而不是 musiQ。</p>
+            <p>为获得接近原生 App 的体验，请复制链接到 Safari，然后添加到主屏幕并从 musiQ 图标打开。</p>
+            <ol class="runtime-steps" id="in-app-playback-steps" hidden>
+                <li>复制当前 HTTPS 地址。</li>
+                <li>打开 iPhone Safari 并粘贴访问。</li>
+                <li>点击分享按钮，选择“添加到主屏幕”。</li>
+                <li>从主屏幕 musiQ 图标打开后再播放。</li>
+            </ol>
+            <div class="runtime-actions">
+                <button class="primary-btn" id="copy-safari-link-btn">复制链接</button>
+                <button class="ghost-btn" id="show-ios-install-steps-btn">查看添加到主屏幕步骤</button>
+                <button class="ghost-btn" id="browse-only-btn">我知道了，仅浏览</button>
+            </div>
         </div>
     </div>
 
     <div class="toast" id="toast"></div>
     <audio id="audio"></audio>
-    <script src="js/main.js?v=2.1.3"></script>
+    <script src="js/pwa-runtime.js?v=1.0.1"></script>
+    <script src="js/main.js?v=2.2.1"></script>
     <script src="js/source-selector.js?v=1.0.4"></script>
-    <script src="js/pwa.js?v=1.0.0"></script>
+    <script src="js/pwa.js?v=1.1.0"></script>
 </body>
 
 </html>

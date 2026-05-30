@@ -54,7 +54,7 @@ npm run server
 
 ## iPhone Web / PWA 使用说明
 
-music 现在可以作为 iPhone Safari / 主屏幕 PWA 使用。Web 版仍然复用同一套 Express 后端和 `webroot/` 前端，搜索、播放、换源、歌词、收藏、歌单、播放历史、离线音频缓存策略和音源健康检测都通过后端接口保留，不把 `sql.js` 数据库放进浏览器。
+musiQ 现在可以作为 iPhone Safari / 主屏幕 PWA 使用。Web 版仍然复用同一套 Express 后端和 `webroot/` 前端，搜索、播放、换源、歌词、收藏、歌单、播放历史、离线音频缓存策略和音源健康检测都通过后端接口保留，不把 `sql.js` 数据库放进浏览器。
 
 本地预览：
 
@@ -70,7 +70,7 @@ http://127.0.0.1:41731/
 
 iPhone 真机不能访问你电脑里的 Electron `127.0.0.1`。要在 iPhone 上使用，请把 Express 服务部署到 HTTPS 域名，推荐同源部署：同一个 HTTPS origin 同时提供 `webroot/`、`/api.php`、`/php/*`、`/api_check/*`、`/offline/audio/*` 和 `/uploads/*`。
 
-当前 PWA manifest 和 Service Worker 按站点根路径 `/` 设计，生产部署优先使用独立域名或根路径；子路径部署需要额外调整 `start_url`、`scope` 和静态资源路径。
+当前 PWA manifest 和 Service Worker 按站点根路径 `/` 设计，`id` 固定为 `/?app=musiq-pwa`，`start_url` 固定为 `/?source=pwa`，生产部署优先使用独立域名或根路径；子路径部署需要额外调整 `id`、`start_url`、`scope` 和静态资源路径。由于 manifest 身份已经固定，更新部署后建议 iPhone 用户删除旧主屏幕图标，再从 Safari 重新添加。
 
 如果需要让后端在局域网或反向代理后监听非默认地址，可以设置：
 
@@ -91,16 +91,34 @@ $env:MUSIC_CORS_ORIGIN="https://你的前端域名"
 
 ### 添加到 iPhone 主屏幕
 
-1. 用 HTTPS URL 在 iPhone Safari 打开 music。
+1. 用 HTTPS URL 在 iPhone Safari 打开 musiQ。
 2. 点击分享按钮，选择“添加到主屏幕”。
 3. 从主屏幕图标打开，确认没有 Safari 地址栏或底部工具栏。
 4. 检查顶部状态栏、刘海区域和 Home Indicator 没有遮挡 UI。
 5. 搜索歌曲、播放歌曲、切换音源，打开歌词、队列、登录、歌单和源状态面板。
-6. 播放后切后台或锁屏，观察系统是否显示歌曲信息和播放/暂停/上一首/下一首控制；这些能力由 iOS Safari 的 Media Session 支持情况决定。
+6. 播放后切后台或锁屏，观察系统是否显示歌曲信息和播放/暂停/上一首/下一首控制；完整 Media Session 只会在 HTTPS 主屏幕 PWA 中启用，这些能力仍由 iOS Safari 的 Media Session 支持情况决定。
 7. 打开弹窗和播放器面板，确认 bottom sheet 可以滚动，页面背景不滚动穿透。
 8. 断网后重新打开，确认能看到已缓存应用壳或友好离线提示。
 9. 网络恢复后刷新或继续使用。
 10. 至少确认竖屏稳定；横屏不是当前 PWA 的主要布局目标。
+
+### 锁屏归属问题排查
+
+如果锁屏媒体卡片打开支付宝/微信，而不是 musiQ，通常说明曾经在内置浏览器播放过，或 iOS Now Playing 的宿主归属被污染。网页无法强制修改系统锁屏卡片要跳回哪个宿主 App，只能避免错误宿主继续接管播放。
+
+处理步骤：
+
+1. 关闭支付宝/微信。
+2. 删除旧 musiQ 主屏幕图标。
+3. 重启 iPhone。
+4. 用 Safari 打开 HTTPS 地址。
+5. 添加到主屏幕。
+6. 从 musiQ 图标打开并播放。
+7. 再测试锁屏媒体卡片。
+
+内置浏览器中 musiQ 会禁止播放，这是为了避免 iOS 锁屏/灵动岛入口返回支付宝、微信等错误 App。普通 Safari 可以浏览和试听，但完整锁屏/灵动岛体验建议使用主屏幕 PWA。如果按上面流程后仍异常，这是 iOS/WebKit 容器限制，网页无法强制改系统锁屏跳转目标。
+
+调试时可以在地址后添加 `?debugPwa=1` 打开 PWA 诊断面板，检查 `isStandalonePwa`、`isInAppBrowser`、`mediaSessionEnabled`、manifest `id` / `start_url`、最近一次 metadata 和音频来源。
 
 ### Web/PWA 能力边界
 
@@ -108,6 +126,8 @@ $env:MUSIC_CORS_ORIGIN="https://你的前端域名"
 - 搜索、播放、换源、歌词、收藏、歌单、播放历史和源状态都需要可访问的后端和网络。
 - iOS 自动播放受浏览器限制，首次播放必须来自用户点按；如果 Safari 丢失用户手势，界面会提示再次点按播放。
 - 后台播放、锁屏信息和控制中心按钮受 iOS / Safari 版本和系统策略限制，代码只做 feature detection，不承诺所有设备一致可用。
+- 支付宝、微信、QQ、钉钉等 iOS 内置浏览器会被识别为不适合播放的宿主，页面可以浏览，但点击播放会被阻止并提示复制链接到 Safari。
+- 普通 Safari 不注册完整 Media Session action handlers；只有 HTTPS 主屏幕 PWA 会完整启用播放、暂停、上一首、下一首和 seekto handlers。
 - 主屏幕 PWA 和 Service Worker 需要 HTTPS；`localhost` 仅适合桌面开发。
 
 ## 验证音源

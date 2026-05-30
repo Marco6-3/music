@@ -1110,7 +1110,8 @@ input[type="range"] {
 
 .auth-card,
 .playlist-dialog,
-.source-diagnostics {
+.source-diagnostics,
+.runtime-dialog {
     position: relative;
     width: min(430px, 92vw);
     border-radius: 26px;
@@ -1124,6 +1125,107 @@ input[type="range"] {
     display: grid;
     gap: 18px;
     overflow: hidden;
+}
+
+.runtime-dialog {
+    width: min(520px, calc(100vw - 48px));
+    display: grid;
+    gap: 14px;
+}
+
+.runtime-dialog h2 {
+    margin-bottom: 0;
+    font-size: 26px;
+    line-height: 1.2;
+}
+
+.runtime-dialog p {
+    margin-bottom: 0;
+    color: var(--muted);
+    line-height: 1.65;
+}
+
+.runtime-steps {
+    margin: 0;
+    padding-left: 22px;
+    color: var(--muted);
+    line-height: 1.7;
+}
+
+.runtime-actions,
+.pwa-diagnostics-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.pwa-diagnostics {
+    display: grid;
+    gap: 14px;
+    min-height: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+}
+
+.pwa-diagnostics .source-diagnostics-head {
+    align-items: flex-start;
+}
+
+.pwa-diagnostics .source-diagnostics-head > div:first-child {
+    flex: 0 0 150px;
+}
+
+.pwa-diagnostics h2 {
+    min-width: max-content;
+    white-space: nowrap;
+    word-break: keep-all;
+}
+
+.pwa-diagnostics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    min-height: 0;
+    max-height: 280px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.pwa-diagnostics-grid > div {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.055);
+    padding: 10px;
+}
+
+.pwa-diagnostics-grid span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.pwa-diagnostics-grid strong {
+    display: block;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.45;
+    font-weight: 600;
+}
+
+body.is-ios.is-in-app-browser .play-btn,
+body.is-ios.is-in-app-browser .song-card {
+    cursor: not-allowed;
+}
+
+body.is-ios.is-in-app-browser .play-btn {
+    filter: grayscale(0.35);
+}
+
+body.is-safari-browser-pwa-candidate .player-status {
+    color: var(--warning);
 }
 
 .source-diagnostics-head,
@@ -1875,7 +1977,8 @@ input[type="range"] {
     .expanded-player,
     .auth-card,
     .playlist-dialog,
-    .source-diagnostics {
+    .source-diagnostics,
+    .runtime-dialog {
         width: 100%;
         max-width: none;
         max-height: calc(92dvh - var(--safe-top));
@@ -1957,6 +2060,21 @@ input[type="range"] {
     .provider-row {
         align-items: stretch;
         flex-direction: column;
+    }
+
+    .pwa-diagnostics .source-diagnostics-head > div:first-child {
+        flex-basis: auto;
+    }
+
+    .runtime-actions,
+    .pwa-diagnostics-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .pwa-diagnostics-grid {
+        grid-template-columns: 1fr;
+        max-height: 34dvh;
     }
 
     .provider-pills {
