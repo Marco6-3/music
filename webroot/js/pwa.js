@@ -5,10 +5,12 @@
         iosInstallDismissed: ['music_ios_install_dismissed', 'musiq_ios_install_dismissed'],
         inAppNoticeDismissed: ['music_in_app_notice_dismissed', 'musiq_in_app_notice_dismissed'],
         reinstallNoticeDismissed: ['music_pwa_reinstall_dismissed', 'musiq_pwa_reinstall_dismissed'],
-        updateDismissed: ['music_pwa_update_dismissed', 'musiq_pwa_update_dismissed']
+        updateDismissed: ['music_pwa_update_dismissed', 'musiq_pwa_update_dismissed'],
+        versionSeen: ['music_pwa_version_seen', 'musiq_pwa_version_seen']
     };
     const runtime = window.__musiqRuntime || {};
     runtime.refresh?.();
+    const appVersion = runtime.appVersion || '2026.05.31.2';
     const isStandalone = Boolean(runtime.isStandalonePwa)
         || window.navigator.standalone === true
         || window.matchMedia('(display-mode: standalone)').matches;
@@ -43,6 +45,7 @@
         showIosInstallHint();
         showStandaloneReinstallNotice();
         bindChromiumInstallPrompt();
+        showStandaloneVersionNotice();
     }
 
     function registerServiceWorker() {
@@ -53,6 +56,8 @@
             .then((registration) => {
                 watchForUpdates(registration);
                 if (registration.waiting) showUpdateNotice(registration.waiting);
+                checkForServiceWorkerUpdate(registration);
+                bindServiceWorkerUpdateChecks(registration);
             })
             .catch(() => {
                 // PWA registration failure must not block the music app.
@@ -78,17 +83,48 @@
         });
     }
 
+    function bindServiceWorkerUpdateChecks(registration) {
+        window.addEventListener('pageshow', () => checkForServiceWorkerUpdate(registration));
+        window.addEventListener('focus', () => checkForServiceWorkerUpdate(registration));
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) checkForServiceWorkerUpdate(registration);
+        });
+    }
+
+    function checkForServiceWorkerUpdate(registration) {
+        if (!navigator.onLine) return;
+        registration.update?.().catch(() => {
+            // Update checks are best-effort on iOS PWA.
+        });
+    }
+
     function showUpdateNotice(worker) {
         if (readLocal(storageKeys.updateDismissed) === CACHE_BUST_KEY()) return;
         showNotice({
             id: 'pwa-update-notice',
-            message: 'music 有新版本可用',
+            message: `musiQ 有新版本可用：${appVersion}`,
             actionText: '刷新',
             onAction: () => {
                 worker?.postMessage({ type: 'SKIP_WAITING' });
                 setTimeout(() => window.location.reload(), 500);
             },
             onClose: () => writeLocal(storageKeys.updateDismissed, CACHE_BUST_KEY())
+        });
+    }
+
+    function showStandaloneVersionNotice() {
+        if (!isStandalone || !isBrowserClient) return;
+        const seenVersion = readLocal(storageKeys.versionSeen);
+        if (seenVersion === appVersion) return;
+        showNotice({
+            id: 'pwa-version-notice',
+            message: seenVersion
+                ? `musiQ 已更新到 ${appVersion}`
+                : `musiQ 当前版本 ${appVersion}`,
+            actionText: '知道了',
+            onAction: () => writeLocal(storageKeys.versionSeen, appVersion),
+            onClose: () => writeLocal(storageKeys.versionSeen, appVersion),
+            timeoutMs: 0
         });
     }
 
@@ -232,6 +268,6 @@
     }
 
     function CACHE_BUST_KEY() {
-        return 'v2';
+        return appVersion;
     }
 })();

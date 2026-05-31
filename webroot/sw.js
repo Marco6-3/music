@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_VERSION = 'music-pwa-v11';
+const CACHE_VERSION = 'music-pwa-v16';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const LEGACY_CACHE_PREFIXES = ['musiq-pwa-'];
@@ -11,11 +11,11 @@ const APP_SHELL = [
   './offline.html',
   './manifest.webmanifest',
   './?source=pwa',
-  './css/style.css?v=2.1.1',
-  './js/pwa-runtime.js?v=1.0.1',
-  './js/main.js?v=2.2.1',
+  './css/style.css?v=2.1.3',
+  './js/pwa-runtime.js?v=1.0.3',
+  './js/main.js?v=2.2.4',
   './js/source-selector.js?v=1.0.4',
-  './js/pwa.js?v=1.1.0',
+  './js/pwa.js?v=1.1.2',
   './public/music-default.png',
   './public/icons/icon-192.png',
   './public/icons/apple-touch-icon-180.png',
