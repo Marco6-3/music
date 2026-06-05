@@ -18,8 +18,8 @@
         queue: 'music_queue'
     };
     const legacyStorage = {
-        token: ['musiq_token', 'xcloud_token'],
-        userId: ['musiq_user_id', 'xcloud_user_id'],
+        token: ['musiq_token', 'xcloud_token', 'auth_token'],
+        userId: ['musiq_user_id', 'xcloud_user_id', 'user_id'],
         volume: ['musiq_volume', 'xcloud_volume'],
         queue: ['musiq_queue', 'xcloud_queue']
     };
@@ -523,7 +523,7 @@
         state.recentPlays = [];
         state.weeklyFavorites = [];
         state.historyLoadedForUser = '';
-        removeLocalKeys(storage.token, storage.userId, legacyStorage.token, legacyStorage.userId);
+        removeLocalKeys(storage.token, storage.userId, legacyStorage.token, legacyStorage.userId, 'username');
         clearPersistedAuthState();
         updateUserUI();
     }
