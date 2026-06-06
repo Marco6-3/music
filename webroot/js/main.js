@@ -66,6 +66,8 @@
         mediaSessionResumeInFlight: false,
         cloudSyncTimer: 0,
         cloudSyncInFlight: false,
+        agentMessages: [],
+        agentBusy: false,
         resumeWatchdogTimer: 0,
         playbackWatchdogTimer: 0,
         playbackWatchdogToken: 0,
@@ -223,7 +225,7 @@
         verifySession();
         renderShell();
         const launchParams = new URLSearchParams(window.location.search);
-        const initialView = ['home', 'search', 'favorites', 'playlists'].includes(launchParams.get('view'))
+        const initialView = ['home', 'search', 'favorites', 'playlists', 'agent'].includes(launchParams.get('view'))
             ? launchParams.get('view')
             : 'home';
         renderView(initialView);
@@ -586,13 +588,15 @@
             home: '为今晚找一首歌',
             search: '搜索音乐',
             favorites: '我的收藏',
-            playlists: '我的歌单'
+            playlists: '我的歌单',
+            agent: '助手'
         };
         els.viewTitle.textContent = titles[view] || titles.home;
 
         if (view === 'home') renderHome();
         if (view === 'search') renderSearch();
         if (view === 'favorites') renderFavorites();
+        if (view === 'agent') renderAgent();
         if (view === 'playlists') {
             const activePlaylist = state.playlists.find((item) => item.name === state.activePlaylistName);
             if (activePlaylist) openPlaylistView(activePlaylist.name);
@@ -753,6 +757,107 @@
                 renamePlaylist(card.dataset.playlistName);
             });
         });
+    }
+
+    function renderAgent() {
+        if (!state.currentUser) {
+            els.viewRoot.innerHTML = emptyState('登录后可以使用助手', '助手会把结果写入你的歌单。');
+            return;
+        }
+
+        const playlistOptions = state.playlists.map((playlist) => `
+            <option value="${escapeAttr(playlist.name)}">${escapeHtml(playlist.name)}</option>
+        `).join('');
+        els.viewRoot.innerHTML = `
+            <div class="agent-workspace">
+                <div class="section-head">
+                    <div>
+                        <h2>Agent 助手</h2>
+                        <p class="meta">${state.agentBusy ? '处理中' : `${state.playlists.length} 个歌单`}</p>
+                    </div>
+                    <select id="agent-playlist-select" class="agent-playlist-select">
+                        <option value="">自动识别歌单</option>
+                        ${playlistOptions}
+                    </select>
+                </div>
+                <div class="agent-thread" id="agent-thread">
+                    ${state.agentMessages.length
+                        ? state.agentMessages.map(renderAgentMessage).join('')
+                        : emptyState('暂无对话', '输入歌曲和歌单后发送。')}
+                    ${state.agentBusy ? '<div class="agent-message assistant"><span>正在处理...</span></div>' : ''}
+                </div>
+                <form class="agent-form" id="agent-form">
+                    <textarea id="agent-input" maxlength="2000" rows="3" placeholder="输入歌曲和歌单"></textarea>
+                    <button class="primary-btn" type="submit" ${state.agentBusy ? 'disabled' : ''}>发送</button>
+                </form>
+            </div>
+        `;
+
+        $('#agent-form')?.addEventListener('submit', sendAgentMessage);
+        const thread = $('#agent-thread');
+        if (thread) thread.scrollTop = thread.scrollHeight;
+    }
+
+    function renderAgentMessage(message) {
+        const result = message.result || {};
+        const added = normalizeSongList(result.added_songs || []);
+        const existing = normalizeSongList(result.existing_songs || []);
+        const unresolved = result.unresolved_songs || [];
+        const details = [
+            ...added.map((song) => `<li>已添加：${escapeHtml(song.name)} · ${escapeHtml(formatArtists(song.artist))}</li>`),
+            ...existing.map((song) => `<li>已存在：${escapeHtml(song.name)} · ${escapeHtml(formatArtists(song.artist))}</li>`),
+            ...unresolved.map((song) => `<li>未找到：${escapeHtml(song.title || song.name || '')}${song.artist ? ` · ${escapeHtml(song.artist)}` : ''}</li>`)
+        ].join('');
+        return `
+            <div class="agent-message ${escapeAttr(message.role || 'assistant')}">
+                <span>${escapeHtml(message.text || '')}</span>
+                ${details ? `<ul>${details}</ul>` : ''}
+            </div>
+        `;
+    }
+
+    async function sendAgentMessage(event) {
+        event.preventDefault();
+        const input = $('#agent-input');
+        const playlistSelect = $('#agent-playlist-select');
+        const text = String(input?.value || '').trim();
+        if (!text || state.agentBusy) return;
+
+        state.agentMessages.push({ role: 'user', text });
+        state.agentBusy = true;
+        renderAgent();
+
+        try {
+            const data = await apiPost('php/agent_assistant.php', {
+                user_id: state.currentUser.id,
+                message: text,
+                playlist_name: playlistSelect?.value || '',
+                source: els.sourceSelect?.value || 'netease'
+            });
+            if (!data.success) throw new Error(data.message || '助手处理失败');
+            if (data.user) {
+                state.currentUser = data.user;
+                state.favorites = normalizeSongList(data.user.favorites || []);
+                rebuildFavoriteKeys();
+                state.playlists = playlistsFromUser(data.user);
+                updateUserUI();
+                renderShell();
+                scheduleCloudSync();
+            }
+            state.agentMessages.push({
+                role: 'assistant',
+                text: data.reply || data.message || '已处理',
+                result: data
+            });
+        } catch (error) {
+            state.agentMessages.push({
+                role: 'assistant',
+                text: error.message || '助手处理失败'
+            });
+        } finally {
+            state.agentBusy = false;
+            renderAgent();
+        }
     }
 
     async function openPlaylistView(name) {

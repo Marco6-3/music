@@ -31,6 +31,7 @@ const {
 const { createDefaultDispatcher } = require('./source-providers');
 const { registerPlayHistory } = require('./play-history');
 const { syncUserData } = require('./user-sync');
+const { handleAgentAssistant } = require('./agent-assistant');
 const { startMonitoring } = require('./api-monitor');
 const { OfflineMusicCache, offlineAudioUrl } = require('./offline-cache');
 const { musicSources } = require('../config');
@@ -73,6 +74,7 @@ const PROTECTED_USER_ENDPOINTS = new Set([
   '/php/get_playlist_id.php',
   '/php/rename_playlist.php',
   '/php/sync_playlists.php',
+  '/php/agent_assistant.php',
   '/php/play_history.php'
 ]);
 const COMMON_PASSWORDS = new Set([
@@ -179,7 +181,15 @@ async function startLocalBackend({ preferredPort = 41731, host, dataDir, musicSo
   };
 }
 
-function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefaultDispatcher(musicSources), offlineCache = null }) {
+function createExpressApp({
+  store,
+  uploadsDir,
+  cacheDir,
+  dispatcher = createDefaultDispatcher(musicSources),
+  offlineCache = null,
+  agentModelClient = null,
+  agentConfigResolver = undefined
+}) {
   const app = express();
   const db = store.db;
   const upload = createUploadMiddleware(uploadsDir);
@@ -282,6 +292,14 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
   app.post('/php/get_playlist_id.php', parseForm, requireUserAuth(db), (req, res) => handleGetPlaylistId(db, req, res));
   app.post('/php/rename_playlist.php', parseForm, requireUserAuth(db), (req, res) => handleRenamePlaylist(db, req, res));
   app.post('/php/sync_playlists.php', parseForm, requireUserAuth(db), (req, res) => handleSyncPlaylists(db, req, res, offlineCache));
+  app.post('/php/agent_assistant.php', parseForm, requireUserAuth(db), (req, res, next) => {
+    handleAgentAssistant(db, req, res, {
+      dispatcher,
+      offlineCache,
+      agentModelClient,
+      agentConfigResolver
+    }).catch(next);
+  });
   registerPlayHistory(app, db, requireUserAuth(db));
 
   app.use((req, res) => {

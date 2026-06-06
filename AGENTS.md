@@ -52,6 +52,7 @@ npm run probe:sources -- --disable-lrclib
 
 - `src/main.js`: Electron main process, window lifecycle, backend startup, window-state persistence, tray entry, cache-aware reload.
 - `src/server/index.js`: Express backend, static frontend serving, PHP-compatible routes, music API proxy.
+- `src/server/agent-assistant.js`: protected `/php/agent_assistant.php` assistant route. It parses song/playlist requests with DeepSeek/OpenAI-compatible config from environment variables, `AGENTS.local.md`, or local Claude Code settings; never commit API keys.
 - `src/server/database.js`: persistent `sql.js` database wrapper with debounced non-transaction writes and immediate transaction/close flush.
 - `src/server/offline-cache.js`: playlist-driven offline audio cache. Songs in any local playlist are downloaded in the background at the highest requested quality (`br=999`); removing them from all playlists deletes the local audio file.
 - `src/server/source-providers/`: music provider implementations and dispatcher.

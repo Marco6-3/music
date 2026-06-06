@@ -623,6 +623,63 @@ select option {
     gap: 10px;
 }
 
+.agent-workspace {
+    display: grid;
+    gap: 14px;
+}
+
+.agent-playlist-select {
+    min-width: 180px;
+}
+
+.agent-thread {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    min-height: 360px;
+    max-height: min(58vh, 560px);
+    overflow: auto;
+    padding: 4px;
+}
+
+.agent-message {
+    width: min(78%, 620px);
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.065);
+    line-height: 1.6;
+}
+
+.agent-message.user {
+    justify-self: end;
+    color: var(--accent-contrast);
+    background: rgba(var(--accent-rgb), 0.9);
+}
+
+.agent-message.assistant {
+    justify-self: start;
+}
+
+.agent-message ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    color: var(--muted);
+}
+
+.agent-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.agent-form textarea {
+    min-height: 78px;
+    resize: vertical;
+    line-height: 1.6;
+}
+
 .song-card {
     display: grid;
     grid-template-columns: 52px minmax(0, 1fr) auto;
@@ -1715,7 +1772,7 @@ body.is-safari-browser-pwa-candidate .player-status {
     }
 
     .nav-list {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         align-items: center;
         gap: 4px;
         height: 100%;
@@ -1871,6 +1928,40 @@ body.is-safari-browser-pwa-candidate .player-status {
 
     .search-form .source-selector-btn .arrow {
         flex: 0 0 auto;
+    }
+
+    .agent-workspace .section-head {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .agent-playlist-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .agent-thread {
+        min-height: 0;
+        height: clamp(150px, 22vh, 190px);
+        max-height: none;
+        padding: 0;
+    }
+
+    .agent-message {
+        width: 100%;
+        padding: 11px 12px;
+        border-radius: 16px;
+        overflow-wrap: anywhere;
+    }
+
+    .agent-form {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .agent-form textarea {
+        min-height: 78px;
+        width: 100%;
     }
 
     .hero-strip {
