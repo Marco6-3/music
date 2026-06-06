@@ -260,7 +260,7 @@ async function waitForDebugTarget(timeoutMs) {
   while (Date.now() - started < timeoutMs) {
     try {
       const targets = await getJson(cdpUrl, 2_000);
-      const page = targets.find((target) => target.type === 'page' && target.webSocketDebuggerUrl);
+      const page = targets.find((target) => isMainAppTarget(target));
       if (page) return page;
     } catch {
       // Keep polling until timeout.
@@ -268,6 +268,12 @@ async function waitForDebugTarget(timeoutMs) {
     await delay(500);
   }
   throw new Error(`Timed out waiting for ${cdpUrl}`);
+}
+
+function isMainAppTarget(target) {
+  if (target.type !== 'page' || !target.webSocketDebuggerUrl) return false;
+  if (target.title !== 'music') return false;
+  return /^http:\/\/127\.0\.0\.1:\d+\//.test(String(target.url || ''));
 }
 
 async function getJson(url, timeoutMs) {

@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_VERSION = 'music-pwa-v24';
+const CACHE_VERSION = 'music-pwa-v25';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const LEGACY_CACHE_PREFIXES = ['musiq-pwa-'];
@@ -11,11 +11,11 @@ const APP_SHELL = [
   './offline.html',
   './manifest.webmanifest',
   './?source=pwa',
-  './css/style.css?v=2.1.8',
-  './js/pwa-runtime.js?v=1.0.3',
-  './js/main.js?v=2.2.13',
+  './css/style.css?v=2.1.9',
+  './js/pwa-runtime.js?v=1.0.4',
+  './js/main.js?v=2.2.14',
   './js/source-selector.js?v=1.0.4',
-  './js/pwa.js?v=1.1.2',
+  './js/pwa.js?v=1.1.3',
   './public/music-default.png',
   './public/icons/icon-192.png',
   './public/icons/apple-touch-icon-180.png',
@@ -38,7 +38,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(APP_SHELL_CACHE)
       .then((cache) => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
   );
 });
 

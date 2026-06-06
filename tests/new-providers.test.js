@@ -6,6 +6,8 @@ const assert = require('node:assert/strict');
 const { LrclibProvider } = require('../src/server/source-providers/lrclib');
 const { Dispatcher } = require('../src/server/source-providers/dispatcher');
 const { createDefaultDispatcher } = require('../src/server/source-providers/index');
+const { MetingProvider } = require('../src/server/source-providers/meting');
+const { UnmExternalProvider } = require('../src/server/source-providers/unm-external');
 const config = require('../src/config');
 
 describe('LrclibProvider lyrics', () => {
@@ -104,6 +106,33 @@ describe('Dispatcher integration', () => {
 
     assert.equal(result[0].id, 'fast');
     assert.ok(Date.now() - startedAt < 150, 'fallback provider should not wait for slow priority timeout');
+  });
+});
+
+describe('Provider error tolerance', () => {
+  it('MetingProvider returns empty results for non-JSON provider responses', async () => {
+    const p = new MetingProvider();
+    p._ensureMeting = async () => ({
+      async search() { return '<html>error</html>'; },
+      async url() { return '<html>error</html>'; },
+      async lyric() { return '<html>error</html>'; },
+      async pic() { return '<html>error</html>'; }
+    });
+
+    assert.deepEqual(await p.search('netease', 'test', 1), []);
+    assert.deepEqual(await p.url({ id: '1', source: 'netease' }), { url: undefined, br: 320 });
+    assert.deepEqual(await p.lyric({ id: '1', source: 'netease' }), { lyric: '' });
+    assert.deepEqual(await p.pic({ pic_id: '1', source: 'netease' }), { url: undefined });
+  });
+
+  it('UnmExternalProvider normalizes nullable and nested lyric payloads', async () => {
+    const p = new UnmExternalProvider();
+
+    p._get = async () => ({ lrc: null });
+    assert.equal(await p.lyric({ id: '1', source: 'netease' }), null);
+
+    p._get = async () => ({ lrc: { lyric: 'line one' } });
+    assert.deepEqual(await p.lyric({ id: '1', source: 'netease' }), { lyric: 'line one' });
   });
 });
 

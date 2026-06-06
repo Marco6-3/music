@@ -73,10 +73,7 @@ async function main() {
       process.exitCode = 1;
     }
   } finally {
-    await new Promise((resolve) => {
-      server.close();
-      setTimeout(resolve, 250);
-    });
+    await server.close();
     try {
       fs.rmSync(dataDir, { recursive: true, force: true });
     } catch (error) {

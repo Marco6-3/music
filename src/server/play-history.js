@@ -75,24 +75,27 @@ function clearHistory(db, userId) {
 
 function replaceRecentPlays(db, userId, songs, limit = MAX_HISTORY_ROWS_PER_USER) {
   const normalized = normalizeHistorySongs(songs).slice(0, Math.min(Number(limit) || MAX_HISTORY_ROWS_PER_USER, MAX_HISTORY_ROWS_PER_USER));
-  db.prepare('DELETE FROM play_history WHERE user_id = ?').run(Number(userId));
-  const insert = db.prepare(`
-    INSERT INTO play_history (user_id, song_id, source, name, artist, album, pic_id, played_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const now = Math.floor(Date.now() / 1000);
-  normalized.forEach((song, index) => {
-    insert.run(
-      Number(userId),
-      song.id,
-      song.source,
-      song.name,
-      song.artist,
-      song.album,
-      song.pic_id,
-      Number(song.played_at || 0) || now - index
-    );
+  const replace = db.transaction(() => {
+    db.prepare('DELETE FROM play_history WHERE user_id = ?').run(Number(userId));
+    const insert = db.prepare(`
+      INSERT INTO play_history (user_id, song_id, source, name, artist, album, pic_id, played_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const now = Math.floor(Date.now() / 1000);
+    normalized.forEach((song, index) => {
+      insert.run(
+        Number(userId),
+        song.id,
+        song.source,
+        song.name,
+        song.artist,
+        song.album,
+        song.pic_id,
+        Number(song.played_at || 0) || now - index
+      );
+    });
   });
+  replace();
 }
 
 function normalizeHistorySongs(songs) {

@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
+const { Readable } = require('node:stream');
 const test = require('node:test');
 
 const { createDataStore, hashPassword, ensurePlaylist, insertPlaylistSong } = require('../src/server/database');
@@ -172,6 +173,21 @@ test('music API returns local offline URL when the track is downloaded', async (
     });
     assert.equal(audioResponse.status, 206);
     assert.equal(await audioResponse.text(), 'fake');
+
+    const originalCreateReadStream = fs.createReadStream;
+    fs.createReadStream = () => new Readable({
+      read() {
+        const error = new Error('simulated missing file');
+        error.code = 'ENOENT';
+        this.destroy(error);
+      }
+    });
+    try {
+      const failedAudioResponse = await fetch(`${baseUrl}${body.url}`);
+      assert.equal(failedAudioResponse.status, 404);
+    } finally {
+      fs.createReadStream = originalCreateReadStream;
+    }
   } finally {
     if (appServer) appServer.close();
     if (cache) cache.close();

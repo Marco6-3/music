@@ -75,11 +75,11 @@ body.is-browser-client .app-window-controls {
 }
 
 body.is-browser-client .app-shell {
-    inset-top: 22px;
+    top: 22px;
 }
 
 body.is-standalone-pwa.is-browser-client .app-shell {
-    inset-top: calc(18px + var(--safe-top));
+    top: calc(18px + var(--safe-top));
 }
 
 .app-window-controls {
@@ -1756,11 +1756,11 @@ body.is-safari-browser-pwa-candidate .player-status {
     }
 
     body.is-browser-client .app-shell {
-        inset-top: max(4px, var(--safe-top));
+        top: max(4px, var(--safe-top));
     }
 
     body.is-standalone-pwa.is-browser-client .app-shell {
-        inset-top: max(4px, var(--safe-top));
+        top: max(4px, var(--safe-top));
     }
 
     .main-stage,

@@ -142,6 +142,17 @@ function envValue(...names) {
   return '';
 }
 
+function resolveCorsOrigin(req) {
+  const configured = envValue('MUSIC_CORS_ORIGIN', 'MUSIQ_CORS_ORIGIN');
+  if (!configured) return '';
+
+  const origin = stringValue(req.headers.origin);
+  const allowed = configured.split(',').map((item) => item.trim()).filter(Boolean);
+  if (allowed.includes('*')) return '*';
+  if (origin && allowed.includes(origin)) return origin;
+  return '';
+}
+
 async function startLocalBackend({ preferredPort = 41731, host, dataDir, musicSourceConfig, migrateFromDataDir = '' } = {}) {
   const resolvedPort = Number(envValue('MUSIC_PORT', 'MUSIQ_PORT', 'PORT') || preferredPort) || preferredPort;
   const resolvedHost = host || envValue('MUSIC_HOST', 'MUSIQ_HOST') || '127.0.0.1';
@@ -163,6 +174,7 @@ async function startLocalBackend({ preferredPort = 41731, host, dataDir, musicSo
   const app = createExpressApp({ store, uploadsDir, cacheDir, dispatcher, offlineCache });
   const stopMonitor = startMonitoring(store.db, dispatcher);
   const server = http.createServer(app);
+  let closed = false;
   const port = await listen(server, resolvedPort, resolvedHost);
   const urlHost = resolvedHost === '0.0.0.0' ? '127.0.0.1' : resolvedHost;
 
@@ -172,11 +184,16 @@ async function startLocalBackend({ preferredPort = 41731, host, dataDir, musicSo
     url: `http://${urlHost}:${port}`,
     mode: 'express-sqlite',
     dbPath: store.dbPath,
-    close: () => {
+    close: async () => {
+      if (closed) return;
+      closed = true;
       stopMonitor();
       offlineCache.close();
-      server.close();
-      store.close();
+      try {
+        await closeHttpServer(server);
+      } finally {
+        store.close();
+      }
     }
   };
 }
@@ -222,7 +239,8 @@ function createExpressApp({
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     setSecurityHeaders(req, res);
-    res.setHeader('Access-Control-Allow-Origin', envValue('MUSIC_CORS_ORIGIN', 'MUSIQ_CORS_ORIGIN') || '*');
+    const corsOrigin = resolveCorsOrigin(req);
+    if (corsOrigin) res.setHeader('Access-Control-Allow-Origin', corsOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
     res.setHeader('X-Music-Backend', 'express-sqlite');
@@ -1323,7 +1341,13 @@ function handleOfflineAudio(req, res, offlineCache) {
     return res.status(404).json({ success: false, message: '离线音频不存在' });
   }
 
-  const stat = fs.statSync(track.file_path);
+  let stat;
+  try {
+    stat = fs.statSync(track.file_path);
+    if (!stat.isFile()) throw new Error('offline audio path is not a file');
+  } catch {
+    return res.status(404).json({ success: false, message: '离线音频不存在' });
+  }
   const contentType = track.content_type || 'audio/mpeg';
   const range = req.headers.range;
 
@@ -1333,7 +1357,7 @@ function handleOfflineAudio(req, res, offlineCache) {
 
   if (!range) {
     res.setHeader('Content-Length', stat.size);
-    fs.createReadStream(track.file_path).pipe(res);
+    pipeAudioFile(res, track.file_path);
     return;
   }
 
@@ -1347,7 +1371,20 @@ function handleOfflineAudio(req, res, offlineCache) {
   res.status(206);
   res.setHeader('Content-Range', `bytes ${parsed.start}-${parsed.end}/${stat.size}`);
   res.setHeader('Content-Length', parsed.end - parsed.start + 1);
-  fs.createReadStream(track.file_path, parsed).pipe(res);
+  pipeAudioFile(res, track.file_path, parsed);
+}
+
+function pipeAudioFile(res, filePath, options) {
+  const stream = fs.createReadStream(filePath, options);
+  stream.on('error', (error) => {
+    console.warn('[express-backend] offline audio stream failed:', error.message);
+    if (!res.headersSent) {
+      res.status(error.code === 'ENOENT' ? 404 : 500).end();
+      return;
+    }
+    res.destroy(error);
+  });
+  stream.pipe(res);
 }
 
 async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache) {
@@ -1380,11 +1417,11 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache) {
   }
 
   // Check file cache
-  if (fs.existsSync(cacheFile) && Date.now() - fs.statSync(cacheFile).mtimeMs < cacheTtl) {
-    const data = fs.readFileSync(cacheFile, 'utf8');
-    memCacheSet(cacheKey, data, cacheTtl);
+  const cachedBody = readFreshCacheFile(cacheFile, cacheTtl);
+  if (cachedBody != null) {
+    memCacheSet(cacheKey, cachedBody, cacheTtl);
     res.setHeader('X-Cache', 'HIT');
-    res.type('json').send(data);
+    res.type('json').send(cachedBody);
     return;
   }
 
@@ -1449,14 +1486,35 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache) {
     if (result.source) res.setHeader('X-Music-Source', result.source);
     res.type(result.contentType).send(result.body);
   } catch {
-    if (fs.existsSync(cacheFile)) {
+    const staleBody = readCacheFile(cacheFile);
+    if (staleBody != null) {
       res.setHeader('X-Cache', 'STALE');
-      res.type('json').send(fs.readFileSync(cacheFile, 'utf8'));
+      res.type('json').send(staleBody);
       return;
     }
     res.status(503).json({ error: '音乐服务暂时不可用，请稍后重试' });
   } finally {
     inflightRequests.delete(cacheKey);
+  }
+}
+
+function readFreshCacheFile(file, ttlMs) {
+  try {
+    const stat = fs.statSync(file);
+    if (!stat.isFile() || Date.now() - stat.mtimeMs >= ttlMs) return null;
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+function readCacheFile(file) {
+  try {
+    const stat = fs.statSync(file);
+    if (!stat.isFile()) return null;
+    return fs.readFileSync(file, 'utf8');
+  } catch {
+    return null;
   }
 }
 
@@ -1582,6 +1640,16 @@ function listen(server, preferredPort, host = '127.0.0.1') {
   });
 }
 
+function closeHttpServer(server) {
+  if (!server.listening) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
 function logVerificationEmail(dataDir, to, code, purpose) {
   const logFile = path.join(dataDir, 'email_log.txt');
   const line = `${formatDateTime(new Date())} | To: ${to} | Code: ${code} | Purpose: ${purpose}\n`;
@@ -1620,7 +1688,26 @@ function isEmail(value) {
 }
 
 if (require.main === module) {
+  let standaloneServer = null;
+  let shuttingDown = false;
+  const shutdown = (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    Promise.resolve(standaloneServer?.close())
+      .catch((error) => {
+        console.error('[express-backend] shutdown failed:', error);
+        process.exitCode = 1;
+      })
+      .finally(() => {
+        if (signal) process.exit(process.exitCode || 0);
+      });
+  };
+
+  process.once('SIGINT', () => shutdown('SIGINT'));
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+
   startLocalBackend().then((server) => {
+    standaloneServer = server;
     console.log(`music Express backend running at ${server.url}`);
     console.log(`SQLite database: ${server.dbPath}`);
   }).catch((error) => {

@@ -477,7 +477,9 @@ function elapsedMs(startedAt) {
 
 function handleAllWindowsClosed() {
   if (localBackend) {
-    localBackend.close();
+    localBackend.close().catch((error) => {
+      console.warn('[desktop] backend shutdown failed:', error.message);
+    });
     localBackend = null;
   }
 

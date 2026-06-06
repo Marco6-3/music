@@ -15,7 +15,7 @@
     ];
     const NON_SAFARI_PATTERNS = /CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Chromium|Android/i;
     const MEDIA_ACTIONS = ['play', 'pause', 'previoustrack', 'nexttrack', 'seekto', 'seekbackward', 'seekforward', 'stop'];
-    const APP_VERSION = '2026.05.31.2';
+    const APP_VERSION = '2026.06.06.1';
     const CLASS_MAP = {
         isIOS: 'is-ios',
         isStandalonePwa: 'is-standalone-pwa',

@@ -119,6 +119,64 @@ test('transaction COMMIT is persisted immediately', async () => {
   }
 });
 
+test('transaction depth recovers after a COMMIT failure', async () => {
+  const dataDir = createTempDir();
+  let store;
+
+  try {
+    store = await createDataStore(dataDir);
+    const originalRun = store.db.raw.run.bind(store.db.raw);
+    let failCommit = true;
+    store.db.raw.run = (sql) => {
+      if (sql === 'COMMIT' && failCommit) {
+        failCommit = false;
+        throw new Error('forced COMMIT failure');
+      }
+      return originalRun(sql);
+    };
+
+    const failing = store.db.transaction(() => {
+      insertUser(store.db, 'commit_failure_user');
+    });
+
+    assert.throws(() => failing(), /forced COMMIT failure/);
+    assert.equal(store.db.transactionDepth, 0);
+
+    store.db.raw.run = originalRun;
+    const row = store.db.prepare("SELECT username FROM users WHERE username = 'commit_failure_user'").get();
+    assert.equal(row, undefined);
+  } finally {
+    if (store) store.close();
+    removeTempDir(dataDir);
+  }
+});
+
+test('nested transaction wrappers reuse the active transaction', async () => {
+  const dataDir = createTempDir();
+  let store;
+
+  try {
+    store = await createDataStore(dataDir);
+    const inner = store.db.transaction(() => {
+      insertUser(store.db, 'nested_transaction_user');
+    });
+    const outer = store.db.transaction(() => {
+      inner();
+    });
+
+    outer();
+
+    const rows = await readPersistedRows(
+      store.dbPath,
+      "SELECT username FROM users WHERE username = 'nested_transaction_user'"
+    );
+    assert.equal(rows.length, 1);
+  } finally {
+    if (store) store.close();
+    removeTempDir(dataDir);
+  }
+});
+
 test('createDataStore migrates existing users from a legacy data directory when target DB is empty', async () => {
   const targetDir = createTempDir();
   const legacyDir = createTempDir();

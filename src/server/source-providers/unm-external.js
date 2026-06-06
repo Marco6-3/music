@@ -53,9 +53,9 @@ class UnmExternalProvider extends BaseProvider {
       id: song.lyric_id || song.id
     });
     if (!data) return null;
-    const lyric = typeof data === 'string' ? data : data.lyric || data.lrc;
+    const lyric = normalizeLyricPayload(data);
     if (!lyric) return null;
-    return { lyric: typeof lyric === 'string' ? lyric : lyric.lyric || '' };
+    return { lyric };
   }
 
   async pic() {
@@ -94,6 +94,20 @@ class UnmExternalProvider extends BaseProvider {
 
     return null;
   }
+}
+
+function normalizeLyricPayload(data) {
+  if (typeof data === 'string') return data;
+  if (!data || typeof data !== 'object') return '';
+
+  for (const value of [data.lyric, data.lrc, data.tlyric]) {
+    if (typeof value === 'string' && value) return value;
+    if (value && typeof value === 'object') {
+      const nested = value.lyric || value.text || value.content;
+      if (typeof nested === 'string' && nested) return nested;
+    }
+  }
+  return '';
 }
 
 module.exports = { UnmExternalProvider };

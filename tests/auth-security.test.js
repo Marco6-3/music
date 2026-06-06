@@ -335,3 +335,18 @@ test('protected user data endpoints require a matching token', async () => {
     closeAuthApp(ctx);
   }
 });
+
+test('CORS is closed by default for arbitrary origins', async () => {
+  let ctx;
+  try {
+    ctx = await startAuthApp();
+    const response = await fetch(`${ctx.baseUrl}/php/check_version.php`, {
+      headers: { Origin: 'https://evil.example.test' }
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('access-control-allow-origin'), null);
+  } finally {
+    closeAuthApp(ctx);
+  }
+});

@@ -1291,14 +1291,15 @@
             recordSuccessfulPlay(state.currentSong);
             applyPlaybackMetadataWhenReady(playRequestId, state.currentSong, metadata);
         } catch (error) {
+            const message = error?.userMessage || error.message || '播放失败';
             if (error?.name === 'NotAllowedError') {
                 setPlayerStatus('点按播放继续');
-                showToast('iPhone Safari 需要再次点按播放按钮开始播放', 'error');
+                showToast(message, 'error');
                 return;
             }
             setPlayerStatus('播放失败');
             updateMediaSessionPlaybackState();
-            showToast(error.message || '播放失败', 'error');
+            showToast(message, 'error');
         }
     }
 
@@ -1537,7 +1538,9 @@
     function restoreAudioPositionWhenReady(seconds) {
         const target = Number(seconds);
         if (!Number.isFinite(target) || target <= 0) return;
+        const expectedSrc = audio.currentSrc || audio.src || '';
         const apply = () => {
+            if (expectedSrc && (audio.currentSrc || audio.src || '') !== expectedSrc) return;
             try {
                 if (Number.isFinite(audio.duration) && audio.duration > 0) {
                     audio.currentTime = Math.min(target, Math.max(0, audio.duration - 0.5));
@@ -1667,7 +1670,9 @@
             audio.src = url;
             rememberPlayableUrl(url);
             audio.load();
+            const expectedSrc = audio.src || url;
             audio.addEventListener('loadedmetadata', () => {
+                if ((audio.currentSrc || audio.src || '') !== expectedSrc) return;
                 if (resumeAt > 0 && Number.isFinite(audio.duration)) {
                     audio.currentTime = Math.min(resumeAt, Math.max(0, audio.duration - 0.5));
                 }
@@ -2606,13 +2611,21 @@
         renderPwaDiagnostics();
     }
 
-    function playAudioWithRuntimeGuard() {
+    function playAudioWithRuntimeGuard(options = {}) {
         if (guardPlaybackForRuntime()) {
-            const error = new Error('Playback is blocked in iOS in-app browsers');
+            const error = new Error(options.runtimeBlockedMessage || 'Playback is blocked in iOS in-app browsers');
             error.name = 'RuntimePlaybackBlocked';
+            error.userMessage = options.notAllowedMessage || options.genericMessage || '请在 Safari 或已添加到主屏幕的 PWA 中播放';
             return Promise.reject(error);
         }
-        return audio.play();
+        return audio.play().catch((error) => {
+            if (error?.name === 'NotAllowedError' && options.notAllowedMessage) {
+                error.userMessage = options.notAllowedMessage;
+            } else if (options.genericMessage) {
+                error.userMessage = options.genericMessage;
+            }
+            throw error;
+        });
     }
 
     function setupMediaSessionHandlers() {

@@ -147,19 +147,35 @@ class PersistentSqlJsDatabase {
 
   transaction(fn) {
     return (...args) => {
+      if (this.transactionDepth > 0) {
+        return fn(...args);
+      }
+
       this.raw.run('BEGIN IMMEDIATE');
       this.transactionDepth += 1;
+      let committed = false;
       try {
         const result = fn(...args);
-        this.transactionDepth -= 1;
         this.raw.run('COMMIT');
+        committed = true;
         this.markDirty();
         this.flushPersist();
         return result;
       } catch (error) {
-        this.transactionDepth -= 1;
-        this.raw.run('ROLLBACK');
+        if (!committed) {
+          try {
+            this.raw.run('ROLLBACK');
+          } catch (rollbackError) {
+            if (error && typeof error === 'object') {
+              error.rollbackError = rollbackError;
+            } else {
+              console.warn('[database] transaction rollback failed:', rollbackError.message);
+            }
+          }
+        }
         throw error;
+      } finally {
+        this.transactionDepth = Math.max(0, this.transactionDepth - 1);
       }
     };
   }
@@ -226,9 +242,12 @@ class PersistentSqlJsDatabase {
 
   close() {
     if (this.closed) return;
-    this.flushPersist();
     this.closed = true;
-    this.raw.close();
+    try {
+      this.flushPersist();
+    } finally {
+      this.raw.close();
+    }
   }
 }
 

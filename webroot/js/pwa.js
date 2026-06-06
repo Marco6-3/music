@@ -10,7 +10,7 @@
     };
     const runtime = window.__musiqRuntime || {};
     runtime.refresh?.();
-    const appVersion = runtime.appVersion || '2026.05.31.2';
+    const appVersion = runtime.appVersion || '2026.06.06.1';
     const isStandalone = Boolean(runtime.isStandalonePwa)
         || window.navigator.standalone === true
         || window.matchMedia('(display-mode: standalone)').matches;
@@ -105,8 +105,11 @@
             message: `music 有新版本可用：${appVersion}`,
             actionText: '刷新',
             onAction: () => {
-                worker?.postMessage({ type: 'SKIP_WAITING' });
-                setTimeout(() => window.location.reload(), 500);
+                if (worker) {
+                    worker.postMessage({ type: 'SKIP_WAITING' });
+                } else {
+                    window.location.reload();
+                }
             },
             onClose: () => writeLocal(storageKeys.updateDismissed, CACHE_BUST_KEY())
         });
