@@ -46,11 +46,15 @@ async function handleAgentAssistant(db, req, res, {
   const plan = await createAgentPlan(message, context, { agentModelClient, agentConfigResolver });
   const normalizedPlan = normalizeAgentPlan(plan);
 
+  if (normalizedPlan.action === 'query_playlist_songs') {
+    return handlePlaylistQuery(db, userId, playlists, normalizedPlan, selectedPlaylistName, res);
+  }
+
   if (normalizedPlan.action !== 'add_songs_to_playlist') {
     return res.json({
       success: true,
       action: normalizedPlan.action,
-      reply: normalizedPlan.reply || '我可以帮你把歌曲加入歌单。请告诉我要加哪些歌，以及目标歌单名称。',
+      reply: normalizedPlan.reply || '我可以帮你把歌曲加入歌单，也可以查看某个歌单里的歌曲。',
       configured: Boolean(normalizedPlan.configured),
       model: normalizedPlan.model || ''
     });
@@ -139,6 +143,44 @@ async function handleAgentAssistant(db, req, res, {
   });
 }
 
+function handlePlaylistQuery(db, userId, playlists, normalizedPlan, selectedPlaylistName, res) {
+  const playlistName = stringValue(normalizedPlan.playlist_name || selectedPlaylistName);
+  if (!playlistName) {
+    return res.json({
+      success: true,
+      action: 'ask_clarification',
+      reply: '要查看哪个歌单？可以告诉我歌单名，例如“查看通勤歌单里的歌曲”。',
+      configured: Boolean(normalizedPlan.configured),
+      model: normalizedPlan.model || ''
+    });
+  }
+
+  const playlist = findPlaylistByName(playlists, playlistName);
+  if (!playlist) {
+    return res.json({
+      success: true,
+      action: 'query_playlist_songs',
+      reply: `没有找到「${playlistName}」这个歌单。`,
+      playlist_name: playlistName,
+      playlists: playlists.map((item) => ({ name: item.name, song_count: item.song_count || 0 })),
+      configured: Boolean(normalizedPlan.configured),
+      model: normalizedPlan.model || ''
+    });
+  }
+
+  const songs = Array.isArray(playlist.songs) ? playlist.songs : [];
+  return res.json({
+    success: true,
+    action: 'query_playlist_songs',
+    reply: buildPlaylistSongsReply(playlist.name, songs),
+    playlist: { name: playlist.name, song_count: songs.length },
+    playlist_songs: songs,
+    user: userWithCollections(db, userId),
+    configured: Boolean(normalizedPlan.configured),
+    model: normalizedPlan.model || ''
+  });
+}
+
 async function createAgentPlan(message, context, { agentModelClient, agentConfigResolver } = {}) {
   if (agentModelClient) {
     return {
@@ -181,6 +223,7 @@ async function createDeepSeekPlan(message, context, config) {
           '你是 music 桌面播放器的歌单助手，只处理音乐库和歌单请求。',
           '把用户的自然语言解析成 JSON，不要输出 Markdown。',
           '如果用户要把歌曲加入歌单，输出 action=add_songs_to_playlist、playlist_name 和 songs。',
+          '如果用户要查看、查询、列出某个歌单里的歌曲，输出 action=query_playlist_songs 和 playlist_name，songs 为空数组。',
           'songs 中每项包含 title 和 artist；不知道歌手时 artist 为空字符串。',
           '如果缺少目标歌单或具体歌曲，输出 action=ask_clarification 和 reply。',
           '不要编造用户没有提到的歌曲。'
@@ -193,7 +236,7 @@ async function createDeepSeekPlan(message, context, config) {
           selected_playlist_name: context.selectedPlaylistName || '',
           existing_playlists: context.playlists || [],
           output_schema: {
-            action: 'add_songs_to_playlist | ask_clarification | chat',
+            action: 'add_songs_to_playlist | query_playlist_songs | ask_clarification | chat',
             playlist_name: 'string',
             songs: [{ title: 'string', artist: 'string' }],
             reply: 'string'
@@ -214,6 +257,16 @@ async function createDeepSeekPlan(message, context, config) {
 }
 
 function createHeuristicPlan(message, context = {}) {
+  if (isPlaylistQueryRequest(message)) {
+    const playlistName = inferPlaylistQueryName(message, context);
+    return {
+      action: playlistName ? 'query_playlist_songs' : 'ask_clarification',
+      playlist_name: playlistName,
+      songs: [],
+      reply: playlistName ? '' : '要查看哪个歌单？'
+    };
+  }
+
   const playlistName = inferPlaylistName(message, context);
   const songs = inferSongs(message);
   if (!playlistName) {
@@ -242,6 +295,9 @@ function createHeuristicPlan(message, context = {}) {
 
 function inferPlaylistName(message, context = {}) {
   const text = String(message || '');
+  const existingName = inferExistingPlaylistName(text, context);
+  if (existingName) return existingName;
+
   const patterns = [
     /(?:加入|加到|放到|添加到|存到)\s*([^，。,.!?！？\s]{1,30})\s*(?:歌单|列表|playlist)/i,
     /(?:歌单|playlist)\s*[:：]\s*([^，。,.!?！？\s]{1,30})/i,
@@ -252,6 +308,40 @@ function inferPlaylistName(message, context = {}) {
     if (match?.[1]) return cleanupPlaylistName(match[1]);
   }
   return stringValue(context.selectedPlaylistName);
+}
+
+function inferPlaylistQueryName(message, context = {}) {
+  const text = String(message || '');
+  const existingName = inferExistingPlaylistName(text, context);
+  if (existingName) return existingName;
+
+  const patterns = [
+    /(?:查看|查询|看看|列出|显示)\s*([^，。,.!?！？\s]{1,60})\s*(?:歌单|列表|playlist)(?:里|中|里面|中的)?(?:的)?(?:歌曲|歌|内容)?/i,
+    /([^，。,.!?！？\s]{1,60})\s*(?:歌单|列表|playlist)(?:里|中|里面|中的)?(?:有|包含|收录)?(?:哪些|什么|几首|多少|歌曲|歌|内容)/i,
+    /(?:歌单|playlist)\s*[:：]\s*([^，。,.!?！？\s]{1,60})/i
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return cleanupPlaylistName(match[1]);
+  }
+
+  return stringValue(context.selectedPlaylistName);
+}
+
+function inferExistingPlaylistName(message, context = {}) {
+  const text = normalizeMentionText(message);
+  const playlists = Array.isArray(context.playlists) ? context.playlists : [];
+  return playlists
+    .map((playlist) => stringValue(playlist.name))
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+    .find((name) => text.includes(normalizeMentionText(name))) || '';
+}
+
+function isPlaylistQueryRequest(message) {
+  const text = String(message || '');
+  if (/(?:加入|加到|放到|添加到|存到|新增)/.test(text)) return false;
+  return /(?:查看|查询|看看|列出|显示|有哪些|有什么|多少|几首|歌单.*(?:里|中|里面|歌曲|歌|内容))/.test(text);
 }
 
 function inferSongs(message) {
@@ -280,7 +370,7 @@ function parseSongMention(value) {
 }
 
 function normalizeAgentPlan(plan) {
-  const action = stringValue(plan?.action || 'chat') || 'chat';
+  const action = normalizeAgentAction(plan?.action || 'chat');
   const songs = (Array.isArray(plan?.songs) ? plan.songs : [])
     .map((song) => ({
       title: stringValue(song.title || song.name || song.song_title),
@@ -296,6 +386,18 @@ function normalizeAgentPlan(plan) {
     configured: Boolean(plan?.configured),
     model: stringValue(plan?.model)
   };
+}
+
+function normalizeAgentAction(value) {
+  const action = stringValue(value || 'chat').toLowerCase();
+  if (['query_playlist_songs', 'list_playlist_songs', 'get_playlist_songs', 'show_playlist_songs', 'show_playlist', 'read_playlist'].includes(action)) {
+    return 'query_playlist_songs';
+  }
+  if (['add_songs_to_playlist', 'add_song_to_playlist', 'add_playlist_songs'].includes(action)) {
+    return 'add_songs_to_playlist';
+  }
+  if (['ask_clarification', 'clarify'].includes(action)) return 'ask_clarification';
+  return action || 'chat';
 }
 
 async function resolveRequestedSong(requestSong, dispatcher, sources) {
@@ -369,8 +471,35 @@ function normalizeMatchText(value) {
     .trim();
 }
 
+function normalizeMentionText(value) {
+  return stringValue(value)
+    .toLowerCase()
+    .replace(/[“”"『』「」'\s]/g, '');
+}
+
 function cleanupPlaylistName(value) {
   return stringValue(value).replace(/[“”"『』「」']/g, '').slice(0, 60);
+}
+
+function findPlaylistByName(playlists, name) {
+  const normalizedName = normalizeMentionText(name);
+  const candidates = Array.isArray(playlists) ? playlists : [];
+  return candidates.find((playlist) => normalizeMentionText(playlist.name) === normalizedName)
+    || candidates.find((playlist) => {
+      const candidateName = normalizeMentionText(playlist.name);
+      return candidateName.includes(normalizedName) || normalizedName.includes(candidateName);
+    });
+}
+
+function buildPlaylistSongsReply(playlistName, songs) {
+  if (!songs.length) return `「${playlistName}」目前还没有歌曲。`;
+  const preview = songs.slice(0, 8).map((song) => {
+    const name = stringValue(song.name || song.title || song.song_title);
+    const artist = normalizeArtist(song.artist || song.singer || song.song_artist);
+    return artist ? `${name} - ${artist}` : name;
+  }).filter(Boolean);
+  const suffix = songs.length > preview.length ? ' 等' : '';
+  return `「${playlistName}」里有 ${songs.length} 首歌：${preview.join('、')}${suffix}`;
 }
 
 function cleanupSongTitle(value) {

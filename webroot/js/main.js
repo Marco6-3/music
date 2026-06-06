@@ -68,6 +68,7 @@
         cloudSyncInFlight: false,
         agentMessages: [],
         agentBusy: false,
+        renamingPlaylistName: null,
         resumeWatchdogTimer: 0,
         playbackWatchdogTimer: 0,
         playbackWatchdogToken: 0,
@@ -734,13 +735,30 @@
                 <button class="primary-btn" id="new-playlist-view-btn">新建歌单</button>
             </div>
             <div class="playlist-grid">
-                ${state.playlists.map((playlist) => `
-                    <button class="playlist-card" data-playlist-name="${escapeAttr(playlist.name)}">
-                        <p class="eyebrow">${playlist.songs.length} songs</p>
-                        <h3>${escapeHtml(playlist.name)}</h3>
-                        <p class="meta">点击查看歌曲，右键可重命名</p>
-                    </button>
-                `).join('') || emptyState('暂无歌单', '从播放器或歌曲列表添加第一首歌。')}
+                ${state.playlists.map((playlist) => {
+                    const isRenaming = state.renamingPlaylistName === playlist.name;
+                    return `
+                        <div class="playlist-card" data-playlist-name="${escapeAttr(playlist.name)}" ${isRenaming ? 'data-renaming="1"' : 'role="button" tabindex="0"'}>
+                            ${isRenaming ? `
+                                <form class="playlist-rename-form" data-playlist-rename-form>
+                                    <p class="eyebrow">${playlist.songs.length} songs</p>
+                                    <input class="playlist-rename-input" name="new_name" value="${escapeAttr(playlist.name)}" maxlength="60" aria-label="新的歌单名称">
+                                    <div class="playlist-rename-actions">
+                                        <button class="primary-btn" type="submit">保存</button>
+                                        <button class="ghost-btn" type="button" data-action="cancel-rename">取消</button>
+                                    </div>
+                                </form>
+                            ` : `
+                                <div class="playlist-card-content">
+                                    <p class="eyebrow">${playlist.songs.length} songs</p>
+                                    <h3>${escapeHtml(playlist.name)}</h3>
+                                    <p class="meta">点击查看歌曲</p>
+                                </div>
+                                <button class="playlist-rename-btn icon-btn" type="button" data-action="rename-playlist" title="重命名歌单" aria-label="重命名 ${escapeAttr(playlist.name)}">✎</button>
+                            `}
+                        </div>
+                    `;
+                }).join('') || emptyState('暂无歌单', '从播放器或歌曲列表添加第一首歌。')}
             </div>
         `;
 
@@ -751,12 +769,44 @@
             renderPlaylists();
         });
         $$('.playlist-card', els.viewRoot).forEach((card) => {
-            card.addEventListener('click', () => openPlaylistView(card.dataset.playlistName));
+            const renameForm = $('[data-playlist-rename-form]', card);
+            if (renameForm) {
+                renameForm.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    await renamePlaylist(card.dataset.playlistName, renameForm.elements.new_name.value);
+                });
+                $('[data-action="cancel-rename"]', card)?.addEventListener('click', () => {
+                    state.renamingPlaylistName = null;
+                    renderPlaylists();
+                });
+                return;
+            }
+
+            card.addEventListener('click', (event) => {
+                if (event.target.closest('[data-action="rename-playlist"]')) return;
+                openPlaylistView(card.dataset.playlistName);
+            });
+            card.addEventListener('keydown', (event) => {
+                if (event.target.closest('[data-action="rename-playlist"]')) return;
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                openPlaylistView(card.dataset.playlistName);
+            });
             card.addEventListener('contextmenu', (event) => {
                 event.preventDefault();
                 renamePlaylist(card.dataset.playlistName);
             });
+            $('[data-action="rename-playlist"]', card)?.addEventListener('click', (event) => {
+                event.stopPropagation();
+                state.renamingPlaylistName = card.dataset.playlistName;
+                renderPlaylists();
+            });
         });
+        const renameInput = $('.playlist-rename-input', els.viewRoot);
+        if (renameInput) {
+            renameInput.focus();
+            renameInput.select();
+        }
     }
 
     function renderAgent() {
@@ -787,7 +837,7 @@
                     ${state.agentBusy ? '<div class="agent-message assistant"><span>正在处理...</span></div>' : ''}
                 </div>
                 <form class="agent-form" id="agent-form">
-                    <textarea id="agent-input" maxlength="2000" rows="3" placeholder="输入歌曲和歌单"></textarea>
+                    <textarea id="agent-input" maxlength="2000" rows="3" placeholder="输入歌曲和歌单，或查看某个歌单里的歌曲"></textarea>
                     <button class="primary-btn" type="submit" ${state.agentBusy ? 'disabled' : ''}>发送</button>
                 </form>
             </div>
@@ -802,10 +852,14 @@
         const result = message.result || {};
         const added = normalizeSongList(result.added_songs || []);
         const existing = normalizeSongList(result.existing_songs || []);
+        const playlistSongs = result.action === 'query_playlist_songs'
+            ? normalizeSongList(result.playlist_songs || [])
+            : [];
         const unresolved = result.unresolved_songs || [];
         const details = [
             ...added.map((song) => `<li>已添加：${escapeHtml(song.name)} · ${escapeHtml(formatArtists(song.artist))}</li>`),
             ...existing.map((song) => `<li>已存在：${escapeHtml(song.name)} · ${escapeHtml(formatArtists(song.artist))}</li>`),
+            ...playlistSongs.map((song, index) => `<li>${index + 1}. ${escapeHtml(song.name)}${formatArtists(song.artist) ? ` · ${escapeHtml(formatArtists(song.artist))}` : ''}</li>`),
             ...unresolved.map((song) => `<li>未找到：${escapeHtml(song.title || song.name || '')}${song.artist ? ` · ${escapeHtml(song.artist)}` : ''}</li>`)
         ].join('');
         return `
@@ -872,6 +926,7 @@
                     <h2>${escapeHtml(name)}</h2>
                     <p class="meta">${songs.length} 首歌曲</p>
                 </div>
+                <button class="ghost-btn" id="rename-playlist-btn">重命名歌单</button>
                 <button class="ghost-btn" id="delete-playlist-btn">删除歌单</button>
             </div>
             ${renderSongList(songs, 'playlist')}
@@ -880,6 +935,7 @@
             state.activePlaylistName = null;
             renderPlaylists();
         });
+        $('#rename-playlist-btn').addEventListener('click', () => renamePlaylist(name));
         $('#delete-playlist-btn').addEventListener('click', () => deletePlaylist(name));
         bindSongActions(els.viewRoot);
         hydrateSongCardCovers(els.viewRoot);
@@ -2090,20 +2146,30 @@
         if (state.view === 'playlists') renderPlaylists();
     }
 
-    async function renamePlaylist(oldName) {
-        const newName = prompt('请输入新的歌单名称', oldName);
-        if (!newName || newName === oldName) return;
+    async function renamePlaylist(oldName, requestedName) {
+        const newName = typeof requestedName === 'string'
+            ? requestedName
+            : prompt('请输入新的歌单名称', oldName);
+        const trimmedName = String(newName || '').trim();
+        if (!trimmedName) return;
+        if (trimmedName === oldName) {
+            state.renamingPlaylistName = null;
+            renderPlaylists();
+            return;
+        }
         const data = await apiPost('php/rename_playlist.php', {
             user_id: state.currentUser.id,
             old_name: oldName,
-            new_name: newName.trim()
+            new_name: trimmedName
         });
         if (!data.success) {
             showToast(data.message || '重命名失败', 'error');
             return;
         }
         const playlist = state.playlists.find((item) => item.name === oldName);
-        if (playlist) playlist.name = newName.trim();
+        if (playlist) playlist.name = trimmedName;
+        if (state.activePlaylistName === oldName) state.activePlaylistName = trimmedName;
+        state.renamingPlaylistName = null;
         updateUserCollections();
         renderPlaylists();
     }

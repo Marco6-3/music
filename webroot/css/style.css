@@ -609,6 +609,67 @@ select option {
     transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
 }
 
+.playlist-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+}
+
+.playlist-card-content {
+    min-width: 0;
+}
+
+.playlist-card[data-renaming="1"] {
+    cursor: default;
+}
+
+.playlist-rename-form {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 10px;
+}
+
+.playlist-rename-input {
+    width: 100%;
+    font-weight: 800;
+}
+
+.playlist-rename-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+}
+
+.playlist-rename-actions .primary-btn,
+.playlist-rename-actions .ghost-btn {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 10px;
+}
+
+.playlist-card h3 {
+    overflow-wrap: anywhere;
+}
+
+.playlist-card:focus-visible {
+    outline: 2px solid rgba(var(--accent-rgb), 0.72);
+    outline-offset: 3px;
+}
+
+.playlist-rename-btn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    border-radius: 12px;
+    opacity: 0.82;
+}
+
+.playlist-rename-btn:hover,
+.playlist-rename-btn:focus-visible {
+    opacity: 1;
+}
+
 .toplist-card:hover,
 .playlist-card:hover,
 .song-card:hover,
@@ -1993,6 +2054,17 @@ body.is-safari-browser-pwa-candidate .player-status {
         min-height: 96px;
         border-radius: 17px;
         padding: 13px;
+    }
+
+    .playlist-card {
+        gap: 8px;
+    }
+
+    .playlist-rename-btn {
+        width: 34px;
+        height: 34px;
+        min-height: 34px;
+        border-radius: 11px;
     }
 
     .song-list {
