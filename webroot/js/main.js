@@ -23,6 +23,14 @@
         volume: ['musiq_volume', 'xcloud_volume'],
         queue: ['musiq_queue', 'xcloud_queue']
     };
+    const publicPostPaths = new Set([
+        'php/register_verification.php',
+        'php/register.php',
+        'php/login.php',
+        'php/logout.php',
+        'php/verify_token.php',
+        'php/forgot_password.php'
+    ]);
 
     const state = {
         view: 'home',
@@ -51,10 +59,13 @@
         historyLoadedForUser: '',
         playerStatus: '准备就绪',
         progressDragging: false,
+        progressDragInput: null,
         playRequestId: 0,
         lastPlayableUrl: '',
         lastKnownPlaybackTime: 0,
         mediaSessionResumeInFlight: false,
+        cloudSyncTimer: 0,
+        cloudSyncInFlight: false,
         resumeWatchdogTimer: 0,
         playbackWatchdogTimer: 0,
         playbackWatchdogToken: 0,
@@ -128,10 +139,15 @@
         sourceSelect: $('#source-select'),
         qualitySelect: $('#quality-select'),
         loginOpen: $('#login-open-btn'),
+        mobileLoginOpen: $('#mobile-login-open-btn'),
         logout: $('#logout-btn'),
+        mobileLogout: $('#mobile-logout-btn'),
         userChip: $('#user-chip'),
+        mobileUserChip: $('#mobile-user-chip'),
         userName: $('#user-name'),
+        mobileUserName: $('#mobile-user-name'),
         userAvatar: $('#user-avatar'),
+        mobileUserAvatar: $('#mobile-user-avatar'),
         queueList: $('#queue-list'),
         clearQueue: $('#clear-queue-btn'),
         sideCover: $('#side-cover'),
@@ -163,11 +179,16 @@
         expandedNext: $('#expanded-next-btn'),
         expandedStatus: $('#expanded-status'),
         expandedQuality: $('#expanded-quality'),
+        expandedProgress: $('#expanded-progress-slider'),
+        expandedCurrentTime: $('#expanded-current-time'),
+        expandedDurationTime: $('#expanded-duration-time'),
         lyricBox: $('#lyric-box'),
         authModal: $('#auth-modal'),
         loginForm: $('#login-form'),
         registerForm: $('#register-form'),
+        resetPasswordForm: $('#reset-password-form'),
         sendRegisterCode: $('#send-register-code'),
+        sendResetCode: $('#send-reset-code'),
         playlistModal: $('#playlist-modal'),
         playlistChoiceList: $('#playlist-choice-list'),
         createPlaylistForm: $('#create-playlist-form'),
@@ -252,7 +273,9 @@
         els.clearQueue.addEventListener('click', clearQueue);
         bindQueueActions();
         els.loginOpen.addEventListener('click', () => openModal('auth-modal'));
+        els.mobileLoginOpen?.addEventListener('click', () => openModal('auth-modal'));
         els.logout.addEventListener('click', logout);
+        els.mobileLogout?.addEventListener('click', logout);
         els.sourceStatus.addEventListener('click', showSourceStatus);
         els.sourceDiagnosticsRefresh?.addEventListener('click', () => refreshSourceDiagnostics({ force: true }));
         els.pwaCopyDiagnostics?.addEventListener('click', copyPwaDiagnostics);
@@ -269,9 +292,8 @@
         bindResizePerformanceMode();
         bindBottomSheetGestures();
 
-        els.progress.addEventListener('pointerdown', beginProgressDrag);
-        els.progress.addEventListener('input', handleProgressInput);
-        els.progress.addEventListener('change', commitProgressSeek);
+        bindProgressSlider(els.progress);
+        bindProgressSlider(els.expandedProgress);
         window.addEventListener('pointerup', commitProgressSeek, { passive: true });
         window.addEventListener('pointercancel', cancelProgressDrag, { passive: true });
 
@@ -335,7 +357,9 @@
         });
         els.loginForm.addEventListener('submit', handleLogin);
         els.registerForm.addEventListener('submit', handleRegister);
+        els.resetPasswordForm?.addEventListener('submit', handleResetPassword);
         els.sendRegisterCode.addEventListener('click', sendRegisterCode);
+        els.sendResetCode?.addEventListener('click', sendResetCode);
         els.createPlaylistForm.addEventListener('submit', createPlaylistAndAdd);
 
         document.addEventListener('keydown', (event) => {
@@ -357,7 +381,7 @@
             renderShell();
             renderPwaDiagnostics();
             if (musiqRuntime.reinstallRecommended) {
-                showToast('建议删除旧图标后从 Safari 重新添加 musiQ 到主屏幕');
+                showToast('建议删除旧图标后从 Safari 重新添加 music 到主屏幕');
             }
         });
 
@@ -476,8 +500,9 @@
         const persistedAuth = await readPersistedAuthState();
         if (!state.token && persistedAuth.token) state.token = persistedAuth.token;
         const userId = readLocalValue(storage.userId, legacyStorage.userId) || persistedAuth.userId || '';
-        if (!state.token && !userId) {
-            updateUserUI();
+        if (!state.token) {
+            if (userId) clearUser();
+            else updateUserUI();
             return;
         }
 
@@ -493,13 +518,14 @@
         }
     }
 
-    function setUser(user, token) {
+    function setUser(user, token, options = {}) {
         const previousUserId = state.currentUser?.id ? String(state.currentUser.id) : '';
         state.currentUser = user;
         state.token = token || state.token;
         state.favorites = normalizeSongList(user.favorites || []);
         rebuildFavoriteKeys();
         state.playlists = playlistsFromUser(user);
+        applyUserSyncState(user.sync_state, { replaceQueue: Boolean(options.replaceQueue) });
         if (String(user.id) !== previousUserId) {
             state.recentPlays = [];
             state.weeklyFavorites = [];
@@ -515,6 +541,9 @@
     }
 
     function clearUser() {
+        clearTimeout(state.cloudSyncTimer);
+        state.cloudSyncTimer = 0;
+        state.cloudSyncInFlight = false;
         state.currentUser = null;
         state.token = '';
         state.favorites = [];
@@ -532,9 +561,15 @@
         const loggedIn = Boolean(state.currentUser);
         els.loginOpen.hidden = loggedIn;
         els.userChip.hidden = !loggedIn;
+        if (els.mobileLoginOpen) els.mobileLoginOpen.hidden = loggedIn;
+        if (els.mobileUserChip) els.mobileUserChip.hidden = !loggedIn;
         if (!loggedIn) return;
-        els.userName.textContent = state.currentUser.username || 'music用户';
-        els.userAvatar.src = state.currentUser.avatar || 'public/avatars/default1.png';
+        const username = state.currentUser.username || 'music用户';
+        const avatar = state.currentUser.avatar || 'public/avatars/default1.png';
+        els.userName.textContent = username;
+        els.userAvatar.src = avatar;
+        if (els.mobileUserName) els.mobileUserName.textContent = username;
+        if (els.mobileUserAvatar) els.mobileUserAvatar.src = avatar;
     }
 
     function renderShell() {
@@ -1282,7 +1317,7 @@
                 reason: 'silent-resume-watchdog'
             }).catch(() => {
                 setPlayerStatus('点按播放继续');
-                showToast('后台恢复播放失败，请回到 musiQ 内再点一次播放', 'error');
+                showToast('后台恢复播放失败，请回到 music 内再点一次播放', 'error');
             });
         }, 1800);
     }
@@ -1332,7 +1367,7 @@
                 setPlayerStatus('点按播放继续');
                 updatePlayButtons();
                 updateMediaSessionPlaybackState();
-                showToast('自动切歌恢复失败，请回到 musiQ 内再点一次播放', 'error');
+                showToast('自动切歌恢复失败，请回到 music 内再点一次播放', 'error');
                 renderPwaDiagnostics();
             });
         }, reason === 'auto-advance' ? 2400 : 1800);
@@ -1782,11 +1817,7 @@
         if (document.hidden && !audio.paused) return;
         const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
         const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
-        els.currentTime.textContent = formatTime(current);
-        els.durationTime.textContent = formatTime(duration);
-        if (!state.progressDragging) {
-            els.progress.value = duration ? String(Math.round((current / duration) * 1000)) : '0';
-        }
+        if (!state.progressDragging) updateProgressDisplays(current, duration);
         updateActiveLyric(current);
     }
 
@@ -1797,35 +1828,63 @@
         });
     }
 
-    function beginProgressDrag() {
-        if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
-        state.progressDragging = true;
+    function bindProgressSlider(slider) {
+        if (!slider) return;
+        slider.addEventListener('pointerdown', beginProgressDrag);
+        slider.addEventListener('input', handleProgressInput);
+        slider.addEventListener('change', commitProgressSeek);
     }
 
-    function handleProgressInput() {
+    function updateProgressDisplays(current, duration, activeSlider = null) {
+        [els.currentTime, els.expandedCurrentTime].forEach((el) => {
+            if (el) el.textContent = formatTime(current);
+        });
+        [els.durationTime, els.expandedDurationTime].forEach((el) => {
+            if (el) el.textContent = formatTime(duration);
+        });
+        const value = duration ? String(Math.round((current / duration) * 1000)) : '0';
+        [els.progress, els.expandedProgress].forEach((slider) => {
+            if (!slider || slider === activeSlider) return;
+            slider.value = value;
+        });
+    }
+
+    function beginProgressDrag(event) {
         if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
-        const preview = progressValueToSeconds();
-        els.currentTime.textContent = formatTime(preview);
+        state.progressDragging = true;
+        state.progressDragInput = event?.currentTarget || event?.target || null;
+    }
+
+    function handleProgressInput(event) {
+        if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+        const slider = event?.currentTarget || state.progressDragInput || els.progress;
+        if (!state.progressDragging) state.progressDragInput = slider;
+        const preview = progressValueToSeconds(slider);
+        updateProgressDisplays(preview, audio.duration, slider);
         if (!state.progressDragging) commitProgressSeek();
     }
 
-    function commitProgressSeek() {
-        if (!state.progressDragging && document.activeElement !== els.progress) return;
+    function commitProgressSeek(event) {
+        const slider = state.progressDragInput || event?.currentTarget || document.activeElement;
+        const isProgressSlider = slider === els.progress || slider === els.expandedProgress;
+        if (!state.progressDragging && !isProgressSlider) return;
         if (Number.isFinite(audio.duration) && audio.duration > 0) {
-            audio.currentTime = progressValueToSeconds();
+            audio.currentTime = progressValueToSeconds(slider);
         }
         state.progressDragging = false;
+        state.progressDragInput = null;
         updateProgress();
     }
 
     function cancelProgressDrag() {
         if (!state.progressDragging) return;
         state.progressDragging = false;
+        state.progressDragInput = null;
         updateProgress();
     }
 
-    function progressValueToSeconds() {
-        return (Number(els.progress.value) / 1000) * audio.duration;
+    function progressValueToSeconds(slider = els.progress) {
+        return (Number(slider?.value || 0) / 1000) * audio.duration;
     }
 
     async function toggleFavorite(song = state.currentSong) {
@@ -1966,11 +2025,88 @@
         if (!state.currentUser) return;
         state.currentUser.favorites = state.favorites;
         state.currentUser.playlists = Object.fromEntries(state.playlists.map((item) => [item.name, item.songs]));
+        scheduleCloudSync();
+    }
+
+    function buildUserSyncPayload() {
+        return {
+            favorites: state.favorites.slice(0, 2000),
+            playlists: Object.fromEntries(state.playlists.slice(0, 100).map((item) => [
+                item.name,
+                normalizeSongList(item.songs || []).slice(0, 1000)
+            ])),
+            recent_plays: state.recentPlays.slice(0, 200),
+            sync_state: {
+                queue: state.queue.slice(0, 80),
+                client_state: {
+                    current_song: state.currentSong ? normalizeSong(state.currentSong) : null,
+                    current_index: state.currentIndex,
+                    quality: els.qualitySelect?.value || '',
+                    play_mode: state.playMode,
+                    updated_at: new Date().toISOString()
+                }
+            }
+        };
+    }
+
+    function applyUserSyncState(syncState, { replaceQueue = false } = {}) {
+        const cloudQueue = uniqueSongs(syncState?.queue || []).slice(0, 80);
+        if (!cloudQueue.length) return;
+        if (!replaceQueue && state.queue.length) return;
+        state.queue = cloudQueue;
+        state.currentIndex = state.currentSong
+            ? Math.max(0, state.queue.findIndex((item) => sameSong(item, state.currentSong)))
+            : -1;
+        saveQueue({ skipCloudSync: true });
+    }
+
+    function scheduleCloudSync(delay = 1500) {
+        if (!state.currentUser || !state.token) return;
+        clearTimeout(state.cloudSyncTimer);
+        state.cloudSyncTimer = setTimeout(() => {
+            state.cloudSyncTimer = 0;
+            syncUserToCloud(buildUserSyncPayload(), { silent: true });
+        }, delay);
+    }
+
+    async function syncUserToCloud(payload = buildUserSyncPayload(), { replaceQueue = false, silent = false } = {}) {
+        if (!state.currentUser || !state.token || state.cloudSyncInFlight) return false;
+        state.cloudSyncInFlight = true;
+        try {
+            const data = await apiPost('php/sync_bundle.php', {
+                user_id: state.currentUser.id,
+                action: 'merge',
+                payload: JSON.stringify(payload)
+            });
+            if (!data.success) throw new Error(data.message || '云同步失败');
+            if (data.user) {
+                state.currentUser = data.user;
+                state.favorites = normalizeSongList(data.user.favorites || []);
+                rebuildFavoriteKeys();
+                state.playlists = playlistsFromUser(data.user);
+                applyUserSyncState(data.sync_state || data.user.sync_state, { replaceQueue });
+                updateUserUI();
+                renderShell();
+                renderView(state.view);
+            }
+            if (Array.isArray(data.recent_plays)) {
+                state.recentPlays = normalizeSongList(data.recent_plays);
+                state.historyLoadedForUser = String(state.currentUser.id);
+                if (state.view === 'home') renderHome();
+            }
+            return true;
+        } catch (error) {
+            if (!silent) showToast(error.message || '云同步失败', 'error');
+            return false;
+        } finally {
+            state.cloudSyncInFlight = false;
+        }
     }
 
     async function handleLogin(event) {
         event.preventDefault();
         const form = Object.fromEntries(new FormData(els.loginForm));
+        const localSnapshot = buildUserSyncPayload();
         try {
             const data = await apiPost('php/login.php', form);
             if (!data.success || data.need_email_verification) {
@@ -1978,8 +2114,9 @@
                 return;
             }
             setUser(data.user, data.token);
+            const synced = await syncUserToCloud(localSnapshot, { replaceQueue: true, silent: true });
             closeModal('auth-modal');
-            showToast('登录成功', 'success');
+            showToast(synced ? '登录成功，已同步本地数据' : '登录成功', 'success');
         } catch (error) {
             showToast(error.message || '登录失败', 'error');
         }
@@ -2004,6 +2141,7 @@
     async function handleRegister(event) {
         event.preventDefault();
         const form = Object.fromEntries(new FormData(els.registerForm));
+        const localSnapshot = buildUserSyncPayload();
         try {
             const data = await apiPost('php/register.php', form);
             if (!data.success) {
@@ -2011,10 +2149,54 @@
                 return;
             }
             setUser(data.user, data.token);
+            const synced = await syncUserToCloud(localSnapshot, { replaceQueue: true, silent: true });
             closeModal('auth-modal');
-            showToast('注册成功', 'success');
+            showToast(synced ? '注册成功，已同步本地数据' : '注册成功', 'success');
         } catch (error) {
             showToast(error.message || '注册失败', 'error');
+        }
+    }
+
+    async function sendResetCode() {
+        const email = String(new FormData(els.resetPasswordForm).get('email') || '').trim();
+        if (!email) return showToast('请先填写邮箱', 'error');
+        els.sendResetCode.disabled = true;
+        try {
+            const data = await apiPost('php/forgot_password.php', {
+                action: 'send_code',
+                email
+            });
+            showToast(data.message || (data.success ? '验证码已发送' : '发送失败'), data.success ? 'success' : 'error');
+        } catch (error) {
+            showToast(error.message || '发送失败', 'error');
+        } finally {
+            setTimeout(() => {
+                els.sendResetCode.disabled = false;
+            }, 1200);
+        }
+    }
+
+    async function handleResetPassword(event) {
+        event.preventDefault();
+        const form = Object.fromEntries(new FormData(els.resetPasswordForm));
+        const email = String(form.email || '').trim();
+        if (!email) return showToast('请填写邮箱', 'error');
+        try {
+            const data = await apiPost('php/forgot_password.php', {
+                action: 'reset_password',
+                email,
+                code: form.code,
+                new_password: form.new_password
+            });
+            if (!data.success) {
+                showToast(data.message || '重置失败', 'error');
+                return;
+            }
+            els.resetPasswordForm.reset();
+            switchAuthTab('login');
+            showToast('密码已重置，请重新登录', 'success');
+        } catch (error) {
+            showToast(error.message || '重置失败', 'error');
         }
     }
 
@@ -2028,6 +2210,7 @@
         $$('.tab-btn').forEach((button) => button.classList.toggle('active', button.dataset.authTab === tab));
         els.loginForm.classList.toggle('hidden', tab !== 'login');
         els.registerForm.classList.toggle('hidden', tab !== 'register');
+        els.resetPasswordForm?.classList.toggle('hidden', tab !== 'reset');
     }
 
     async function showSourceStatus() {
@@ -2408,7 +2591,7 @@
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: song.name || '未知歌曲',
                 artist: formatArtists(song.artist),
-                album: song.album || 'musiQ',
+                album: song.album || 'music',
                 artwork: buildArtworkSet(artwork)
             });
             musiqRuntime.markMetadata?.({
@@ -2734,11 +2917,16 @@
     }
 
     async function apiPost(path, body = {}) {
+        const cleanPath = String(path || '').replace(/^\/+/, '');
+        const payload = { ...body };
+        if (state.token && !payload.token && !publicPostPaths.has(cleanPath)) {
+            payload.token = state.token;
+        }
         const response = await fetch(buildApiUrl(path), {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
             credentials: runtimeConfig.credentials,
-            body: new URLSearchParams(body)
+            body: new URLSearchParams(payload)
         });
         return parseResponse(response);
     }
@@ -2951,8 +3139,9 @@
         }, 2600);
     }
 
-    function saveQueue() {
+    function saveQueue(options = {}) {
         localStorage.setItem(storage.queue, JSON.stringify(state.queue.slice(0, 80)));
+        if (!options.skipCloudSync) scheduleCloudSync();
     }
 
     function readLocalValue(key, legacyKey) {

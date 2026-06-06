@@ -118,3 +118,53 @@ test('transaction COMMIT is persisted immediately', async () => {
     removeTempDir(dataDir);
   }
 });
+
+test('createDataStore migrates existing users from a legacy data directory when target DB is empty', async () => {
+  const targetDir = createTempDir();
+  const legacyDir = createTempDir();
+  let store;
+  const sourceDb = path.join('data', 'music.db');
+
+  try {
+    fs.copyFileSync(sourceDb, path.join(legacyDir, 'music.db'));
+    fs.copyFileSync(path.join('data', 'token-secret'), path.join(legacyDir, 'token-secret'));
+    fs.writeFileSync(path.join(targetDir, 'music.db'), '');
+
+    store = await createDataStore(targetDir, { migrateFromDataDir: legacyDir });
+
+    const row = store.db.prepare('SELECT COUNT(*) AS cnt FROM users').get();
+    assert.equal(row.cnt > 0, true);
+    assert.equal(fs.existsSync(path.join(targetDir, 'token-secret')), true);
+  } finally {
+    if (store) store.close();
+    removeTempDir(targetDir);
+    removeTempDir(legacyDir);
+  }
+});
+
+test('createDataStore ignores a stale lock when a live PID no longer matches the lock owner', async () => {
+  const dataDir = createTempDir();
+  const lockPath = path.join(dataDir, 'music.lock');
+  let store;
+
+  try {
+    fs.writeFileSync(lockPath, JSON.stringify({
+      app: 'music-sqljs-datastore',
+      pid: process.pid,
+      created_at: '2000-01-01 00:00:00',
+      data_dir: dataDir,
+      exec_path: path.join(path.parse(process.execPath).root, 'not-the-current-process.exe'),
+      argv: [path.join(path.parse(process.execPath).root, 'not-the-current-process.exe')],
+      process_started_at: '2000-01-01T00:00:00.000Z'
+    }));
+
+    store = await createDataStore(dataDir);
+
+    const owner = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    assert.equal(owner.pid, process.pid);
+    assert.equal(owner.app, 'music-sqljs-datastore');
+  } finally {
+    if (store) store.close();
+    removeTempDir(dataDir);
+  }
+});

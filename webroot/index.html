@@ -4,17 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="musiQ - 音乐播放器">
+    <meta name="description" content="music - 音乐播放器">
     <meta name="theme-color" content="#07110d">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="musiQ">
+    <meta name="apple-mobile-web-app-title" content="music">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="music-api-base-url" content="">
-    <title>musiQ</title>
+    <title>music</title>
     <link rel="icon" href="public/music-default.png">
     <link rel="apple-touch-icon" href="public/icons/apple-touch-icon-180.png">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="css/style.css?v=2.1.3">
+    <link rel="stylesheet" href="css/style.css?v=2.1.4">
     <script>
         window.__MUSIC_CONFIG__ = window.__MUSIC_CONFIG__ || window.__MUSIQ_CONFIG__ || {};
         window.__MUSIQ_CONFIG__ = window.__MUSIC_CONFIG__;
@@ -37,9 +37,9 @@
     <div class="app-shell">
         <aside class="side-rail glass-panel">
             <div class="brand">
-                <img src="public/music-default.png" alt="musiQ" class="brand-mark">
+                <img src="public/music-default.png" alt="music" class="brand-mark">
                 <div>
-                    <strong>musiQ</strong>
+                    <strong>music</strong>
                 </div>
             </div>
             <nav class="nav-list" aria-label="主导航">
@@ -98,8 +98,16 @@
 
         <main class="main-stage">
             <header class="top-bar glass-panel">
-                <div>
+                <div class="top-title-row">
                     <h1 id="view-title">为今晚找一首歌</h1>
+                    <div class="mobile-account-entry" aria-label="账号">
+                        <button class="ghost-btn mobile-login-btn" id="mobile-login-open-btn">登录</button>
+                        <div class="mobile-user-chip" id="mobile-user-chip" hidden>
+                            <img src="public/avatars/default1.png" alt="" id="mobile-user-avatar">
+                            <strong id="mobile-user-name">未登录</strong>
+                            <button id="mobile-logout-btn">退出</button>
+                        </div>
+                    </div>
                 </div>
                 <form class="search-form" id="search-form">
                     <input id="search-input" type="search" placeholder="搜索歌曲..." autocomplete="off">
@@ -203,6 +211,13 @@
                     </div>
                     <div class="player-status expanded-status" id="expanded-status">准备就绪</div>
                     <div class="expanded-quality" id="expanded-quality">SQ / HQ 优先</div>
+                    <div class="expanded-progress" aria-label="播放进度">
+                        <div class="expanded-progress-times">
+                            <span id="expanded-current-time">00:00</span>
+                            <span id="expanded-duration-time">00:00</span>
+                        </div>
+                        <input type="range" id="expanded-progress-slider" min="0" max="1000" value="0" aria-label="拖动播放进度">
+                    </div>
                     <div class="lyric-stage">
                         <div class="lyric-box" id="lyric-box"></div>
                     </div>
@@ -217,21 +232,31 @@
             <div class="tabs">
                 <button class="tab-btn active" data-auth-tab="login">登录</button>
                 <button class="tab-btn" data-auth-tab="register">注册</button>
+                <button class="tab-btn" data-auth-tab="reset">重置密码</button>
             </div>
             <form class="auth-form" id="login-form">
-                <label>用户名或邮箱<input name="username" required autocomplete="username"></label>
-                <label>密码<input name="password" type="password" required autocomplete="current-password"></label>
+                <label>用户名 / 邮箱<input name="username" required maxlength="254" autocomplete="username"></label>
+                <label>密码<input name="password" type="password" required maxlength="128" autocomplete="current-password"></label>
                 <button class="primary-btn" type="submit">登录</button>
             </form>
             <form class="auth-form hidden" id="register-form">
-                <label>用户名<input name="username" required minlength="3" autocomplete="username"></label>
-                <label>邮箱<input name="email" type="email" required autocomplete="email"></label>
+                <label>用户名<input name="username" required minlength="3" maxlength="30" autocomplete="username"></label>
+                <label>邮箱<input name="email" type="email" required maxlength="254" autocomplete="email"></label>
                 <div class="inline-field">
-                    <label>验证码<input name="verification_code" required></label>
+                    <label>验证码<input name="verification_code" required inputmode="numeric" maxlength="6"></label>
                     <button type="button" class="ghost-btn" id="send-register-code">发送验证码</button>
                 </div>
-                <label>密码<input name="password" type="password" required minlength="6" autocomplete="new-password"></label>
+                <label>密码<input name="password" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label>
                 <button class="primary-btn" type="submit">注册</button>
+            </form>
+            <form class="auth-form hidden" id="reset-password-form">
+                <label>邮箱<input name="email" type="email" required maxlength="254" autocomplete="email"></label>
+                <div class="inline-field">
+                    <label>验证码<input name="code" required inputmode="numeric" maxlength="6"></label>
+                    <button type="button" class="ghost-btn" id="send-reset-code">发送验证码</button>
+                </div>
+                <label>新密码<input name="new_password" type="password" required minlength="8" maxlength="128" autocomplete="new-password"></label>
+                <button class="primary-btn" type="submit">重置密码</button>
             </form>
         </div>
     </div>
@@ -296,13 +321,13 @@
             <button class="close-btn" data-close-modal="in-app-playback-modal">×</button>
             <p class="eyebrow">iOS Playback Host</p>
             <h2>请用 Safari 或主屏幕 App 播放</h2>
-            <p>当前在支付宝/微信等内置浏览器中。如果在这里播放，iOS 锁屏/灵动岛可能返回支付宝/微信，而不是 musiQ。</p>
-            <p>为获得接近原生 App 的体验，请复制链接到 Safari，然后添加到主屏幕并从 musiQ 图标打开。</p>
+            <p>当前在支付宝/微信等内置浏览器中。如果在这里播放，iOS 锁屏/灵动岛可能返回支付宝/微信，而不是 music。</p>
+            <p>为获得接近原生 App 的体验，请复制链接到 Safari，然后添加到主屏幕并从 music 图标打开。</p>
             <ol class="runtime-steps" id="in-app-playback-steps" hidden>
                 <li>复制当前 HTTPS 地址。</li>
                 <li>打开 iPhone Safari 并粘贴访问。</li>
                 <li>点击分享按钮，选择“添加到主屏幕”。</li>
-                <li>从主屏幕 musiQ 图标打开后再播放。</li>
+                <li>从主屏幕 music 图标打开后再播放。</li>
             </ol>
             <div class="runtime-actions">
                 <button class="primary-btn" id="copy-safari-link-btn">复制链接</button>
@@ -315,7 +340,7 @@
     <div class="toast" id="toast"></div>
     <audio id="audio"></audio>
     <script src="js/pwa-runtime.js?v=1.0.3"></script>
-    <script src="js/main.js?v=2.2.4"></script>
+    <script src="js/main.js?v=2.2.10"></script>
     <script src="js/source-selector.js?v=1.0.4"></script>
     <script src="js/pwa.js?v=1.1.2"></script>
 </body>

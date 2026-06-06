@@ -1,8 +1,8 @@
 {
-  "id": "/?app=musiq-pwa",
-  "name": "musiQ",
-  "short_name": "musiQ",
-  "description": "musiQ 音乐播放器",
+  "id": "/?app=music-pwa",
+  "name": "music",
+  "short_name": "music",
+  "description": "music 音乐播放器",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",

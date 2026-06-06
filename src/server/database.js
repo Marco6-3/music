@@ -1,5 +1,6 @@
 'use strict';
 
+const childProcess = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -8,16 +9,23 @@ const initSqlJs = require('sql.js');
 const TOKEN_EXPIRY_SECONDS = 86400 * 30;
 const CODE_EXPIRY_SECONDS = 600;
 const PERSIST_DEBOUNCE_MS = 500;
+const LOCK_OWNER_APP = 'music-sqljs-datastore';
+const LOCK_TIME_TOLERANCE_MS = 10_000;
 let tokenSecret = process.env.MUSIC_TOKEN_SECRET || process.env.MUSIQ_TOKEN_SECRET || process.env.XCLOUD_TOKEN_SECRET || '';
 let sqlJsPromise;
 
-async function createDataStore(dataDir) {
+async function createDataStore(dataDir, { migrateFromDataDir = '' } = {}) {
   fs.mkdirSync(dataDir, { recursive: true });
   const releaseLock = acquireDataStoreLock(dataDir);
-  ensureTokenSecret(dataDir);
   try {
     const dbPath = resolveDataFile(dataDir, 'music.db', 'musiq.db', 'xcloud_music.db');
     const SQL = await loadSqlJs();
+    const migrationSource = findMigrationSource(SQL, dbPath, dataDir, migrateFromDataDir);
+    if (migrationSource) {
+      fs.copyFileSync(migrationSource, dbPath);
+      syncTokenSecretFromDataDir(dataDir, path.dirname(migrationSource));
+    }
+    ensureTokenSecret(dataDir);
     const db = new PersistentSqlJsDatabase(SQL, dbPath);
     db.pragma('journal_mode = DELETE');
     db.pragma('foreign_keys = ON');
@@ -65,6 +73,50 @@ function resolveDataFile(dataDir, fileName, ...legacyFileNames) {
     }
   }
   return dbPath;
+}
+
+function findMigrationSource(SQL, targetDbPath, targetDataDir, legacyDataDir) {
+  if (getUserCount(SQL, targetDbPath) > 0) return null;
+
+  const legacyDirs = [];
+  const normalizedTarget = path.resolve(targetDataDir);
+  if (legacyDataDir) legacyDirs.push(path.resolve(legacyDataDir));
+  if (normalizedTarget && !legacyDirs.includes(normalizedTarget)) legacyDirs.push(normalizedTarget);
+
+  for (const dataDir of legacyDirs) {
+    for (const dbName of ['music.db', 'musiq.db', 'xcloud_music.db']) {
+      const candidate = path.join(dataDir, dbName);
+      if (path.resolve(candidate) === path.resolve(targetDbPath)) continue;
+      if (getUserCount(SQL, candidate) > 0) return candidate;
+    }
+  }
+
+  return null;
+}
+
+function getUserCount(SQL, dbPath) {
+  if (!fs.existsSync(dbPath)) return 0;
+  let db;
+  try {
+    db = new SQL.Database(fs.readFileSync(dbPath));
+    const rows = db.exec('SELECT COUNT(*) AS count FROM users');
+    if (!rows.length) return 0;
+    const count = rows[0].values[0]?.[0];
+    return Number.isFinite(Number(count)) ? Number(count) : 0;
+  } catch {
+    return 0;
+  } finally {
+    if (db) db.close();
+  }
+}
+
+function syncTokenSecretFromDataDir(targetDataDir, sourceDataDir) {
+  const targetFile = path.join(targetDataDir, 'token-secret');
+  const sourceFile = path.join(sourceDataDir, 'token-secret');
+  if (fs.existsSync(targetFile) || !fs.existsSync(sourceFile)) return;
+
+  fs.copyFileSync(sourceFile, targetFile);
+  tokenSecret = '';
 }
 
 class PersistentSqlJsDatabase {
@@ -243,7 +295,7 @@ function acquireDataStoreLock(dataDir) {
   for (;;) {
     try {
       const fd = fs.openSync(lockPath, 'wx');
-      fs.writeFileSync(fd, JSON.stringify({ pid: process.pid, created_at: formatDateTime(new Date()) }));
+      fs.writeFileSync(fd, JSON.stringify(createLockOwner(dataDir)));
       let released = false;
       return () => {
         if (released) return;
@@ -259,7 +311,7 @@ function acquireDataStoreLock(dataDir) {
       if (error.code !== 'EEXIST') throw error;
 
       const owner = readLockOwner(lockPath);
-      if (owner.pid && isProcessAlive(owner.pid)) {
+      if (isLockOwnerActive(owner, dataDir)) {
         throw new Error(`SQLite data directory is already in use by process ${owner.pid}: ${dataDir}`);
       }
 
@@ -272,11 +324,164 @@ function acquireDataStoreLock(dataDir) {
   }
 }
 
+function createLockOwner(dataDir) {
+  return {
+    app: LOCK_OWNER_APP,
+    pid: process.pid,
+    created_at: formatDateTime(new Date()),
+    data_dir: path.resolve(dataDir),
+    exec_path: process.execPath,
+    argv: process.argv,
+    process_started_at: new Date(Date.now() - process.uptime() * 1000).toISOString()
+  };
+}
+
 function readLockOwner(lockPath) {
   try {
     return JSON.parse(fs.readFileSync(lockPath, 'utf8'));
   } catch {
     return {};
+  }
+}
+
+function isLockOwnerActive(owner, dataDir) {
+  const pid = Number(owner?.pid || 0);
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  if (!isProcessAlive(pid)) return false;
+
+  const processInfo = readProcessInfo(pid);
+  if (!processInfo) return true;
+
+  if (owner.data_dir && path.resolve(owner.data_dir) !== path.resolve(dataDir)) {
+    return false;
+  }
+
+  if (hasLockOwnerIdentity(owner)) {
+    return processMatchesLockOwner(owner, processInfo);
+  }
+
+  return processCouldOwnLegacyLock(owner, processInfo);
+}
+
+function hasLockOwnerIdentity(owner) {
+  return Boolean(
+    owner?.app
+    || owner?.process_started_at
+    || owner?.exec_path
+    || Array.isArray(owner?.argv)
+  );
+}
+
+function processMatchesLockOwner(owner, processInfo) {
+  if (owner.app && owner.app !== LOCK_OWNER_APP) return false;
+  if (lockWasCreatedBeforeProcessStarted(owner.process_started_at, processInfo.startedAt)) return false;
+
+  const ownerExec = normalizeProcessText(owner.exec_path);
+  const actualExec = normalizeProcessText(processInfo.executablePath);
+  if (ownerExec && actualExec && ownerExec !== actualExec) return false;
+
+  const commandLine = normalizeProcessText(processInfo.commandLine);
+  const ownerArgs = Array.isArray(owner.argv) ? owner.argv.map(normalizeProcessText).filter(Boolean) : [];
+  const strongArgs = ownerArgs.slice(1).filter((arg) => (
+    path.isAbsolute(arg)
+    || arg.includes('.asar')
+    || arg.endsWith('.js')
+    || arg.includes('src\\server\\index.js')
+  ));
+
+  if (commandLine && strongArgs.length && !strongArgs.some((arg) => commandLine.includes(arg))) {
+    return false;
+  }
+
+  return true;
+}
+
+function processCouldOwnLegacyLock(owner, processInfo) {
+  if (lockWasCreatedBeforeProcessStarted(owner?.created_at, processInfo.startedAt)) return false;
+
+  const processText = normalizeProcessText([
+    processInfo.name,
+    processInfo.executablePath,
+    processInfo.commandLine
+  ].filter(Boolean).join(' '));
+
+  return /(^|[\\\s"'])(node|electron|music|musiq|xcloud)(\.exe)?($|[\\\s"'])/.test(processText);
+}
+
+function lockWasCreatedBeforeProcessStarted(lockTime, processStartedAt) {
+  const lockTimeMs = parseLockTime(lockTime);
+  const processStartedMs = Date.parse(processStartedAt || '');
+  return Number.isFinite(lockTimeMs)
+    && Number.isFinite(processStartedMs)
+    && processStartedMs - lockTimeMs > LOCK_TIME_TOLERANCE_MS;
+}
+
+function parseLockTime(value) {
+  if (!value) return Number.NaN;
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$/);
+  if (match) {
+    const [, year, month, day, hour, minute, second] = match.map(Number);
+    return new Date(year, month - 1, day, hour, minute, second).getTime();
+  }
+  return Date.parse(value);
+}
+
+function normalizeProcessText(value) {
+  return String(value || '').replace(/\0/g, ' ').replace(/\//g, '\\').toLowerCase();
+}
+
+function readProcessInfo(pid) {
+  if (process.platform === 'win32') return readWindowsProcessInfo(pid);
+  return readProcProcessInfo(pid);
+}
+
+function readWindowsProcessInfo(pid) {
+  const script = [
+    `$p = Get-CimInstance Win32_Process -Filter "ProcessId = ${Number(pid)}"`,
+    'if ($p) {',
+    '  [pscustomobject]@{',
+    '    Name = $p.Name',
+    '    ExecutablePath = $p.ExecutablePath',
+    '    CommandLine = $p.CommandLine',
+    "    StartedAt = if ($p.CreationDate) { $p.CreationDate.ToUniversalTime().ToString('o') } else { $null }",
+    '  } | ConvertTo-Json -Compress',
+    '}'
+  ].join('\n');
+
+  try {
+    const output = childProcess.execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8',
+      timeout: 3_000,
+      windowsHide: true
+    }).trim().replace(/^\uFEFF/, '');
+    if (!output) return null;
+    const info = JSON.parse(output);
+    return {
+      name: info.Name || '',
+      executablePath: info.ExecutablePath || '',
+      commandLine: info.CommandLine || '',
+      startedAt: info.StartedAt || ''
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readProcProcessInfo(pid) {
+  try {
+    const procDir = path.join('/proc', String(pid));
+    const commandLine = fs.readFileSync(path.join(procDir, 'cmdline'), 'utf8').replace(/\0/g, ' ').trim();
+    let executablePath = '';
+    let name = '';
+    try {
+      executablePath = fs.readlinkSync(path.join(procDir, 'exe'));
+      name = path.basename(executablePath);
+    } catch {
+      name = fs.readFileSync(path.join(procDir, 'comm'), 'utf8').trim();
+    }
+    return { name, executablePath, commandLine, startedAt: '' };
+  } catch {
+    return null;
   }
 }
 
@@ -389,8 +594,14 @@ function initDb(db) {
       downloaded_at INTEGER DEFAULT NULL,
       UNIQUE(song_id, source)
     );
-  `);
 
+    CREATE TABLE IF NOT EXISTS user_sync_state (
+      user_id INTEGER PRIMARY KEY,
+      queue_json TEXT DEFAULT '[]',
+      client_state_json TEXT DEFAULT '{}',
+      updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+    );
+  `);
   const now = formatDateTime(new Date());
   const insertStatus = db.prepare(`
     INSERT OR IGNORE INTO api_status (source, name, search, play, last_check)
@@ -477,7 +688,8 @@ function userWithCollections(db, userId) {
   return {
     ...user,
     favorites: getUserFavorites(db, userId),
-    playlists: getUserPlaylistsObject(db, userId)
+    playlists: getUserPlaylistsObject(db, userId),
+    sync_state: getUserSyncState(db, userId)
   };
 }
 
@@ -519,6 +731,57 @@ function getUserPlaylistsArray(db, userId) {
     songs,
     song_count: songs.length
   }));
+}
+
+function getUserSyncState(db, userId) {
+  const row = db.prepare(`
+    SELECT queue_json, client_state_json, updated_at
+    FROM user_sync_state
+    WHERE user_id = ?
+  `).get(userId);
+
+  if (!row) {
+    return {
+      queue: [],
+      client_state: {},
+      updated_at: 0
+    };
+  }
+
+  return {
+    queue: parseJson(row.queue_json, []),
+    client_state: parseJson(row.client_state_json, {}),
+    updated_at: Number(row.updated_at || 0)
+  };
+}
+
+function setUserSyncState(db, userId, { queue, client_state: clientState } = {}) {
+  const current = getUserSyncState(db, userId);
+  const nextQueue = Array.isArray(queue) ? queue : current.queue;
+  const nextClientState = clientState && typeof clientState === 'object' && !Array.isArray(clientState)
+    ? clientState
+    : current.client_state;
+  const updatedAt = Math.floor(Date.now() / 1000);
+
+  db.prepare(`
+    INSERT INTO user_sync_state (user_id, queue_json, client_state_json, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      queue_json = excluded.queue_json,
+      client_state_json = excluded.client_state_json,
+      updated_at = excluded.updated_at
+  `).run(
+    Number(userId),
+    JSON.stringify(nextQueue),
+    JSON.stringify(nextClientState),
+    updatedAt
+  );
+
+  return {
+    queue: nextQueue,
+    client_state: nextClientState,
+    updated_at: updatedAt
+  };
 }
 
 function ensurePlaylist(db, userId, name) {
@@ -595,6 +858,8 @@ module.exports = {
   getUserFavorites,
   getUserPlaylistsObject,
   getUserPlaylistsArray,
+  getUserSyncState,
+  setUserSyncState,
   ensurePlaylist,
   songFromBody,
   insertPlaylistSong,

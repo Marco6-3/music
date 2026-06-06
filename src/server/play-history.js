@@ -1,5 +1,7 @@
 'use strict';
 
+const MAX_HISTORY_ROWS_PER_USER = 200;
+
 const TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS play_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,6 +36,7 @@ function recordPlay(db, userId, song) {
     String(song.album || ''),
     String(song.pic_id || '')
   );
+  pruneHistory(db, userId);
 }
 
 function getRecentPlays(db, userId, limit = 50) {
@@ -70,11 +73,76 @@ function clearHistory(db, userId) {
   db.prepare('DELETE FROM play_history WHERE user_id = ?').run(Number(userId));
 }
 
-function registerPlayHistory(app, db) {
+function replaceRecentPlays(db, userId, songs, limit = MAX_HISTORY_ROWS_PER_USER) {
+  const normalized = normalizeHistorySongs(songs).slice(0, Math.min(Number(limit) || MAX_HISTORY_ROWS_PER_USER, MAX_HISTORY_ROWS_PER_USER));
+  db.prepare('DELETE FROM play_history WHERE user_id = ?').run(Number(userId));
+  const insert = db.prepare(`
+    INSERT INTO play_history (user_id, song_id, source, name, artist, album, pic_id, played_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const now = Math.floor(Date.now() / 1000);
+  normalized.forEach((song, index) => {
+    insert.run(
+      Number(userId),
+      song.id,
+      song.source,
+      song.name,
+      song.artist,
+      song.album,
+      song.pic_id,
+      Number(song.played_at || 0) || now - index
+    );
+  });
+}
+
+function normalizeHistorySongs(songs) {
+  const seen = new Set();
+  const result = [];
+  for (const raw of Array.isArray(songs) ? songs : []) {
+    const id = String(raw.id || raw.song_id || '').trim();
+    const source = String(raw.source || 'netease').trim() || 'netease';
+    if (!id) continue;
+    const key = `${source}:${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({
+      id,
+      source,
+      name: String(raw.name || raw.song_name || raw.song_title || raw.title || ''),
+      artist: normalizeArtist(raw.artist || raw.song_artist),
+      album: String(raw.album || ''),
+      pic_id: String(raw.pic_id || raw.song_cover || raw.pic || ''),
+      played_at: Number(raw.played_at || raw.last_played || 0)
+    });
+  }
+  return result;
+}
+
+function normalizeArtist(value) {
+  if (Array.isArray(value)) return value.join(', ');
+  return String(value || '');
+}
+
+function pruneHistory(db, userId, limit = MAX_HISTORY_ROWS_PER_USER) {
+  db.prepare(`
+    DELETE FROM play_history
+    WHERE user_id = ?
+      AND id NOT IN (
+        SELECT id
+        FROM play_history
+        WHERE user_id = ?
+        ORDER BY played_at DESC, id DESC
+        LIMIT ?
+      )
+  `).run(Number(userId), Number(userId), Math.min(Number(limit) || MAX_HISTORY_ROWS_PER_USER, MAX_HISTORY_ROWS_PER_USER));
+}
+
+function registerPlayHistory(app, db, authMiddleware = null) {
   initPlayHistory(db);
 
-  app.post('/php/play_history.php', (req, res) => {
-    const userId = Number(req.body.user_id || 0);
+  const middlewares = authMiddleware ? [authMiddleware] : [];
+  app.post('/php/play_history.php', ...middlewares, (req, res) => {
+    const userId = Number(req.authUserId || req.body.user_id || 0);
     if (!userId) return res.json({ success: false, message: '缺少用户ID' });
 
     const action = String(req.body.action || 'record');
@@ -114,5 +182,6 @@ module.exports = {
   getRecentPlays,
   getDailyTop,
   clearHistory,
+  replaceRecentPlays,
   registerPlayHistory
 };

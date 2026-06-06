@@ -17,6 +17,8 @@
     "pwa:check": "node scripts/check-pwa.js",
     "probe:sources": "node scripts/probe-music-sources.js",
     "probe:backend": "node scripts/probe-backend.js",
+    "sync:export-user": "node scripts/export-user-sync.js",
+    "sync:import-user": "node scripts/import-user-sync.js",
     "qa:electron": "node scripts/qa-electron.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --dir",

@@ -8,6 +8,7 @@ webroot/uploads/
 php-backend-source/data/
 php-backend-source/uploads/
 .claude/
+AGENTS.local.md
 ALL_SOURCE.md
 *.log
 npm-debug.log*

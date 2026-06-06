@@ -33,11 +33,11 @@ function checkManifest() {
     expect(Boolean(manifest[field]), `manifest missing ${field}`);
   }
   expect(manifest.display === 'standalone', 'manifest display must be standalone');
-  expect(manifest.id === '/?app=musiq-pwa', 'manifest id must be fixed to /?app=musiq-pwa');
+  expect(manifest.id === '/?app=music-pwa', 'manifest id must be fixed to /?app=music-pwa');
   expect(manifest.start_url === '/?source=pwa', 'manifest start_url must be canonical PWA URL');
   expect(manifest.scope === '/', 'manifest scope must be /');
-  expect(manifest.name === 'musiQ', 'manifest name must be musiQ');
-  expect(manifest.short_name === 'musiQ', 'manifest short_name must be musiQ');
+  expect(manifest.name === 'music', 'manifest name must be music');
+  expect(manifest.short_name === 'music', 'manifest short_name must be music');
   expect(Array.isArray(manifest.icons), 'manifest icons must be an array');
   const iconSizes = (manifest.icons || []).flatMap((icon) => String(icon.sizes || '').split(/\s+/));
   expect(iconSizes.includes('192x192'), 'manifest missing 192x192 icon');

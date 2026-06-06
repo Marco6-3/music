@@ -99,7 +99,8 @@ async function createWindows() {
   if (useLocalBackend && !localBackend) {
     localBackend = await startLocalBackend({
       preferredPort: localBackendPort,
-      dataDir: path.join(app.getPath('userData'), 'server-data')
+      dataDir: path.join(app.getPath('userData'), 'server-data'),
+      migrateFromDataDir: path.join(__dirname, '..', 'data')
     });
     console.log(`[desktop] backend ready in ${elapsedMs(appStartedAt)}ms at ${localBackend.url}`);
   }

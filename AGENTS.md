@@ -16,6 +16,14 @@
 - Database: `sql.js` WASM SQLite. Do not restore `better-sqlite3`, native SQLite rebuilds, or Electron ABI workarounds.
 - Web/PWA mode must use HTTPS deployment for iPhone; keep Electron APIs behind feature detection and out of browser-only paths.
 
+## Cloud Server Notes
+
+- Cloud-server details for this workstation are local-only and must not be pushed to GitHub.
+- Put hostnames, usernames, SSH ports, deployment paths, sudo passwords, API tokens, and any other sensitive values in `AGENTS.local.md`.
+- `AGENTS.local.md` is intentionally ignored by git. Read it only when a task explicitly requires deployment or server access.
+- Do not paste secrets from `AGENTS.local.md` into commits, pull requests, issue comments, logs, screenshots, or chat summaries.
+- If deployment instructions change but do not include secrets, document the reusable procedure here and keep the secret values in `AGENTS.local.md`.
+
 ## Common Commands
 
 ```powershell

@@ -102,7 +102,7 @@
         if (readLocal(storageKeys.updateDismissed) === CACHE_BUST_KEY()) return;
         showNotice({
             id: 'pwa-update-notice',
-            message: `musiQ 有新版本可用：${appVersion}`,
+            message: `music 有新版本可用：${appVersion}`,
             actionText: '刷新',
             onAction: () => {
                 worker?.postMessage({ type: 'SKIP_WAITING' });
@@ -119,8 +119,8 @@
         showNotice({
             id: 'pwa-version-notice',
             message: seenVersion
-                ? `musiQ 已更新到 ${appVersion}`
-                : `musiQ 当前版本 ${appVersion}`,
+                ? `music 已更新到 ${appVersion}`
+                : `music 当前版本 ${appVersion}`,
             actionText: '知道了',
             onAction: () => writeLocal(storageKeys.versionSeen, appVersion),
             onClose: () => writeLocal(storageKeys.versionSeen, appVersion),
@@ -167,7 +167,7 @@
 
         showNotice({
             id: 'pwa-in-app-browser-notice',
-            message: '当前在支付宝/微信等内置浏览器中，musiQ 会禁止播放以避免 iOS 锁屏入口回到错误 App。请复制链接到 Safari 并添加到主屏幕。',
+            message: '当前在支付宝/微信等内置浏览器中，music 会禁止播放以避免 iOS 锁屏入口回到错误 App。请复制链接到 Safari 并添加到主屏幕。',
             actionText: '知道了',
             onAction: () => writeLocal(storageKeys.inAppNoticeDismissed, '1'),
             onClose: () => writeLocal(storageKeys.inAppNoticeDismissed, '1'),
@@ -181,7 +181,7 @@
 
         showNotice({
             id: 'pwa-reinstall-notice',
-            message: '建议删除旧图标后从 Safari 重新添加 musiQ 到主屏幕。',
+            message: '建议删除旧图标后从 Safari 重新添加 music 到主屏幕。',
             actionText: '知道了',
             onAction: () => writeLocal(storageKeys.reinstallNoticeDismissed, '1'),
             onClose: () => writeLocal(storageKeys.reinstallNoticeDismissed, '1'),

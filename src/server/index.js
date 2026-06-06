@@ -30,6 +30,7 @@ const {
 } = require('./database');
 const { createDefaultDispatcher } = require('./source-providers');
 const { registerPlayHistory } = require('./play-history');
+const { syncUserData } = require('./user-sync');
 const { startMonitoring } = require('./api-monitor');
 const { OfflineMusicCache, offlineAudioUrl } = require('./offline-cache');
 const { musicSources } = require('../config');
@@ -37,6 +38,62 @@ const { musicSources } = require('../config');
 const projectRoot = path.resolve(__dirname, '../..');
 const webroot = resolveWebroot();
 const MUSIC_API_CACHE_VERSION = 'music-api-v3';
+const AUTH_BODY_LIMIT_BYTES = 32 * 1024;
+const SYNC_BODY_LIMIT_BYTES = 512 * 1024;
+const LOGIN_FAILURE_MAX = 6;
+const LOGIN_FAILURE_WINDOW_MS = 15 * 60_000;
+const LOGIN_LOCK_MS = 15 * 60_000;
+const VERIFICATION_FAILURE_MAX = 5;
+const VERIFICATION_FAILURE_WINDOW_MS = 10 * 60_000;
+const VERIFICATION_LOCK_MS = 10 * 60_000;
+const GENERIC_LOGIN_ERROR = '用户名或密码错误';
+const GENERIC_CODE_SENT_MESSAGE = '如果账号可以接收验证码，验证码已发送';
+const GENERIC_CODE_ERROR = '验证码错误或已过期';
+const PASSWORD_POLICY_MESSAGE = '密码长度需在8-128位之间，且不能使用常见弱密码';
+const AUTH_ENDPOINTS = new Set([
+  '/php/register_verification.php',
+  '/php/register.php',
+  '/php/login.php',
+  '/php/logout.php',
+  '/php/verify_token.php',
+  '/php/verify_email.php',
+  '/php/forgot_password.php',
+  '/php/change_password.php'
+]);
+const PROTECTED_USER_ENDPOINTS = new Set([
+  '/php/verify_email.php',
+  '/php/change_password.php',
+  '/php/update_avatar.php',
+  '/php/favorite.php',
+  '/php/get_favorites.php',
+  '/php/sync_favorites.php',
+  '/php/sync_bundle.php',
+  '/php/playlist.php',
+  '/php/get_playlists.php',
+  '/php/get_playlist_id.php',
+  '/php/rename_playlist.php',
+  '/php/sync_playlists.php',
+  '/php/play_history.php'
+]);
+const COMMON_PASSWORDS = new Set([
+  '000000',
+  '111111',
+  '112233',
+  '123123',
+  '123456',
+  '1234567',
+  '12345678',
+  '123456789',
+  '1234567890',
+  'abc123',
+  'admin123',
+  'iloveyou',
+  'password',
+  'password1',
+  'qwerty',
+  'qwerty123'
+]);
+const DUMMY_PASSWORD_HASH = hashPassword('dummy-password-for-auth-timing');
 
 // In-memory LRU cache for hot API responses (search, url, lyric)
 const memCache = new Map();
@@ -83,7 +140,7 @@ function envValue(...names) {
   return '';
 }
 
-async function startLocalBackend({ preferredPort = 41731, host, dataDir, musicSourceConfig } = {}) {
+async function startLocalBackend({ preferredPort = 41731, host, dataDir, musicSourceConfig, migrateFromDataDir = '' } = {}) {
   const resolvedPort = Number(envValue('MUSIC_PORT', 'MUSIQ_PORT', 'PORT') || preferredPort) || preferredPort;
   const resolvedHost = host || envValue('MUSIC_HOST', 'MUSIQ_HOST') || '127.0.0.1';
   const resolvedDataDir = dataDir || envValue('MUSIC_DATA_DIR', 'MUSIQ_DATA_DIR', 'XCLOUD_DATA_DIR') || path.join(projectRoot, 'data');
@@ -97,7 +154,7 @@ async function startLocalBackend({ preferredPort = 41731, host, dataDir, musicSo
   const pruneTimer = setInterval(() => pruneCacheDirAsync(cacheDir), 10 * 60 * 1000);
   if (pruneTimer.unref) pruneTimer.unref();
 
-  const store = await createDataStore(resolvedDataDir);
+  const store = await createDataStore(resolvedDataDir, { migrateFromDataDir });
   const dispatcher = createDefaultDispatcher(musicSourceConfig || musicSources);
   const offlineCache = new OfflineMusicCache({ db: store.db, dataDir: resolvedDataDir, dispatcher });
   offlineCache.scheduleSync(500);
@@ -127,11 +184,34 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
   const db = store.db;
   const upload = createUploadMiddleware(uploadsDir);
   const parseForm = upload.none();
-  const loginLimiter = createRateLimiter({ windowMs: 60_000, max: 12 });
-  const codeLimiter = createRateLimiter({ windowMs: 60_000, max: 5 });
+  const loginIpLimiter = createRateLimiter({ windowMs: 60_000, max: 10 });
+  const loginSubjectLimiter = createRateLimiter({
+    windowMs: LOGIN_FAILURE_WINDOW_MS,
+    max: 30,
+    keyGenerator: (req) => `login:${normalizeAuthIdentifier(req.body?.username) || clientKey(req)}`
+  });
+  const codeIpLimiter = createRateLimiter({ windowMs: 60_000, max: 8 });
+  const codeSubjectLimiter = createRateLimiter({
+    windowMs: VERIFICATION_FAILURE_WINDOW_MS,
+    max: 3,
+    message: '验证码请求过于频繁，请稍后再试',
+    keyGenerator: (req) => `code:${normalizeEmail(req.body?.email) || normalizeAuthIdentifier(req.body?.user_id) || clientKey(req)}`
+  });
+  const loginFailures = createFailureTracker({
+    windowMs: LOGIN_FAILURE_WINDOW_MS,
+    max: LOGIN_FAILURE_MAX,
+    lockMs: LOGIN_LOCK_MS
+  });
+  const verificationFailures = createFailureTracker({
+    windowMs: VERIFICATION_FAILURE_WINDOW_MS,
+    max: VERIFICATION_FAILURE_MAX,
+    lockMs: VERIFICATION_LOCK_MS
+  });
 
+  app.set('trust proxy', 'loopback');
   app.disable('x-powered-by');
   app.use((req, res, next) => {
+    setSecurityHeaders(req, res);
     res.setHeader('Access-Control-Allow-Origin', envValue('MUSIC_CORS_ORIGIN', 'MUSIQ_CORS_ORIGIN') || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
@@ -142,6 +222,7 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
     }
     next();
   });
+  app.use(rejectOversizedAuthPayload);
   app.use(express.json({ limit: '12mb' }));
   app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 
@@ -183,31 +264,33 @@ function createExpressApp({ store, uploadsDir, cacheDir, dispatcher = createDefa
   app.get('/php/toplist.php', (req, res) => handleToplist(req, res, cacheDir, dispatcher));
   app.get('/php/get_netease_playlist.php', (req, res) => handleNeteasePlaylist(req, res));
 
-  app.post('/php/register_verification.php', codeLimiter, parseForm, (req, res) => handleRegisterVerification(db, store.dataDir, req, res));
-  app.post('/php/register.php', loginLimiter, parseForm, (req, res) => handleRegister(db, req, res));
-  app.post('/php/login.php', loginLimiter, parseForm, (req, res) => handleLogin(db, req, res));
+  app.post('/php/register_verification.php', codeIpLimiter, parseForm, codeSubjectLimiter, (req, res) => handleRegisterVerification(db, store.dataDir, req, res, { verificationFailures }));
+  app.post('/php/register.php', loginIpLimiter, parseForm, (req, res) => handleRegister(db, req, res, { verificationFailures }));
+  app.post('/php/login.php', loginIpLimiter, parseForm, loginSubjectLimiter, (req, res) => handleLogin(db, req, res, { loginFailures }));
   app.post('/php/logout.php', parseForm, (_req, res) => res.json({ success: true, message: '已安全退出登录' }));
   app.post('/php/verify_token.php', parseForm, (req, res) => handleVerifyToken(db, req, res));
-  app.post('/php/verify_email.php', codeLimiter, parseForm, (req, res) => handleVerifyEmail(db, store.dataDir, req, res));
-  app.post('/php/forgot_password.php', codeLimiter, parseForm, (req, res) => handleForgotPassword(db, store.dataDir, req, res));
-  app.post('/php/change_password.php', loginLimiter, parseForm, (req, res) => handleChangePassword(db, req, res));
-  app.post('/php/update_avatar.php', upload.single('avatar'), (req, res) => handleUpdateAvatar(db, req, res));
-  app.post('/php/favorite.php', parseForm, (req, res) => handleFavorite(db, req, res));
-  app.post('/php/get_favorites.php', parseForm, (req, res) => handleGetFavorites(db, req, res));
-  app.post('/php/sync_favorites.php', parseForm, (req, res) => handleSyncFavorites(db, req, res));
-  app.post('/php/playlist.php', parseForm, (req, res) => handlePlaylist(db, req, res, offlineCache));
-  app.post('/php/get_playlists.php', parseForm, (req, res) => handleGetPlaylists(db, req, res));
-  app.post('/php/get_playlist_id.php', parseForm, (req, res) => handleGetPlaylistId(db, req, res));
-  app.post('/php/rename_playlist.php', parseForm, (req, res) => handleRenamePlaylist(db, req, res));
-  app.post('/php/sync_playlists.php', parseForm, (req, res) => handleSyncPlaylists(db, req, res, offlineCache));
-  registerPlayHistory(app, db);
+  app.post('/php/verify_email.php', codeIpLimiter, parseForm, requireUserAuth(db), (req, res) => handleVerifyEmail(db, store.dataDir, req, res, { verificationFailures }));
+  app.post('/php/forgot_password.php', codeIpLimiter, parseForm, codeSubjectLimiter, (req, res) => handleForgotPassword(db, store.dataDir, req, res, { verificationFailures }));
+  app.post('/php/change_password.php', loginIpLimiter, parseForm, requireUserAuth(db), (req, res) => handleChangePassword(db, req, res));
+  app.post('/php/update_avatar.php', upload.single('avatar'), requireUserAuth(db), (req, res) => handleUpdateAvatar(db, req, res));
+  app.post('/php/favorite.php', parseForm, requireUserAuth(db), (req, res) => handleFavorite(db, req, res));
+  app.post('/php/get_favorites.php', parseForm, requireUserAuth(db), (req, res) => handleGetFavorites(db, req, res));
+  app.post('/php/sync_favorites.php', parseForm, requireUserAuth(db), (req, res) => handleSyncFavorites(db, req, res));
+  app.post('/php/sync_bundle.php', parseForm, requireUserAuth(db), (req, res) => handleSyncBundle(db, req, res, offlineCache));
+  app.post('/php/playlist.php', parseForm, requireUserAuth(db), (req, res) => handlePlaylist(db, req, res, offlineCache));
+  app.post('/php/get_playlists.php', parseForm, requireUserAuth(db), (req, res) => handleGetPlaylists(db, req, res));
+  app.post('/php/get_playlist_id.php', parseForm, requireUserAuth(db), (req, res) => handleGetPlaylistId(db, req, res));
+  app.post('/php/rename_playlist.php', parseForm, requireUserAuth(db), (req, res) => handleRenamePlaylist(db, req, res));
+  app.post('/php/sync_playlists.php', parseForm, requireUserAuth(db), (req, res) => handleSyncPlaylists(db, req, res, offlineCache));
+  registerPlayHistory(app, db, requireUserAuth(db));
 
   app.use((req, res) => {
     res.status(404).json({ success: false, message: `Not found: ${req.path}` });
   });
   app.use((error, _req, res, _next) => {
     console.error('[express-backend]', error);
-    res.status(500).json({ success: false, message: error.message || '服务器错误' });
+    const message = process.env.NODE_ENV === 'production' ? '服务器错误' : (error.message || '服务器错误');
+    res.status(500).json({ success: false, message });
   });
 
   return app;
@@ -246,16 +329,74 @@ function extensionFromFile(file) {
   return file.mimetype === 'image/png' ? '.png' : '.jpg';
 }
 
-function createRateLimiter({ windowMs, max }) {
+function setSecurityHeaders(req, res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (AUTH_ENDPOINTS.has(req.path) || PROTECTED_USER_ENDPOINTS.has(req.path)) {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+  }
+}
+
+function rejectOversizedAuthPayload(req, res, next) {
+  if (AUTH_ENDPOINTS.has(req.path) || PROTECTED_USER_ENDPOINTS.has(req.path)) {
+    const contentLength = Number(req.headers['content-length'] || 0);
+    const limit = req.path === '/php/sync_bundle.php' ? SYNC_BODY_LIMIT_BYTES : AUTH_BODY_LIMIT_BYTES;
+    if (contentLength > limit) {
+      res.status(413).json({ success: false, message: '请求体过大' });
+      return;
+    }
+  }
+  next();
+}
+
+function requireUserAuth(db) {
+  return (req, res, next) => {
+    const token = tokenFromRequest(req);
+    const uid = token ? verifyToken(token) : null;
+    const requestedUserId = Number(req.body?.user_id || 0);
+    if (!uid || (requestedUserId && requestedUserId !== Number(uid))) {
+      cleanupUploadedFile(req);
+      res.status(401).json({ success: false, message: '登录已过期，请重新登录' });
+      return;
+    }
+
+    const user = publicUser(db, uid);
+    if (!user) {
+      cleanupUploadedFile(req);
+      res.status(401).json({ success: false, message: '登录已过期，请重新登录' });
+      return;
+    }
+
+    req.authUserId = uid;
+    req.authUser = user;
+    req.body.user_id = String(uid);
+    next();
+  };
+}
+
+function tokenFromRequest(req) {
+  const header = String(req.headers.authorization || '');
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return stringValue(req.body?.token || (match ? match[1] : ''));
+}
+
+function cleanupUploadedFile(req) {
+  if (!req.file?.path) return;
+  fs.unlink(req.file.path, () => {});
+}
+
+function createRateLimiter({ windowMs, max, keyGenerator = clientKey, message = '请求过于频繁，请稍后再试' }) {
   const hits = new Map();
   let lastCleanup = Date.now();
 
   return (req, res, next) => {
     const now = Date.now();
-    const key = `${req.ip || req.socket.remoteAddress || 'local'}:${req.path}`;
+    const key = `${req.path}:${safeRateLimitKey(req, keyGenerator)}`;
     const record = hits.get(key);
 
-    // Clean expired entries periodically (every 5 minutes)
     if (now - lastCleanup > 300_000) {
       lastCleanup = now;
       for (const [k, v] of hits) {
@@ -271,7 +412,8 @@ function createRateLimiter({ windowMs, max }) {
 
     record.count += 1;
     if (record.count > max) {
-      res.status(429).json({ success: false, message: '请求过于频繁，请稍后再试' });
+      setRetryAfter(res, record.resetAt, now);
+      res.status(429).json({ success: false, message });
       return;
     }
 
@@ -279,13 +421,128 @@ function createRateLimiter({ windowMs, max }) {
   };
 }
 
-function handleRegisterVerification(db, dataDir, req, res) {
-  const email = stringValue(req.body.email);
+function clientKey(req) {
+  return String(req.ip || req.socket?.remoteAddress || 'local');
+}
+
+function safeRateLimitKey(req, keyGenerator) {
+  try {
+    const key = keyGenerator(req);
+    return normalizeAuthIdentifier(key) || clientKey(req);
+  } catch {
+    return clientKey(req);
+  }
+}
+
+function setRetryAfter(res, resetAt, now = Date.now()) {
+  res.setHeader('Retry-After', String(Math.max(1, Math.ceil((resetAt - now) / 1000))));
+}
+
+function createFailureTracker({ windowMs, max, lockMs }) {
+  const failures = new Map();
+
+  function cleanup(now) {
+    for (const [key, record] of failures) {
+      if ((record.lockedUntil && now > record.lockedUntil) || now > record.resetAt + lockMs) {
+        failures.delete(key);
+      }
+    }
+  }
+
+  return {
+    check(key) {
+      const now = Date.now();
+      cleanup(now);
+      const record = failures.get(key);
+      if (!record || !record.lockedUntil || now > record.lockedUntil) return null;
+      return record;
+    },
+    recordFailure(key) {
+      const now = Date.now();
+      cleanup(now);
+      const record = failures.get(key);
+      if (!record || now > record.resetAt) {
+        failures.set(key, { count: 1, resetAt: now + windowMs, lockedUntil: 0 });
+        return null;
+      }
+
+      record.count += 1;
+      if (record.count >= max) {
+        record.lockedUntil = now + lockMs;
+      }
+      return record.lockedUntil ? record : null;
+    },
+    reset(key) {
+      failures.delete(key);
+    }
+  };
+}
+
+function loginFailureKey(identifier) {
+  return `login:${normalizeEmail(identifier) || normalizeAuthIdentifier(identifier) || 'unknown'}`;
+}
+
+function verificationKey(purpose, identifier) {
+  return `${purpose}:${normalizeAuthIdentifier(identifier) || 'unknown'}`;
+}
+
+function lockedResponse(res, lock, message) {
+  setRetryAfter(res, lock.lockedUntil);
+  return res.status(429).json({ success: false, message });
+}
+
+function normalizeAuthIdentifier(value) {
+  return stringValue(value).toLowerCase().slice(0, 254);
+}
+
+function normalizeEmail(value) {
+  return stringValue(value).toLowerCase();
+}
+
+function normalizeVerificationCode(value) {
+  return stringValue(value).replace(/\s+/g, '');
+}
+
+function isVerificationCode(value) {
+  return /^\d{6}$/.test(String(value || ''));
+}
+
+function validateUsername(username) {
+  if (username.length < 3 || username.length > 30) {
+    return '用户名长度需在3-30位之间';
+  }
+  if (!/^[\p{L}\p{N}_-]+$/u.test(username)) {
+    return '用户名只能包含文字、数字、下划线或短横线';
+  }
+  return '';
+}
+
+function validateNewPassword(password, label = '密码') {
+  const message = label === '密码'
+    ? PASSWORD_POLICY_MESSAGE
+    : `${label}长度需在8-128位之间，且不能使用常见弱密码`;
+  if (password.length < 8 || password.length > 128) return message;
+  if (!password.trim()) return message;
+  if (COMMON_PASSWORDS.has(password.trim().toLowerCase())) return message;
+  return '';
+}
+
+function userByRecoveryEmail(db, email) {
+  if (!email) return null;
+  return db.prepare('SELECT id, verification_code, code_expires_at FROM users WHERE lower(email) = ? AND email_verified = 1').get(email);
+}
+
+function recoveryKey(email) {
+  return verificationKey('forgot_password', email);
+}
+
+function handleRegisterVerification(db, dataDir, req, res, { verificationFailures } = {}) {
+  const email = normalizeEmail(req.body.email);
   if (!isEmail(email)) return res.json({ success: false, message: '请填写正确的邮箱地址' });
 
-  const existing = db.prepare('SELECT id, email_verified FROM users WHERE email = ?').get(email);
+  const existing = db.prepare('SELECT id, email_verified FROM users WHERE lower(email) = ?').get(email);
   if (existing && existing.email_verified) {
-    return res.json({ success: false, message: '该邮箱已被注册' });
+    return res.json({ success: true, message: GENERIC_CODE_SENT_MESSAGE });
   }
 
   const code = generateCode();
@@ -300,36 +557,45 @@ function handleRegisterVerification(db, dataDir, req, res) {
     `).run(tempUsername, email, hashPassword(crypto.randomUUID()), code, expires);
   }
 
+  verificationFailures?.reset(verificationKey('register', email));
   logVerificationEmail(dataDir, email, code, 'register');
-  return res.json({ success: true, message: '验证码已发送' });
+  return res.json({ success: true, message: GENERIC_CODE_SENT_MESSAGE });
 }
 
-function handleRegister(db, req, res) {
+function handleRegister(db, req, res, { verificationFailures } = {}) {
   const username = stringValue(req.body.username);
-  const email = stringValue(req.body.email);
+  const email = normalizeEmail(req.body.email);
   const password = String(req.body.password || '');
-  const verificationCode = stringValue(req.body.verification_code);
+  const verificationCode = normalizeVerificationCode(req.body.verification_code);
 
   if (!username || !email || !password || !verificationCode) {
     return res.json({ success: false, message: '所有字段均为必填项' });
   }
-  if (username.length < 3 || username.length > 30) {
-    return res.json({ success: false, message: '用户名长度需在3-30位之间' });
+  const usernameError = validateUsername(username);
+  if (usernameError) {
+    return res.json({ success: false, message: usernameError });
   }
   if (!isEmail(email)) return res.json({ success: false, message: '邮箱格式不正确' });
-  if (password.length < 6) return res.json({ success: false, message: '密码长度不能少于6位' });
+  const passwordError = validateNewPassword(password);
+  if (passwordError) return res.json({ success: false, message: passwordError });
+  if (!isVerificationCode(verificationCode)) return res.json({ success: false, message: GENERIC_CODE_ERROR });
+
+  const key = verificationKey('register', email);
+  const lock = verificationFailures?.check(key);
+  if (lock) return lockedResponse(res, lock, '验证码错误次数过多，请稍后再试');
 
   const existing = db.prepare(`
-    SELECT id, verification_code, code_expires_at
+    SELECT id, verification_code, code_expires_at, email_verified
     FROM users
-    WHERE email = ?
+    WHERE lower(email) = ?
     ORDER BY id DESC
     LIMIT 1
   `).get(email);
 
-  if (!existing) return res.json({ success: false, message: '请先获取验证码' });
-  if (existing.verification_code !== verificationCode) return res.json({ success: false, message: '验证码错误' });
-  if (existing.code_expires_at < nowSeconds()) return res.json({ success: false, message: '验证码已过期，请重新获取' });
+  if (!existing || existing.email_verified || existing.verification_code !== verificationCode || existing.code_expires_at < nowSeconds()) {
+    verificationFailures?.recordFailure(key);
+    return res.json({ success: false, message: GENERIC_CODE_ERROR });
+  }
 
   try {
     db.prepare(`
@@ -344,34 +610,37 @@ function handleRegister(db, req, res) {
     throw error;
   }
 
+  verificationFailures?.reset(key);
   const user = userWithCollections(db, existing.id);
   return res.json({ success: true, token: generateToken(existing.id), user });
 }
 
-function handleLogin(db, req, res) {
+function handleLogin(db, req, res, { loginFailures } = {}) {
   const username = stringValue(req.body.username);
   const password = String(req.body.password || '');
   if (!username || !password) return res.json({ success: false, message: '用户名和密码不能为空' });
+  if (username.length > 254 || password.length > 128) {
+    loginFailures?.recordFailure(loginFailureKey(username));
+    return res.json({ success: false, message: GENERIC_LOGIN_ERROR });
+  }
+
+  const key = loginFailureKey(username);
+  const lock = loginFailures?.check(key);
+  if (lock) return lockedResponse(res, lock, '登录尝试过多，请稍后再试');
 
   const user = db.prepare(`
     SELECT id, username, email, password_hash, avatar, email_verified
     FROM users
-    WHERE username = ? OR email = ?
-  `).get(username, username);
+    WHERE username = ? OR lower(email) = ?
+  `).get(username, normalizeEmail(username));
+  const passwordOk = verifyPassword(password, user ? user.password_hash : DUMMY_PASSWORD_HASH);
 
-  if (!user || !verifyPassword(password, user.password_hash)) {
-    return res.json({ success: false, message: '用户名或密码错误' });
+  if (!user || !passwordOk || !user.email_verified) {
+    loginFailures?.recordFailure(key);
+    return res.json({ success: false, message: GENERIC_LOGIN_ERROR });
   }
 
-  if (!user.email_verified) {
-    return res.json({
-      success: true,
-      need_email_verification: true,
-      user_id: user.id,
-      email: user.email
-    });
-  }
-
+  loginFailures?.reset(key);
   return res.json({
     success: true,
     token: generateToken(user.id),
@@ -382,23 +651,25 @@ function handleLogin(db, req, res) {
 function handleVerifyToken(db, req, res) {
   const token = stringValue(req.body.token);
   const userId = Number(req.body.user_id || 0);
-  if (!token && !userId) return res.json({ success: false, message: '缺少认证信息' });
+  if (!token) return res.json({ success: false, message: '登录已过期，请重新登录' });
 
-  const uid = token ? verifyToken(token) : userId;
-  const finalUid = uid || userId;
+  const finalUid = verifyToken(token);
   if (!finalUid) return res.json({ success: false, message: '登录已过期，请重新登录' });
+  if (userId && Number(userId) !== Number(finalUid)) {
+    return res.json({ success: false, message: '登录已过期，请重新登录' });
+  }
 
   const user = userWithCollections(db, finalUid);
   if (!user) return res.json({ success: false, message: '用户不存在' });
   return res.json({ success: true, user });
 }
 
-function handleVerifyEmail(db, dataDir, req, res) {
+function handleVerifyEmail(db, dataDir, req, res, { verificationFailures } = {}) {
   const action = stringValue(req.body.action);
   if (action === 'send_code') {
     const userId = Number(req.body.user_id || 0);
-    const email = stringValue(req.body.email);
-    const tempEmail = stringValue(req.body.temp_email);
+    const email = normalizeEmail(req.body.email);
+    const tempEmail = normalizeEmail(req.body.temp_email);
     if (!userId) return res.json({ success: false, message: '缺少用户ID' });
 
     const user = db.prepare('SELECT email FROM users WHERE id = ?').get(userId);
@@ -409,55 +680,76 @@ function handleVerifyEmail(db, dataDir, req, res) {
 
     const code = generateCode();
     db.prepare('UPDATE users SET verification_code = ?, code_expires_at = ? WHERE id = ?').run(code, nowSeconds() + CODE_EXPIRY_SECONDS, userId);
+    verificationFailures?.reset(verificationKey('verify_email', userId));
     logVerificationEmail(dataDir, targetEmail, code, 'verify_email');
     return res.json({ success: true, message: '验证码已发送' });
   }
 
   if (action === 'verify' || action === 'verify_code') {
     const userId = Number(req.body.user_id || 0);
-    const code = stringValue(req.body.code);
+    const code = normalizeVerificationCode(req.body.code);
     if (!userId || !code) return res.json({ success: false, message: '缺少必要参数' });
+    if (!isVerificationCode(code)) return res.json({ success: false, message: GENERIC_CODE_ERROR });
+
+    const key = verificationKey('verify_email', userId);
+    const lock = verificationFailures?.check(key);
+    if (lock) return lockedResponse(res, lock, '验证码错误次数过多，请稍后再试');
 
     const user = db.prepare('SELECT verification_code, code_expires_at FROM users WHERE id = ?').get(userId);
-    if (!user) return res.json({ success: false, message: '用户不存在' });
-    if (user.verification_code !== code) return res.json({ success: false, message: '验证码错误' });
-    if (user.code_expires_at < nowSeconds()) return res.json({ success: false, message: '验证码已过期' });
+    if (!user || user.verification_code !== code || user.code_expires_at < nowSeconds()) {
+      verificationFailures?.recordFailure(key);
+      return res.json({ success: false, message: GENERIC_CODE_ERROR });
+    }
 
     db.prepare('UPDATE users SET email_verified = 1, verification_code = NULL, code_expires_at = NULL WHERE id = ?').run(userId);
+    verificationFailures?.reset(key);
     return res.json({ success: true, message: '邮箱验证成功' });
   }
 
   return res.json({ success: false, message: '未知操作' });
 }
 
-function handleForgotPassword(db, dataDir, req, res) {
+function handleForgotPassword(db, dataDir, req, res, { verificationFailures } = {}) {
   const action = stringValue(req.body.action);
   if (action === 'send_code') {
-    const email = stringValue(req.body.email);
-    if (!isEmail(email)) return res.json({ success: false, message: '请填写正确的邮箱地址' });
+    const email = normalizeEmail(req.body.email);
+    if (email && !isEmail(email)) return res.json({ success: false, message: '邮箱格式不正确' });
+    if (req.body.phone) return res.json({ success: false, message: '当前仅支持邮箱验证码' });
+    if (!email) return res.json({ success: false, message: '请填写邮箱' });
 
-    const user = db.prepare('SELECT id FROM users WHERE email = ? AND email_verified = 1').get(email);
-    if (!user) return res.json({ success: false, message: '该邮箱未注册或未验证' });
+    const user = db.prepare('SELECT id FROM users WHERE lower(email) = ? AND email_verified = 1').get(email);
+    if (!user) return res.json({ success: true, message: GENERIC_CODE_SENT_MESSAGE });
 
     const code = generateCode();
     db.prepare('UPDATE users SET verification_code = ?, code_expires_at = ? WHERE id = ?').run(code, nowSeconds() + CODE_EXPIRY_SECONDS, user.id);
+    verificationFailures?.reset(recoveryKey(email));
     logVerificationEmail(dataDir, email, code, 'forgot_password');
-    return res.json({ success: true, message: '验证码已发送' });
+    return res.json({ success: true, message: GENERIC_CODE_SENT_MESSAGE });
   }
 
   if (action === 'reset_password') {
-    const email = stringValue(req.body.email);
-    const code = stringValue(req.body.code);
+    const email = normalizeEmail(req.body.email);
+    const code = normalizeVerificationCode(req.body.code);
     const newPassword = String(req.body.new_password || '');
+    if (email && !isEmail(email)) return res.json({ success: false, message: '邮箱格式不正确' });
+    if (req.body.phone) return res.json({ success: false, message: '当前仅支持邮箱验证码' });
     if (!email || !code || !newPassword) return res.json({ success: false, message: '请填写所有必填项' });
-    if (newPassword.length < 6) return res.json({ success: false, message: '密码长度不能少于6位' });
+    const passwordError = validateNewPassword(newPassword);
+    if (passwordError) return res.json({ success: false, message: passwordError });
+    if (!isVerificationCode(code)) return res.json({ success: false, message: GENERIC_CODE_ERROR });
 
-    const user = db.prepare('SELECT id, verification_code, code_expires_at FROM users WHERE email = ?').get(email);
-    if (!user) return res.json({ success: false, message: '用户不存在' });
-    if (user.verification_code !== code) return res.json({ success: false, message: '验证码错误' });
-    if (user.code_expires_at < nowSeconds()) return res.json({ success: false, message: '验证码已过期' });
+    const key = recoveryKey(email);
+    const lock = verificationFailures?.check(key);
+    if (lock) return lockedResponse(res, lock, '验证码错误次数过多，请稍后再试');
+
+    const user = userByRecoveryEmail(db, email);
+    if (!user || user.verification_code !== code || user.code_expires_at < nowSeconds()) {
+      verificationFailures?.recordFailure(key);
+      return res.json({ success: false, message: GENERIC_CODE_ERROR });
+    }
 
     db.prepare('UPDATE users SET password_hash = ?, verification_code = NULL, code_expires_at = NULL WHERE id = ?').run(hashPassword(newPassword), user.id);
+    verificationFailures?.reset(key);
     return res.json({ success: true, message: '密码重置成功' });
   }
 
@@ -469,7 +761,9 @@ function handleChangePassword(db, req, res) {
   const currentPassword = String(req.body.current_password || '');
   const newPassword = String(req.body.new_password || '');
   if (!userId || !currentPassword || !newPassword) return res.json({ success: false, message: '请填写所有必填项' });
-  if (newPassword.length < 6) return res.json({ success: false, message: '新密码长度不能少于6位' });
+  const passwordError = validateNewPassword(newPassword, '新密码');
+  if (passwordError) return res.json({ success: false, message: passwordError });
+  if (currentPassword.length > 128) return res.json({ success: false, message: '当前密码错误' });
 
   const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId);
   if (!user || !verifyPassword(currentPassword, user.password_hash)) {
@@ -553,6 +847,28 @@ function handleSyncFavorites(db, req, res) {
 
   sync();
   return res.json({ success: true, message: '收藏同步成功' });
+}
+
+function handleSyncBundle(db, req, res, offlineCache) {
+  const userId = Number(req.body.user_id || 0);
+  if (!userId) return res.json({ success: false, message: '缺少用户ID' });
+
+  const payload = parseJson(req.body.payload || req.body.data || '{}', null);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return res.json({ success: false, message: '同步数据格式错误' });
+  }
+
+  const mode = stringValue(req.body.mode || req.body.action || 'merge') === 'replace' ? 'replace' : 'merge';
+  const synced = syncUserData(db, userId, payload, { mode });
+  scheduleOfflineSync(offlineCache);
+  return res.json({
+    success: true,
+    message: mode === 'replace' ? '云端数据已替换' : '云端数据已合并',
+    mode,
+    user: userWithCollections(db, userId),
+    recent_plays: synced.recent_plays,
+    sync_state: synced.sync_state
+  });
 }
 
 function handlePlaylist(db, req, res, offlineCache) {
@@ -1251,7 +1567,10 @@ function listen(server, preferredPort, host = '127.0.0.1') {
 function logVerificationEmail(dataDir, to, code, purpose) {
   const logFile = path.join(dataDir, 'email_log.txt');
   const line = `${formatDateTime(new Date())} | To: ${to} | Code: ${code} | Purpose: ${purpose}\n`;
-  fs.appendFileSync(logFile, line, 'utf8');
+  fs.appendFileSync(logFile, line, { encoding: 'utf8', mode: 0o600 });
+  try {
+    fs.chmodSync(logFile, 0o600);
+  } catch {}
 }
 
 function extractPlaylistId(value) {
@@ -1278,7 +1597,8 @@ function nowSeconds() {
 }
 
 function isEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
+  const email = String(value || '');
+  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 if (require.main === module) {
