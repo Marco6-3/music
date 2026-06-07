@@ -171,6 +171,10 @@ async function startLocalBackend({ preferredPort = 41731, host, dataDir, musicSo
   const dispatcher = createDefaultDispatcher(musicSourceConfig || musicSources);
   const offlineCache = new OfflineMusicCache({ db: store.db, dataDir: resolvedDataDir, dispatcher });
   offlineCache.scheduleSync(500);
+  // Repair stale metadata (wrong content_type / br) from previous downloads.
+  offlineCache.repairMetadata().catch((err) => {
+    console.warn('[offline-cache] metadata repair failed:', err.message);
+  });
   const app = createExpressApp({ store, uploadsDir, cacheDir, dispatcher, offlineCache });
   const stopMonitor = startMonitoring(store.db, dispatcher);
   const server = http.createServer(app);

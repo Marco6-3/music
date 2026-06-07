@@ -133,8 +133,8 @@ class OfflineMusicCache {
       }
     });
 
-    const contentType = response.headers['content-type'] || audio.contentType || 'audio/mpeg';
-    const ext = extensionFor(contentType, audio.url);
+    const reportedContentType = response.headers['content-type'] || audio.contentType || 'audio/mpeg';
+    const ext = extensionFor(reportedContentType, audio.url);
     const finalPath = path.join(this.audioDir, `${song.cache_key}${ext}`);
     const tempPath = `${finalPath}.tmp-${process.pid}-${Date.now()}`;
     await pipeline(response.data, fs.createWriteStream(tempPath));
@@ -148,13 +148,36 @@ class OfflineMusicCache {
       throw new Error('下载结果为空');
     }
 
-    await this._removeSiblingAudioFiles(song.cache_key, finalPath);
-    await fsp.rename(tempPath, finalPath);
+    // Detect actual audio format from file header (magic bytes) instead of
+    // trusting the API's Content-Type, which is often wrong.
+    const detected = await detectAudioFormat(tempPath);
+    const actualContentType = detected.contentType || reportedContentType;
+    const actualExt = detected.contentType ? extensionFor(detected.contentType, '') : ext;
+
+    // If the detected format differs from the original extension, rename the file.
+    let renamedPath = finalPath;
+    if (actualExt && actualExt !== ext) {
+      renamedPath = path.join(this.audioDir, `${song.cache_key}${actualExt}`);
+    }
+
+    await this._removeSiblingAudioFiles(song.cache_key, renamedPath);
+    await fsp.rename(tempPath, renamedPath);
     if (this.closed) return;
+
+    // Use requested quality (this.quality) as the nominal bitrate when the API
+    // returns a non-standard value. The API reports values like 811, 1567 etc.
+    // for lossless requests — these are not meaningful bitrate indicators.
+    const requestedBr = Number(this.quality) || 999;
+    const apiBr = normalizeBitrate(audio.br);
+    const isLosslessRequest = requestedBr >= 900;
+    const br = isLosslessRequest
+      ? (apiBr && apiBr >= 900 ? apiBr : requestedBr)
+      : (apiBr || requestedBr);
+
     this._markDownloaded(song, {
-      filePath: finalPath,
-      contentType,
-      br: normalizeBitrate(audio.br || this.quality),
+      filePath: renamedPath,
+      contentType: actualContentType,
+      br,
       size: stat.size
     });
   }
@@ -172,6 +195,61 @@ class OfflineMusicCache {
       br: parsed?.br || parsed?.data?.br || this.quality,
       contentType: result?.contentType
     };
+  }
+
+  // Scan all downloaded tracks and fix content_type / br / file extension
+  // based on actual file content (magic bytes). Called once on startup.
+  async repairMetadata() {
+    const rows = this.db.prepare(`
+      SELECT cache_key, file_path, content_type, br
+      FROM offline_tracks
+      WHERE status = 'downloaded' AND file_path IS NOT NULL
+    `).all();
+
+    let repaired = 0;
+    for (const row of rows) {
+      if (!row.file_path || !fs.existsSync(row.file_path)) continue;
+
+      const detected = await detectAudioFormat(row.file_path);
+      if (!detected.contentType) continue;
+
+      const needsContentTypeFix = row.content_type !== detected.contentType;
+      const currentExt = path.extname(row.file_path).toLowerCase();
+      const correctExt = extensionFor(detected.contentType, '');
+      const needsRename = correctExt && currentExt !== correctExt;
+
+      // Fix br: if the stored br is a non-standard value (< 900) but the file
+      // is actually lossless, set br to 999.
+      const isLosslessFile = detected.format === 'flac' || detected.format === 'wav';
+      const needsBrFix = isLosslessFile && (row.br || 0) < 900;
+
+      if (!needsContentTypeFix && !needsRename && !needsBrFix) continue;
+
+      let newPath = row.file_path;
+      if (needsRename) {
+        newPath = path.join(this.audioDir, `${row.cache_key}${correctExt}`);
+        try {
+          await fsp.rename(row.file_path, newPath);
+        } catch {
+          continue;
+        }
+      }
+
+      const newBr = needsBrFix ? 999 : row.br;
+      const newCt = needsContentTypeFix ? detected.contentType : row.content_type;
+
+      this.db.prepare(`
+        UPDATE offline_tracks
+        SET content_type = ?, br = ?, file_path = ?, updated_at = strftime('%s', 'now')
+        WHERE cache_key = ?
+      `).run(newCt, newBr, newPath, row.cache_key);
+      repaired++;
+    }
+
+    if (repaired > 0) {
+      console.log(`[offline-cache] repaired metadata for ${repaired} tracks`);
+    }
+    return repaired;
   }
 
   _playlistSongs() {
@@ -310,6 +388,26 @@ function normalizeBitrate(value) {
   const numeric = Number(value || 0);
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
   return numeric > 5000 ? Math.round(numeric / 1000) : Math.round(numeric);
+}
+
+async function detectAudioFormat(filePath) {
+  let fd;
+  try {
+    fd = await fsp.open(filePath, 'r');
+    const buf = Buffer.alloc(12);
+    await fd.read(buf, 0, 12, 0);
+
+    const magic = buf.toString('ascii', 0, 4);
+    if (magic === 'fLaC') return { format: 'flac', contentType: 'audio/x-flac' };
+    if (magic.startsWith('ID3') || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0)) return { format: 'mp3', contentType: 'audio/mpeg' };
+    if (magic.startsWith('OggS')) return { format: 'ogg', contentType: 'audio/ogg' };
+    if (buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) return { format: 'm4a', contentType: 'audio/mp4' };
+    if (magic.startsWith('RIFF') && buf.toString('ascii', 8, 12) === 'WAVE') return { format: 'wav', contentType: 'audio/wav' };
+  } catch { /* ignore */ }
+  finally {
+    if (fd) await fd.close().catch(() => {});
+  }
+  return { format: null, contentType: null };
 }
 
 function extensionFor(contentType, url) {

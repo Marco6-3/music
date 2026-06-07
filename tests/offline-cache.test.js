@@ -30,19 +30,22 @@ function insertUser(db) {
   return db.prepare('SELECT id FROM users WHERE username = ?').get('offline_user').id;
 }
 
-function startAudioServer() {
-  const audio = Buffer.from('fake-audio-content');
+function startAudioServer({
+  audio = Buffer.from('fake-audio-content'),
+  contentType = 'audio/mpeg',
+  pathname = '/song.mp3'
+} = {}) {
   const server = http.createServer((req, res) => {
-    if (req.url !== '/song.mp3') {
+    if (req.url !== pathname) {
       res.statusCode = 404;
       res.end('missing');
       return;
     }
-    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Length', audio.length);
     res.end(audio);
   });
-  return listen(server).then((url) => ({ server, url: `${url}/song.mp3`, audio }));
+  return listen(server).then((url) => ({ server, url: `${url}${pathname}`, audio }));
 }
 
 function listen(server) {
@@ -190,6 +193,96 @@ test('music API returns local offline URL when the track is downloaded', async (
     }
   } finally {
     if (appServer) appServer.close();
+    if (cache) cache.close();
+    if (store) store.close();
+    audioServer.server.close();
+    removeTempDir(dataDir);
+  }
+});
+
+test('offline cache detects FLAC content when provider metadata is wrong', async () => {
+  const dataDir = createTempDir();
+  const flacAudio = Buffer.concat([Buffer.from('fLaC'), Buffer.alloc(16, 1)]);
+  const audioServer = await startAudioServer({
+    audio: flacAudio,
+    contentType: 'audio/mpeg',
+    pathname: '/wrong-type.mp3'
+  });
+  let store;
+  let cache;
+
+  try {
+    store = await createDataStore(dataDir);
+    const userId = insertUser(store.db);
+    const playlist = ensurePlaylist(store.db, userId, '常听');
+    insertPlaylistSong(store.db, playlist.id, {
+      id: 'song-flac',
+      source: 'netease',
+      name: 'FLAC Song',
+      artist: 'Artist'
+    });
+
+    cache = new OfflineMusicCache({
+      db: store.db,
+      dataDir,
+      dispatcher: {
+        async proxy() {
+          return { data: JSON.stringify({ url: audioServer.url, br: 811 }) };
+        }
+      }
+    });
+    await cache.syncAll();
+
+    const downloaded = await waitFor(() => cache.getPlayableTrack('netease', 'song-flac'));
+    assert.equal(path.extname(downloaded.file_path), '.flac');
+    assert.equal(downloaded.content_type, 'audio/x-flac');
+    assert.equal(downloaded.br, 999);
+    assert.deepEqual(fs.readFileSync(downloaded.file_path), flacAudio);
+  } finally {
+    if (cache) cache.close();
+    if (store) store.close();
+    audioServer.server.close();
+    removeTempDir(dataDir);
+  }
+});
+
+test('offline cache preserves URL extension when content type is generic and format is unknown', async () => {
+  const dataDir = createTempDir();
+  const audioServer = await startAudioServer({
+    audio: Buffer.from('unknown-audio-content'),
+    contentType: 'application/octet-stream',
+    pathname: '/provider-file.flac'
+  });
+  let store;
+  let cache;
+
+  try {
+    store = await createDataStore(dataDir);
+    const userId = insertUser(store.db);
+    const playlist = ensurePlaylist(store.db, userId, '常听');
+    insertPlaylistSong(store.db, playlist.id, {
+      id: 'song-generic',
+      source: 'netease',
+      name: 'Generic Song',
+      artist: 'Artist'
+    });
+
+    cache = new OfflineMusicCache({
+      db: store.db,
+      dataDir,
+      dispatcher: {
+        async proxy() {
+          return { data: JSON.stringify({ url: audioServer.url, br: 999 }) };
+        }
+      }
+    });
+    await cache.syncAll();
+
+    const downloaded = await waitFor(() => cache.getPlayableTrack('netease', 'song-generic'));
+    assert.equal(path.extname(downloaded.file_path), '.flac');
+    assert.equal(downloaded.content_type, 'application/octet-stream');
+    assert.equal(fs.readFileSync(downloaded.file_path, 'utf8'), 'unknown-audio-content');
+  } finally {
     if (cache) cache.close();
     if (store) store.close();
     audioServer.server.close();
