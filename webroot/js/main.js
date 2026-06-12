@@ -73,7 +73,12 @@
         playbackWatchdogTimer: 0,
         playbackWatchdogToken: 0,
         playbackWatchdogRetries: 0,
+        endedRecoveryRetries: 0,
         nextPrefetchTimer: 0,
+        nextAudioPrewarmStatus: '',
+        nextAudioPrewarmUrl: '',
+        lastBufferingToastAt: 0,
+        lastMediaPositionUpdateAt: 0,
         sourceDiagnostics: {
             musicSource: '',
             cache: '',
@@ -89,6 +94,13 @@
     const coverInflight = new Map();
     const AUDIO_URL_CACHE_MAX = 24;
     const AUDIO_URL_CACHE_TTL_MS = 10 * 60 * 1000;
+    const USER_SYNC_LIMITS = {
+        favorites: 10000,
+        playlists: 300,
+        playlistSongs: 10000,
+        recentPlays: 1000,
+        queue: 500
+    };
     const audioUrlCache = new Map();
 
     function coverCacheSet(key, value) {
@@ -315,6 +327,7 @@
             updatePlayButtons();
             updateMediaSessionMetadata({ afterPlaybackStart: true });
             updateMediaSessionPlaybackState();
+            updateMediaSessionPositionState({ force: true });
             renderPwaDiagnostics();
         });
         audio.addEventListener('pause', () => {
@@ -323,15 +336,18 @@
             if (state.currentSong && canUseFullMediaSession()) setupMediaSessionHandlers();
             updatePlayButtons();
             updateMediaSessionPlaybackState();
+            updateMediaSessionPositionState({ force: true });
             renderPwaDiagnostics();
         });
         audio.addEventListener('timeupdate', () => {
             rememberPlaybackSnapshot();
             updateProgress();
+            updateMediaSessionPositionState();
         });
         audio.addEventListener('loadedmetadata', () => {
             rememberPlaybackSnapshot();
             updateProgress();
+            updateMediaSessionPositionState({ force: true });
         });
         audio.addEventListener('ended', handleEnded);
         audio.addEventListener('waiting', handleBuffering);
@@ -394,6 +410,7 @@
             document.body.classList.toggle('is-low-power-runtime', state.lowPowerMode && !audio.paused);
             if (document.hidden) {
                 rememberPlaybackSnapshot();
+                if (state.currentSong && !audio.paused) scheduleNextAudioPrefetch({ immediate: true });
                 if (state.currentSong && (audio.src || state.lastPlayableUrl) && canUseFullMediaSession()) {
                     setupMediaSessionHandlers();
                     updateMediaSessionPlaybackState();
@@ -1216,6 +1233,7 @@
         const playRequestId = state.playRequestId + 1;
         state.playRequestId = playRequestId;
         state.playbackWatchdogRetries = 0;
+        state.endedRecoveryRetries = 0;
         const previousSong = state.currentSong;
         const list = normalizeSongList(options.list || []);
         if (list.length) {
@@ -1287,7 +1305,7 @@
                 song: state.currentSong,
                 startedAt: 0
             });
-            scheduleNextAudioPrefetch();
+            scheduleNextAudioPrefetch({ immediate: musiqRuntime.isIOS });
             recordSuccessfulPlay(state.currentSong);
             applyPlaybackMetadataWhenReady(playRequestId, state.currentSong, metadata);
         } catch (error) {
@@ -1440,9 +1458,9 @@
     async function refreshCurrentPlaybackStream({ resumeAt = 0, reason = '' } = {}) {
         if (!state.currentSong) return;
         const requested = normalizeRequestedQuality(state.currentQuality || els.qualitySelect.value);
-        setPlayerStatus(['silent-resume-watchdog', 'auto-advance-silent'].includes(reason) ? '正在恢复声音' : '正在恢复播放');
+        setPlayerStatus(['silent-resume-watchdog', 'auto-advance-silent', 'premature-ended'].includes(reason) ? '正在恢复声音' : '正在恢复播放');
         const data = await getAudioUrlForPlayback(state.currentSong, requested, {
-            forceRefresh: reason === 'auto-advance-silent' || reason === 'silent-resume-watchdog',
+            forceRefresh: reason === 'auto-advance-silent' || reason === 'silent-resume-watchdog' || reason === 'premature-ended',
             silentFallbackToast: true
         });
         const url = data.url || data.data?.url;
@@ -1456,7 +1474,7 @@
         restoreAudioPositionWhenReady(resumeAt);
         await playAudioWithRuntimeGuard();
         updateMediaSessionMetadata({ afterPlaybackStart: true });
-        if (reason === 'auto-advance-silent' || reason === 'silent-resume-watchdog') {
+        if (reason === 'auto-advance-silent' || reason === 'silent-resume-watchdog' || reason === 'premature-ended') {
             startPlaybackWatchdog({
                 reason,
                 song: state.currentSong,
@@ -1489,6 +1507,7 @@
         const shouldWatch = reason === 'auto-advance'
             || reason === 'auto-advance-silent'
             || reason === 'silent-resume-watchdog'
+            || reason === 'premature-ended'
             || (musiqRuntime.isIOS && !musiqRuntime.isStandalonePwa)
             || document.hidden;
         if (!shouldWatch || !song) return;
@@ -1560,6 +1579,19 @@
         if (url) state.lastPlayableUrl = url;
     }
 
+    function isCurrentOfflineLosslessStream() {
+        const src = audio.currentSrc || audio.src || state.lastPlayableUrl || '';
+        if (!src) return false;
+        try {
+            const url = new URL(src, window.location.href);
+            return url.origin === window.location.origin
+                && url.pathname.startsWith('/offline/audio/')
+                && url.pathname.endsWith('/alac.m4a');
+        } catch {
+            return false;
+        }
+    }
+
     function rememberPlaybackSnapshot() {
         const src = audio.currentSrc || audio.src || '';
         if (src) state.lastPlayableUrl = src;
@@ -1577,6 +1609,7 @@
         state.playbackWatchdogTimer = 0;
         state.nextPrefetchTimer = 0;
         state.playbackWatchdogRetries = 0;
+        state.endedRecoveryRetries = 0;
     }
 
     function playPrevious() {
@@ -1604,6 +1637,11 @@
     }
 
     function handleEnded() {
+        if (shouldRecoverFromPrematureEnded()) {
+            recoverFromPrematureEnded();
+            return;
+        }
+        state.endedRecoveryRetries = 0;
         if (state.playMode === 'single') {
             if (guardPlaybackForRuntime()) return;
             audio.currentTime = 0;
@@ -1617,15 +1655,67 @@
         }
     }
 
+    function shouldRecoverFromPrematureEnded() {
+        if (!state.currentSong || audio.error) return false;
+        const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+        if (duration <= 20) return false;
+        const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+        const lastKnown = Number.isFinite(state.lastKnownPlaybackTime) ? state.lastKnownPlaybackTime : 0;
+        const observed = lastKnown > 0 ? Math.min(current || lastKnown, lastKnown) : current;
+        const remaining = duration - observed;
+        const tolerance = Math.max(3, Math.min(8, duration * 0.02));
+        return remaining > tolerance;
+    }
+
+    function recoverFromPrematureEnded() {
+        state.endedRecoveryRetries += 1;
+        const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+        const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+        const lastKnown = Number.isFinite(state.lastKnownPlaybackTime) ? state.lastKnownPlaybackTime : 0;
+        const resumeAt = Math.max(0, Math.min(lastKnown || current || 0, duration > 0 ? duration - 1 : Number.MAX_SAFE_INTEGER));
+
+        if (state.endedRecoveryRetries > 2) {
+            audio.pause();
+            setPlayerStatus('点按播放继续');
+            updatePlayButtons();
+            updateMediaSessionPlaybackState();
+            updateMediaSessionPositionState({ force: true });
+            showToast('音频还没结束但 iPhone 提前停止了播放，请点按继续', 'error');
+            renderPwaDiagnostics();
+            return;
+        }
+
+        setPlayerStatus('正在恢复声音');
+        showToast('检测到 iPhone 提前停止音频，正在从当前位置恢复');
+        refreshCurrentPlaybackStream({
+            resumeAt,
+            reason: 'premature-ended'
+        }).catch(() => {
+            audio.pause();
+            setPlayerStatus('点按播放继续');
+            updatePlayButtons();
+            updateMediaSessionPlaybackState();
+            updateMediaSessionPositionState({ force: true });
+            showToast('恢复播放失败，请回到 music 内再点一次播放', 'error');
+            renderPwaDiagnostics();
+        });
+    }
+
     function handleBuffering() {
         if (!state.currentSong || audio.paused) return;
         setPlayerStatus('正在缓冲');
         updateMediaSessionPlaybackState();
-        showToast('正在缓冲当前音乐源...');
+        updateMediaSessionPositionState({ force: true });
+        const now = Date.now();
+        if (now - state.lastBufferingToastAt > 6000) {
+            showToast('正在缓冲当前音乐源...');
+            state.lastBufferingToastAt = now;
+        }
         clearTimeout(state.stallTimer);
+        const stallTimeout = musiqRuntime.isIOS && isCurrentOfflineLosslessStream() ? 16_000 : 6500;
         state.stallTimer = setTimeout(() => {
             recoverHighQualityStream();
-        }, 6500);
+        }, stallTimeout);
     }
 
     function clearBuffering() {
@@ -1640,14 +1730,17 @@
     async function recoverHighQualityStream() {
         if (guardPlaybackForRuntime()) return;
         if (!state.currentSong || audio.paused) return;
-        const requested = normalizeRequestedQuality(els.qualitySelect.value);
-        const retryQuality = requested === '999' && state.qualityRetryLevel === 0 ? '320' : requested;
+        const requested = normalizeRequestedQuality(state.currentQuality || els.qualitySelect.value);
+        const keepIosLosslessFirst = musiqRuntime.isIOS && isCurrentOfflineLosslessStream() && state.qualityRetryLevel === 0;
+        const retryQuality = requested === '999' && state.qualityRetryLevel === 0 && !keepIosLosslessFirst ? '320' : requested;
         state.qualityRetryLevel += 1;
         const resumeAt = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
-        setPlayerStatus(retryQuality === '320' && requested === '999' ? '已切换 HQ' : '正在刷新音源');
-        showToast(retryQuality === '320' && requested === '999'
+        setPlayerStatus(keepIosLosslessFirst ? '正在恢复无损' : (retryQuality === '320' && requested === '999' ? '已切换 HQ' : '正在刷新音源'));
+        showToast(keepIosLosslessFirst
+            ? '正在重新连接 iPhone 无损音频'
+            : (retryQuality === '320' && requested === '999'
             ? 'SQ 源不稳定，已切换到极高 HQ 继续播放'
-            : '正在刷新高音质播放直链');
+            : '正在刷新高音质播放直链'));
 
         try {
             const data = await apiGet('api.php', {
@@ -1676,6 +1769,7 @@
                 if (resumeAt > 0 && Number.isFinite(audio.duration)) {
                     audio.currentTime = Math.min(resumeAt, Math.max(0, audio.duration - 0.5));
                 }
+                updateMediaSessionPositionState({ force: true });
                 playAudioWithRuntimeGuard({ genericMessage: '高音质重试播放失败' })
                     .catch(() => showToast('高音质重试播放失败', 'error'));
             }, { once: true });
@@ -1763,7 +1857,7 @@
         ].join('|');
     }
 
-    function scheduleNextAudioPrefetch() {
+    function scheduleNextAudioPrefetch({ immediate = false } = {}) {
         clearTimeout(state.nextPrefetchTimer);
         const nextSong = predictedNextSong();
         if (!nextSong) return;
@@ -1773,10 +1867,47 @@
                 silentFallbackToast: true,
                 skipQualityStateUpdate: true
             })
+                .then((data) => prewarmNextAudioForBackgroundPlayback(data))
                 .catch(() => {
                     // Prefetch is opportunistic; normal playback still resolves the URL.
                 });
-        }, 1200);
+        }, immediate || musiqRuntime.isIOS ? 0 : 1200);
+    }
+
+    async function prewarmNextAudioForBackgroundPlayback(data) {
+        const url = data?.url || data?.data?.url;
+        if (!url || !musiqRuntime.isIOS) return;
+
+        let target;
+        try {
+            target = new URL(url, window.location.href);
+        } catch {
+            return;
+        }
+        if (target.origin !== window.location.origin || !target.pathname.startsWith('/offline/audio/')) return;
+
+        state.nextAudioPrewarmUrl = target.pathname;
+        state.nextAudioPrewarmStatus = 'pending';
+        renderPwaDiagnostics();
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30_000);
+        try {
+            const response = await fetch(target.href, {
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: { Range: 'bytes=0-65535' },
+                signal: controller.signal
+            });
+            state.nextAudioPrewarmStatus = response.status === 206 || response.ok
+                ? `ok:${response.status}`
+                : `http:${response.status}`;
+        } catch (error) {
+            state.nextAudioPrewarmStatus = error?.name === 'AbortError' ? 'timeout' : 'failed';
+        } finally {
+            clearTimeout(timeout);
+            renderPwaDiagnostics();
+        }
     }
 
     function predictedNextSong() {
@@ -2040,6 +2171,7 @@
         state.progressDragging = false;
         state.progressDragInput = null;
         updateProgress();
+        updateMediaSessionPositionState({ force: true });
     }
 
     function cancelProgressDrag() {
@@ -2047,6 +2179,7 @@
         state.progressDragging = false;
         state.progressDragInput = null;
         updateProgress();
+        updateMediaSessionPositionState({ force: true });
     }
 
     function progressValueToSeconds(slider = els.progress) {
@@ -2206,14 +2339,14 @@
 
     function buildUserSyncPayload() {
         return {
-            favorites: state.favorites.slice(0, 2000),
-            playlists: Object.fromEntries(state.playlists.slice(0, 100).map((item) => [
+            favorites: state.favorites.slice(0, USER_SYNC_LIMITS.favorites),
+            playlists: Object.fromEntries(state.playlists.slice(0, USER_SYNC_LIMITS.playlists).map((item) => [
                 item.name,
-                normalizeSongList(item.songs || []).slice(0, 1000)
+                normalizeSongList(item.songs || []).slice(0, USER_SYNC_LIMITS.playlistSongs)
             ])),
-            recent_plays: state.recentPlays.slice(0, 200),
+            recent_plays: state.recentPlays.slice(0, USER_SYNC_LIMITS.recentPlays),
             sync_state: {
-                queue: state.queue.slice(0, 80),
+                queue: state.queue.slice(0, USER_SYNC_LIMITS.queue),
                 client_state: {
                     current_song: state.currentSong ? normalizeSong(state.currentSong) : null,
                     current_index: state.currentIndex,
@@ -2226,7 +2359,7 @@
     }
 
     function applyUserSyncState(syncState, { replaceQueue = false } = {}) {
-        const cloudQueue = uniqueSongs(syncState?.queue || []).slice(0, 80);
+        const cloudQueue = uniqueSongs(syncState?.queue || []).slice(0, USER_SYNC_LIMITS.queue);
         if (!cloudQueue.length) return;
         if (!replaceQueue && state.queue.length) return;
         state.queue = cloudQueue;
@@ -2516,7 +2649,10 @@
     }
 
     function normalizeRequestedQuality(value) {
-        return value === '999' ? '999' : '320';
+        const normalized = String(value || '').toLowerCase();
+        if (['999', 'flac', 'lossless', 'sq'].includes(normalized)) return '999';
+        const numeric = Number(normalized || 0);
+        return numeric >= 900 ? '999' : '320';
     }
 
     function qualityLabel(value) {
@@ -2723,7 +2859,30 @@
                 ? (audio.ended ? 'none' : (audio.paused ? 'paused' : 'playing'))
                 : 'none';
         } catch {}
+        updateMediaSessionPositionState();
         renderPwaDiagnostics();
+    }
+
+    function updateMediaSessionPositionState({ force = false } = {}) {
+        if (!musiqRuntime.hasMediaSession || !canUseFullMediaSession()) return;
+        if (typeof navigator.mediaSession?.setPositionState !== 'function') return;
+
+        const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+        if (duration <= 0) return;
+
+        const now = Date.now();
+        if (!force && now - state.lastMediaPositionUpdateAt < 1000) return;
+
+        const current = Number.isFinite(audio.currentTime) ? audio.currentTime : state.lastKnownPlaybackTime || 0;
+        const position = Math.max(0, Math.min(current, duration));
+        try {
+            navigator.mediaSession.setPositionState({
+                duration,
+                playbackRate: Number.isFinite(audio.playbackRate) && audio.playbackRate > 0 ? audio.playbackRate : 1,
+                position
+            });
+            state.lastMediaPositionUpdateAt = now;
+        } catch {}
     }
 
     function clearOrDegradeMediaSession(reason = '') {
@@ -2932,6 +3091,8 @@
             'last playable url': state.lastPlayableUrl ? 'set' : '',
             'last playback time': Number(state.lastKnownPlaybackTime || 0).toFixed(1),
             'audio url cache size': audioUrlCache.size,
+            'next audio prewarm': state.nextAudioPrewarmStatus || '',
+            'next audio prewarm url': state.nextAudioPrewarmUrl || '',
             'playback watchdog retries': state.playbackWatchdogRetries,
             'document.visibilityState': document.visibilityState,
             'pageshow persisted flag': musiqRuntime.pageshowPersisted,
@@ -3324,7 +3485,7 @@
     }
 
     function saveQueue(options = {}) {
-        localStorage.setItem(storage.queue, JSON.stringify(state.queue.slice(0, 80)));
+        localStorage.setItem(storage.queue, JSON.stringify(state.queue.slice(0, USER_SYNC_LIMITS.queue)));
         if (!options.skipCloudSync) scheduleCloudSync();
     }
 

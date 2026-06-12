@@ -14,11 +14,11 @@ const {
 const { getRecentPlays, replaceRecentPlays } = require('./play-history');
 
 const SYNC_LIMITS = {
-  favorites: 2000,
-  playlists: 100,
-  playlistSongs: 1000,
-  recentPlays: 200,
-  queue: 80
+  favorites: 10000,
+  playlists: 300,
+  playlistSongs: 10000,
+  recentPlays: 1000,
+  queue: 500
 };
 
 function snapshotUserSync(db, userId) {

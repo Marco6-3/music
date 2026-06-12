@@ -8,7 +8,7 @@ const path = require('node:path');
 const { Readable } = require('node:stream');
 const test = require('node:test');
 
-const { createDataStore, hashPassword, ensurePlaylist, insertPlaylistSong } = require('../src/server/database');
+const { createDataStore, generateToken, hashPassword, ensurePlaylist, insertPlaylistSong } = require('../src/server/database');
 const { createExpressApp } = require('../src/server/index');
 const { OfflineMusicCache } = require('../src/server/offline-cache');
 
@@ -56,6 +56,18 @@ function listen(server) {
       resolve(`http://127.0.0.1:${address.port}`);
     });
   });
+}
+
+async function postForm(baseUrl, route, body) {
+  const response = await fetch(`${baseUrl}${route}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+    body: new URLSearchParams(body)
+  });
+  return {
+    status: response.status,
+    body: await response.json()
+  };
 }
 
 async function waitFor(predicate, timeoutMs = 3000) {
@@ -191,6 +203,291 @@ test('music API returns local offline URL when the track is downloaded', async (
     } finally {
       fs.createReadStream = originalCreateReadStream;
     }
+  } finally {
+    if (appServer) appServer.close();
+    if (cache) cache.close();
+    if (store) store.close();
+    audioServer.server.close();
+    removeTempDir(dataDir);
+  }
+});
+
+test('server account playlists trigger offline download and are available after login', async () => {
+  const dataDir = createTempDir();
+  const audioServer = await startAudioServer({
+    audio: Buffer.from('server-account-audio-content'),
+    contentType: 'audio/mpeg',
+    pathname: '/account-song.mp3'
+  });
+  let store;
+  let cache;
+  let appServer;
+
+  try {
+    store = await createDataStore(dataDir);
+    const userId = insertUser(store.db);
+    const token = generateToken(userId);
+
+    cache = new OfflineMusicCache({
+      db: store.db,
+      dataDir,
+      dispatcher: {
+        async proxy(types, params) {
+          assert.equal(types, 'url');
+          assert.equal(params.id, 'account-song');
+          return {
+            data: JSON.stringify({ url: audioServer.url, br: 999 }),
+            contentType: 'application/json',
+            providerName: 'fake-cache-source'
+          };
+        }
+      }
+    });
+
+    const app = createExpressApp({
+      store,
+      uploadsDir: path.join(dataDir, 'uploads', 'avatars'),
+      cacheDir: path.join(dataDir, 'cache'),
+      dispatcher: {
+        async proxy() {
+          throw new Error('online provider should not be called for downloaded account track');
+        }
+      },
+      offlineCache: cache
+    });
+    appServer = http.createServer(app);
+    const baseUrl = await listen(appServer);
+
+    const created = await postForm(baseUrl, '/php/playlist.php', {
+      token,
+      user_id: String(userId),
+      action: 'create',
+      name: '服务器歌单'
+    });
+    assert.equal(created.status, 200);
+    assert.equal(created.body.success, true);
+
+    const added = await postForm(baseUrl, '/php/playlist.php', {
+      token,
+      user_id: String(userId),
+      action: 'add_song',
+      playlist_id: String(created.body.playlist_id),
+      song_id: 'account-song',
+      source: 'netease',
+      name: 'Account Song',
+      artist: 'Artist'
+    });
+    assert.equal(added.status, 200);
+    assert.equal(added.body.success, true);
+
+    const downloaded = await waitFor(() => cache.getPlayableTrack('netease', 'account-song'));
+    assert.equal(downloaded.status, 'downloaded');
+    assert.ok(fs.existsSync(downloaded.file_path));
+
+    const loggedIn = await postForm(baseUrl, '/php/login.php', {
+      username: 'offline_user',
+      password: 'secret123'
+    });
+    assert.equal(loggedIn.status, 200);
+    assert.equal(loggedIn.body.success, true);
+    assert.equal(loggedIn.body.user.playlists['服务器歌单'].length, 1);
+    assert.equal(loggedIn.body.user.playlists['服务器歌单'][0].id, 'account-song');
+
+    const playback = await fetch(`${baseUrl}/api.php?types=url&source=netease&id=account-song&br=999`);
+    const body = await playback.json();
+    assert.equal(playback.headers.get('x-cache'), 'OFFLINE');
+    assert.equal(playback.headers.get('x-music-source'), 'offline');
+    assert.equal(body.offline, true);
+    assert.match(body.url, /^\/offline\/audio\//);
+
+    const audioResponse = await fetch(`${baseUrl}${body.url}`, {
+      headers: { Range: 'bytes=0-5' }
+    });
+    assert.equal(audioResponse.status, 206);
+    assert.equal(await audioResponse.text(), 'server');
+  } finally {
+    if (appServer) appServer.close();
+    if (cache) cache.close();
+    if (store) store.close();
+    audioServer.server.close();
+    removeTempDir(dataDir);
+  }
+});
+
+test('music API returns and prewarms iPhone ALAC URL for offline FLAC lossless requests', async () => {
+  const dataDir = createTempDir();
+  const audioServer = await startAudioServer({
+    audio: Buffer.concat([Buffer.from('fLaC'), Buffer.alloc(16, 1)]),
+    contentType: 'audio/mpeg',
+    pathname: '/song.flac'
+  });
+  let store;
+  let cache;
+  let appServer;
+  let conversion;
+  let conversionCount = 0;
+
+  try {
+    store = await createDataStore(dataDir);
+    const userId = insertUser(store.db);
+    const playlist = ensurePlaylist(store.db, userId, '常听');
+    insertPlaylistSong(store.db, playlist.id, {
+      id: 'song-ios',
+      source: 'netease',
+      name: 'Song iOS',
+      artist: 'Artist'
+    });
+
+    cache = new OfflineMusicCache({
+      db: store.db,
+      dataDir,
+      dispatcher: {
+        async proxy() {
+          return { data: JSON.stringify({ url: audioServer.url, br: 999 }) };
+        }
+      }
+    });
+    await cache.syncAll();
+    const downloaded = await waitFor(() => cache.getPlayableTrack('netease', 'song-ios'));
+    assert.equal(downloaded.content_type, 'audio/x-flac');
+
+    const app = createExpressApp({
+      store,
+      uploadsDir: path.join(dataDir, 'uploads', 'avatars'),
+      cacheDir: path.join(dataDir, 'cache'),
+      dispatcher: {
+        async proxy() {
+          throw new Error('online provider should not be called for downloaded lossless iPhone track');
+        }
+      },
+      offlineCache: cache,
+      iosLosslessConverter: async (sourcePath, outputPath) => {
+        conversionCount += 1;
+        conversion = { sourcePath, outputPath };
+        await fs.promises.writeFile(outputPath, Buffer.from('ftyp-alac-audio-content'));
+      }
+    });
+    appServer = http.createServer(app);
+    const baseUrl = await listen(appServer);
+
+    const response = await fetch(`${baseUrl}/api.php?types=url&source=netease&id=song-ios&br=999`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1'
+      }
+    });
+    const body = await response.json();
+
+    assert.equal(response.headers.get('x-cache'), 'OFFLINE-ALAC');
+    assert.equal(response.headers.get('x-music-source'), 'offline');
+    assert.equal(response.headers.get('x-playback-compatibility'), 'ios-alac');
+    assert.equal(body.url, `/offline/audio/${downloaded.cache_key}/alac.m4a`);
+    assert.equal(body.br, 999);
+    assert.equal(body.offline, true);
+    assert.equal(body.lossless, true);
+    assert.equal(body.codec, 'alac');
+
+    const expectedAlacPath = path.join(path.dirname(downloaded.file_path), `${downloaded.cache_key}.ios-lossless.m4a`);
+    await waitFor(() => fs.existsSync(expectedAlacPath));
+    assert.equal(conversionCount, 1);
+    assert.equal(conversion.sourcePath, downloaded.file_path);
+    assert.match(conversion.outputPath, /\.ios-lossless\.m4a\.tmp-/);
+
+    const audioResponse = await fetch(`${baseUrl}${body.url}`, {
+      headers: { Range: 'bytes=0-3' }
+    });
+    assert.equal(audioResponse.status, 206);
+    assert.equal(audioResponse.headers.get('content-type'), 'audio/mp4');
+    assert.equal(audioResponse.headers.get('x-offline-transcode'), 'alac-cache');
+    assert.equal(await audioResponse.text(), 'ftyp');
+    assert.equal(conversionCount, 1);
+
+    const cachedAudioResponse = await fetch(`${baseUrl}${body.url}`, {
+      headers: { Range: 'bytes=5-8' }
+    });
+    assert.equal(cachedAudioResponse.status, 206);
+    assert.equal(cachedAudioResponse.headers.get('x-offline-transcode'), 'alac-cache');
+    assert.equal(await cachedAudioResponse.text(), 'alac');
+  } finally {
+    if (appServer) appServer.close();
+    if (cache) cache.close();
+    if (store) store.close();
+    audioServer.server.close();
+    removeTempDir(dataDir);
+  }
+});
+
+test('music API skips offline FLAC for iPhone when compatible quality is requested', async () => {
+  const dataDir = createTempDir();
+  const audioServer = await startAudioServer({
+    audio: Buffer.concat([Buffer.from('fLaC'), Buffer.alloc(16, 1)]),
+    contentType: 'audio/mpeg',
+    pathname: '/song.flac'
+  });
+  let store;
+  let cache;
+  let appServer;
+  let onlineRequest;
+
+  try {
+    store = await createDataStore(dataDir);
+    const userId = insertUser(store.db);
+    const playlist = ensurePlaylist(store.db, userId, '常听');
+    insertPlaylistSong(store.db, playlist.id, {
+      id: 'song-ios-320',
+      source: 'netease',
+      name: 'Song iOS 320',
+      artist: 'Artist'
+    });
+
+    cache = new OfflineMusicCache({
+      db: store.db,
+      dataDir,
+      dispatcher: {
+        async proxy() {
+          return { data: JSON.stringify({ url: audioServer.url, br: 999 }) };
+        }
+      }
+    });
+    await cache.syncAll();
+    const downloaded = await waitFor(() => cache.getPlayableTrack('netease', 'song-ios-320'));
+    assert.equal(downloaded.content_type, 'audio/x-flac');
+
+    const app = createExpressApp({
+      store,
+      uploadsDir: path.join(dataDir, 'uploads', 'avatars'),
+      cacheDir: path.join(dataDir, 'cache'),
+      dispatcher: {
+        async proxy(types, params) {
+          onlineRequest = { types, params };
+          return {
+            data: JSON.stringify({ url: 'https://example.test/song.mp3', br: 320 }),
+            contentType: 'application/json',
+            providerName: 'fake-online'
+          };
+        }
+      },
+      offlineCache: cache
+    });
+    appServer = http.createServer(app);
+    const baseUrl = await listen(appServer);
+
+    const response = await fetch(`${baseUrl}/api.php?types=url&source=netease&id=song-ios-320&br=320`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1'
+      }
+    });
+    const body = await response.json();
+
+    assert.equal(response.headers.get('x-offline-skip'), 'ios-incompatible-audio');
+    assert.equal(response.headers.get('x-playback-compatibility'), null);
+    assert.equal(response.headers.get('x-music-source'), 'fake-online');
+    assert.deepEqual(onlineRequest, {
+      types: 'url',
+      params: { source: 'netease', id: 'song-ios-320', br: '320' }
+    });
+    assert.equal(body.url, 'https://example.test/song.mp3');
+    assert.equal(body.br, 320);
+    assert.equal(body.offline, undefined);
   } finally {
     if (appServer) appServer.close();
     if (cache) cache.close();

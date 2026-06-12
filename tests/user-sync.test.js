@@ -187,3 +187,44 @@ test('sync bundle stores only a bounded recent play list', async () => {
     closeSyncApp(ctx);
   }
 });
+
+test('sync bundle keeps large private playlists beyond the old 1000 song cap', async () => {
+  let ctx;
+  try {
+    ctx = await startSyncApp();
+    const userId = insertUser(ctx.store.db, {
+      username: 'large_playlist_user',
+      email: 'large-playlist@example.test'
+    });
+    const token = generateToken(userId);
+    const songs = Array.from({ length: 1205 }, (_, index) => ({
+      id: `song-${index}`,
+      source: 'netease',
+      name: `Song ${index}`,
+      artist: 'Artist'
+    }));
+
+    const synced = await postForm(ctx.baseUrl, '/php/sync_bundle.php', {
+      user_id: String(userId),
+      token,
+      payload: JSON.stringify({
+        playlists: {
+          '服务器大歌单': songs
+        }
+      })
+    });
+
+    assert.equal(synced.status, 200);
+    assert.equal(synced.body.success, true);
+    assert.equal(synced.body.user.playlists['服务器大歌单'].length, songs.length);
+
+    const verified = await postForm(ctx.baseUrl, '/php/verify_token.php', {
+      user_id: String(userId),
+      token
+    });
+    assert.equal(verified.body.success, true);
+    assert.equal(verified.body.user.playlists['服务器大歌单'].length, songs.length);
+  } finally {
+    closeSyncApp(ctx);
+  }
+});

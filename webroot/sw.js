@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_VERSION = 'music-pwa-v25';
+const CACHE_VERSION = 'music-pwa-v28';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const LEGACY_CACHE_PREFIXES = ['musiq-pwa-'];
@@ -13,7 +13,7 @@ const APP_SHELL = [
   './?source=pwa',
   './css/style.css?v=2.1.9',
   './js/pwa-runtime.js?v=1.0.4',
-  './js/main.js?v=2.2.14',
+  './js/main.js?v=2.2.17',
   './js/source-selector.js?v=1.0.4',
   './js/pwa.js?v=1.1.3',
   './public/music-default.png',

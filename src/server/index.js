@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
@@ -40,7 +41,7 @@ const projectRoot = path.resolve(__dirname, '../..');
 const webroot = resolveWebroot();
 const MUSIC_API_CACHE_VERSION = 'music-api-v3';
 const AUTH_BODY_LIMIT_BYTES = 32 * 1024;
-const SYNC_BODY_LIMIT_BYTES = 512 * 1024;
+const SYNC_BODY_LIMIT_BYTES = 16 * 1024 * 1024;
 const LOGIN_FAILURE_MAX = 6;
 const LOGIN_FAILURE_WINDOW_MS = 15 * 60_000;
 const LOGIN_LOCK_MS = 15 * 60_000;
@@ -125,6 +126,9 @@ function memCacheSet(key, data, ttlMs) {
 
 // In-flight request deduplication
 const inflightRequests = new Map();
+const iosLosslessTranscodes = new Map();
+const IOS_LOSSLESS_SUFFIX = '.ios-lossless.m4a';
+const IOS_LOSSLESS_CONTENT_TYPE = 'audio/mp4';
 
 function resolveWebroot() {
   const resourceWebroot = process.resourcesPath ? path.join(process.resourcesPath, 'webroot') : null;
@@ -208,9 +212,12 @@ function createExpressApp({
   cacheDir,
   dispatcher = createDefaultDispatcher(musicSources),
   offlineCache = null,
+  iosLosslessConverter = undefined,
   agentModelClient = null,
   agentConfigResolver = undefined
 }) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(cacheDir, { recursive: true });
   const app = express();
   const db = store.db;
   const upload = createUploadMiddleware(uploadsDir);
@@ -255,8 +262,8 @@ function createExpressApp({
     next();
   });
   app.use(rejectOversizedAuthPayload);
-  app.use(express.json({ limit: '12mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '12mb' }));
+  app.use(express.json({ limit: '16mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '16mb' }));
 
   app.get('/', sendIndex);
   app.get('/index.html', sendIndex);
@@ -279,8 +286,19 @@ function createExpressApp({
     res.type('html').sendFile(path.join(webroot, 'api_check', 'check_api.php'));
   });
   app.get('/api_check/api_doubtful.php', (_req, res) => handleApiDoubtful(db, res));
-  app.get('/offline/audio/:key', (req, res) => handleOfflineAudio(req, res, offlineCache));
-  app.get('/api.php', (req, res) => proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache));
+  const offlineAudioHandler = (options = {}) => (req, res) => {
+    handleOfflineAudio(req, res, offlineCache, { iosLosslessConverter, ...options }).catch((error) => {
+      console.warn('[express-backend] offline audio request failed:', error.message);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: '离线音频处理失败' });
+        return;
+      }
+      res.destroy(error);
+    });
+  };
+  app.get('/offline/audio/:key/alac.m4a', offlineAudioHandler({ format: 'alac' }));
+  app.get('/offline/audio/:key', offlineAudioHandler());
+  app.get('/api.php', (req, res) => proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache, { iosLosslessConverter }));
 
   app.get('/php/check_version.php', (_req, res) => {
     res.json({
@@ -1336,7 +1354,7 @@ function handleApiDoubtful(db, res) {
   return res.json(result);
 }
 
-function handleOfflineAudio(req, res, offlineCache) {
+async function handleOfflineAudio(req, res, offlineCache, options = {}) {
   if (!offlineCache) return res.status(404).json({ success: false, message: '离线缓存未启用' });
 
   const key = stringValue(req.params.key);
@@ -1345,14 +1363,27 @@ function handleOfflineAudio(req, res, offlineCache) {
     return res.status(404).json({ success: false, message: '离线音频不存在' });
   }
 
+  let filePath = track.file_path;
+  let contentType = track.content_type || 'audio/mpeg';
   let stat;
   try {
-    stat = fs.statSync(track.file_path);
+    stat = fs.statSync(filePath);
     if (!stat.isFile()) throw new Error('offline audio path is not a file');
   } catch {
     return res.status(404).json({ success: false, message: '离线音频不存在' });
   }
-  const contentType = track.content_type || 'audio/mpeg';
+
+  const requestedFormat = stringValue(options.format || req.query.format).toLowerCase();
+  if (requestedFormat === 'alac' && isIosIncompatibleLosslessTrack(track)) {
+    const converted = await ensureIosLosslessAudio(track, {
+      converter: options.iosLosslessConverter
+    });
+    filePath = converted.filePath;
+    contentType = converted.contentType;
+    stat = converted.stat;
+    res.setHeader('X-Offline-Transcode', converted.cached ? 'alac-cache' : 'alac-created');
+  }
+
   const range = req.headers.range;
 
   res.setHeader('Accept-Ranges', 'bytes');
@@ -1361,7 +1392,7 @@ function handleOfflineAudio(req, res, offlineCache) {
 
   if (!range) {
     res.setHeader('Content-Length', stat.size);
-    pipeAudioFile(res, track.file_path);
+    pipeAudioFile(res, filePath);
     return;
   }
 
@@ -1375,7 +1406,7 @@ function handleOfflineAudio(req, res, offlineCache) {
   res.status(206);
   res.setHeader('Content-Range', `bytes ${parsed.start}-${parsed.end}/${stat.size}`);
   res.setHeader('Content-Length', parsed.end - parsed.start + 1);
-  pipeAudioFile(res, track.file_path, parsed);
+  pipeAudioFile(res, filePath, parsed);
 }
 
 function pipeAudioFile(res, filePath, options) {
@@ -1391,26 +1422,46 @@ function pipeAudioFile(res, filePath, options) {
   stream.pipe(res);
 }
 
-async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache) {
-  if (req.query.types === 'url' && offlineCache) {
-    const track = offlineCache.getPlayableTrack(req.query.source || 'netease', req.query.id);
-    if (track) {
+async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache, options = {}) {
+  const apiQuery = normalizeMusicApiQuery(req);
+
+  if (apiQuery.types === 'url' && offlineCache) {
+    const track = offlineCache.getPlayableTrack(apiQuery.source || 'netease', apiQuery.id);
+    if (track && shouldServeIosLosslessAudio(req, apiQuery, track)) {
+      res.setHeader('X-Cache', 'OFFLINE-ALAC');
+      res.setHeader('X-Music-Source', 'offline');
+      res.setHeader('X-Playback-Compatibility', 'ios-alac');
+      warmIosLosslessAudio(track, { converter: options.iosLosslessConverter });
+      res.json({
+        url: iosLosslessAudioUrl(track),
+        br: track.br || Number(apiQuery.br) || 999,
+        size: track.size || 0,
+        offline: true,
+        lossless: true,
+        codec: 'alac'
+      });
+      return;
+    }
+    if (track && !shouldSkipOfflineTrack(req, track, apiQuery)) {
       res.setHeader('X-Cache', 'OFFLINE');
       res.setHeader('X-Music-Source', 'offline');
       res.json({
         url: offlineAudioUrl(track),
-        br: track.br || Number(req.query.br) || 999,
+        br: track.br || Number(apiQuery.br) || 999,
         size: track.size || 0,
         offline: true
       });
       return;
     }
+    if (track && shouldSkipOfflineTrack(req, track, apiQuery)) {
+      res.setHeader('X-Offline-Skip', 'ios-incompatible-audio');
+    }
   }
 
-  const query = new URLSearchParams(req.query).toString();
+  const query = new URLSearchParams(apiQuery).toString();
   const cacheKey = crypto.createHash('sha256').update(`${MUSIC_API_CACHE_VERSION}:${query}`).digest('hex');
   const cacheFile = path.join(cacheDir, `${cacheKey}.json`);
-  const cacheTtl = cacheTtlForType(req.query.types);
+  const cacheTtl = cacheTtlForType(apiQuery.types);
 
   // Check in-memory cache first
   const memCached = memCacheGet(cacheKey);
@@ -1445,10 +1496,10 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache) {
   const fetchPromise = (async () => {
     const upstreamUrl = `https://music-api.gdstudio.xyz/api.php?${query}`;
 
-    if (dispatcher && req.query.types) {
+    if (dispatcher && apiQuery.types) {
       try {
-        const params = Object.fromEntries(Object.entries(req.query).filter(([key]) => key !== 'types'));
-        const result = await dispatcher.proxy(req.query.types, params);
+        const params = Object.fromEntries(Object.entries(apiQuery).filter(([key]) => key !== 'types'));
+        const result = await dispatcher.proxy(apiQuery.types, params);
         if (result) {
           const body = typeof result === 'string' ? result : result.data;
           const contentType = typeof result === 'string' ? 'application/json' : result.contentType;
@@ -1500,6 +1551,173 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache) {
   } finally {
     inflightRequests.delete(cacheKey);
   }
+}
+
+function normalizeMusicApiQuery(req) {
+  return { ...req.query };
+}
+
+function shouldPreferIosCompatibleAudio(req) {
+  const userAgent = stringValue(req.headers['user-agent']).toLowerCase();
+  if (!userAgent) return false;
+  return /\b(iphone|ipad|ipod)\b/.test(userAgent)
+    || (userAgent.includes('macintosh') && userAgent.includes('mobile/'));
+}
+
+function isLosslessRequest(br) {
+  const value = String(br || '').toLowerCase();
+  if (value === 'flac' || value === 'lossless' || value === 'sq') return true;
+  return Number(value || 0) >= 900;
+}
+
+function shouldServeIosLosslessAudio(req, apiQuery, track) {
+  return shouldPreferIosCompatibleAudio(req)
+    && isLosslessRequest(apiQuery.br)
+    && isIosIncompatibleLosslessTrack(track);
+}
+
+function shouldSkipOfflineTrack(req, track, apiQuery) {
+  if (!shouldPreferIosCompatibleAudio(req)) return false;
+  if (!isIosIncompatibleLosslessTrack(track)) return false;
+  return !isLosslessRequest(apiQuery?.br);
+}
+
+function isIosIncompatibleLosslessTrack(track) {
+  const contentType = stringValue(track.content_type).toLowerCase();
+  const filePath = stringValue(track.file_path).toLowerCase();
+  return contentType.includes('flac')
+    || contentType.includes('wav')
+    || filePath.endsWith('.flac')
+    || filePath.endsWith('.wav');
+}
+
+function iosLosslessAudioUrl(track) {
+  return `/offline/audio/${encodeURIComponent(track.cache_key)}/alac.m4a`;
+}
+
+function warmIosLosslessAudio(track, options = {}) {
+  ensureIosLosslessAudio(track, options).catch((error) => {
+    console.warn('[express-backend] iPhone ALAC warmup failed:', error.message);
+  });
+}
+
+async function ensureIosLosslessAudio(track, { converter = transcodeToAlac } = {}) {
+  const sourcePath = track.file_path;
+  const outputPath = iosLosslessFilePath(track);
+  const sourceStat = fs.statSync(sourcePath);
+  if (!sourceStat.isFile()) {
+    throw new Error('offline audio source is not a file');
+  }
+
+  const cachedStat = readReusableIosLosslessStat(outputPath, sourceStat);
+  if (cachedStat) {
+    return {
+      filePath: outputPath,
+      contentType: IOS_LOSSLESS_CONTENT_TYPE,
+      stat: cachedStat,
+      cached: true
+    };
+  }
+
+  const inflightKey = `${sourcePath}\n${outputPath}`;
+  if (!iosLosslessTranscodes.has(inflightKey)) {
+    const transcodePromise = createIosLosslessAudio(sourcePath, outputPath, converter)
+      .finally(() => {
+        iosLosslessTranscodes.delete(inflightKey);
+      });
+    iosLosslessTranscodes.set(inflightKey, transcodePromise);
+  }
+
+  const stat = await iosLosslessTranscodes.get(inflightKey);
+  return {
+    filePath: outputPath,
+    contentType: IOS_LOSSLESS_CONTENT_TYPE,
+    stat,
+    cached: false
+  };
+}
+
+function iosLosslessFilePath(track) {
+  const key = stringValue(track.cache_key) || path.basename(track.file_path, path.extname(track.file_path));
+  return path.join(path.dirname(track.file_path), `${key}${IOS_LOSSLESS_SUFFIX}`);
+}
+
+function readReusableIosLosslessStat(outputPath, sourceStat) {
+  try {
+    const stat = fs.statSync(outputPath);
+    if (stat.isFile() && stat.size > 0 && stat.mtimeMs >= sourceStat.mtimeMs) {
+      return stat;
+    }
+  } catch {}
+  return null;
+}
+
+async function createIosLosslessAudio(sourcePath, outputPath, converter) {
+  await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
+  const tempPath = `${outputPath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    await converter(sourcePath, tempPath);
+    const tempStat = fs.statSync(tempPath);
+    if (!tempStat.isFile() || tempStat.size <= 0) {
+      throw new Error('ALAC conversion produced an empty file');
+    }
+    await fs.promises.rm(outputPath, { force: true });
+    await fs.promises.rename(tempPath, outputPath);
+    return fs.statSync(outputPath);
+  } catch (error) {
+    await fs.promises.rm(tempPath, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+function transcodeToAlac(sourcePath, outputPath) {
+  return new Promise((resolve, reject) => {
+    const ffmpegBin = process.env.FFMPEG_PATH || 'ffmpeg';
+    const child = spawn(ffmpegBin, [
+      '-y',
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-i',
+      sourcePath,
+      '-map',
+      '0:a:0',
+      '-vn',
+      '-c:a',
+      'alac',
+      '-movflags',
+      '+faststart',
+      '-f',
+      'mp4',
+      outputPath
+    ], { windowsHide: true });
+    let stderr = '';
+    let settled = false;
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString('utf8');
+      if (stderr.length > 12_000) stderr = stderr.slice(-12_000);
+    });
+    child.on('error', (error) => {
+      if (settled) return;
+      settled = true;
+      if (error.code === 'ENOENT') {
+        reject(new Error('ffmpeg is required to create iPhone ALAC lossless audio'));
+        return;
+      }
+      reject(error);
+    });
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      const details = stderr.trim();
+      reject(new Error(`ffmpeg ALAC conversion failed with code ${code}${details ? `: ${details}` : ''}`));
+    });
+  });
 }
 
 function readFreshCacheFile(file, ttlMs) {
