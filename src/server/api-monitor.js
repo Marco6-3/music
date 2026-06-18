@@ -22,8 +22,8 @@ async function checkSourceHealth(provider) {
   }
 
   try {
-    const platform = provider.options?.defaultPlatform || 'netease';
-    const songs = await provider.search(platform, 'test', 1);
+    const probe = healthProbeForProvider(provider);
+    const songs = await provider.search(probe.platform, probe.keyword, 1);
     results.search = Array.isArray(songs) && songs.length > 0;
     results.play = results.search;
   } catch {
@@ -32,6 +32,15 @@ async function checkSourceHealth(provider) {
   }
 
   return results;
+}
+
+function healthProbeForProvider(provider) {
+  if (provider.name === 'kuwo-direct') return { platform: 'kuwo', keyword: '周杰伦 晴天' };
+  if (provider.name === 'kugou-direct') return { platform: 'kugou', keyword: '周杰伦 晴天' };
+  return {
+    platform: provider.options?.defaultPlatform || 'netease',
+    keyword: 'test'
+  };
 }
 
 function writeStatus(db, source, name, searchOk, playOk) {
@@ -111,5 +120,7 @@ function getStatus(db) {
 module.exports = {
   startMonitoring,
   runHealthCheck,
-  getStatus
+  getStatus,
+  checkSourceHealth,
+  healthProbeForProvider
 };

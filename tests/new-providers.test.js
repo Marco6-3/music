@@ -11,6 +11,7 @@ const { MetingProvider } = require('../src/server/source-providers/meting');
 const { UnmExternalProvider } = require('../src/server/source-providers/unm-external');
 const { KuwoDirectProvider } = require('../src/server/source-providers/kuwo-direct');
 const { KugouDirectProvider } = require('../src/server/source-providers/kugou-direct');
+const { checkSourceHealth, healthProbeForProvider } = require('../src/server/api-monitor');
 const config = require('../src/config');
 
 describe('LrclibProvider lyrics', () => {
@@ -221,6 +222,24 @@ describe('Provider error tolerance', () => {
   it('direct source providers only claim matching search sources', async () => {
     assert.deepEqual(await new KuwoDirectProvider().search('kugou', '晴天', 1), []);
     assert.deepEqual(await new KugouDirectProvider().search('kuwo', '晴天', 1), []);
+  });
+
+  it('api monitor probes direct providers with their own source', async () => {
+    assert.deepEqual(healthProbeForProvider({ name: 'kuwo-direct' }), { platform: 'kuwo', keyword: '周杰伦 晴天' });
+    assert.deepEqual(healthProbeForProvider({ name: 'kugou-direct' }), { platform: 'kugou', keyword: '周杰伦 晴天' });
+
+    const calls = [];
+    const health = await checkSourceHealth({
+      name: 'kuwo-direct',
+      options: {},
+      async search(platform, keyword, count) {
+        calls.push({ platform, keyword, count });
+        return [{ id: 'kuwo-rid' }];
+      }
+    });
+
+    assert.deepEqual(calls, [{ platform: 'kuwo', keyword: '周杰伦 晴天', count: 1 }]);
+    assert.deepEqual(health, { search: true, play: true });
   });
 });
 
