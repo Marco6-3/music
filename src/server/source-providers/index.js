@@ -8,6 +8,8 @@ const { MiguProvider } = require('./migu');
 const { LyricFallbackProvider } = require('./lyric-fallback');
 const { UnmExternalProvider } = require('./unm-external');
 const { LrclibProvider } = require('./lrclib');
+const { KuwoDirectProvider } = require('./kuwo-direct');
+const { KugouDirectProvider } = require('./kugou-direct');
 const { Dispatcher } = require('./dispatcher');
 
 function createDefaultDispatcher(config = {}) {
@@ -28,6 +30,14 @@ function createDefaultDispatcher(config = {}) {
     } else {
       providers.push(unmProvider);
     }
+  }
+
+  if (config.kuwoDirect && config.kuwoDirect.enabled !== false) {
+    providers.push(new KuwoDirectProvider(config.kuwoDirect));
+  }
+
+  if (config.kugouDirect && config.kugouDirect.enabled !== false) {
+    providers.push(new KugouDirectProvider(config.kugouDirect));
   }
 
   if (config.migu && config.migu.enabled) {
@@ -54,6 +64,8 @@ module.exports = {
   LyricFallbackProvider,
   UnmExternalProvider,
   LrclibProvider,
+  KuwoDirectProvider,
+  KugouDirectProvider,
   Dispatcher,
   createDefaultDispatcher
 };

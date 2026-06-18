@@ -9,6 +9,8 @@ const { Dispatcher } = require('../src/server/source-providers/dispatcher');
 const { createDefaultDispatcher } = require('../src/server/source-providers/index');
 const { MetingProvider } = require('../src/server/source-providers/meting');
 const { UnmExternalProvider } = require('../src/server/source-providers/unm-external');
+const { KuwoDirectProvider } = require('../src/server/source-providers/kuwo-direct');
+const { KugouDirectProvider } = require('../src/server/source-providers/kugou-direct');
 const config = require('../src/config');
 
 describe('LrclibProvider lyrics', () => {
@@ -157,6 +159,68 @@ describe('Provider error tolerance', () => {
 
     p._get = async () => ({ lrc: { lyric: 'line one' } });
     assert.deepEqual(await p.lyric({ id: '1', source: 'netease' }), { lyric: 'line one' });
+  });
+
+  it('KuwoDirectProvider exposes search and url through proxy', async () => {
+    const p = new KuwoDirectProvider();
+    p.search = async () => ([{ id: '123', name: '晴天', title: '晴天', artist: '周杰伦', source: 'kuwo' }]);
+    p.url = async () => ({ url: 'https://example.test/kuwo.mp3', br: 320, from: 'kuwo-direct' });
+
+    const search = await p.proxy('search', { source: 'kuwo', name: '晴天', count: 1 });
+    assert.equal(search.providerName, 'kuwo-direct');
+    assert.deepEqual(JSON.parse(search.data), [{ id: '123', name: '晴天', title: '晴天', artist: '周杰伦', source: 'kuwo' }]);
+
+    const url = await p.proxy('url', { id: '123', name: '晴天', artist: '周杰伦', br: '320' });
+    assert.equal(url.providerName, 'kuwo-direct');
+    assert.deepEqual(JSON.parse(url.data), { url: 'https://example.test/kuwo.mp3', br: 320, from: 'kuwo-direct' });
+  });
+
+  it('direct source providers do not claim non-matching URL sources', async () => {
+    const p = new KuwoDirectProvider();
+    p.url = async () => {
+      throw new Error('should not call url for non-matching source');
+    };
+    assert.equal(await p.proxy('url', {
+      source: 'netease',
+      id: 'netease-id',
+      name: '晴天',
+      artist: '周杰伦',
+      br: '320'
+    }), null);
+
+    const kugou = new KugouDirectProvider();
+    kugou.url = async () => {
+      throw new Error('should not call url for non-matching source');
+    };
+    assert.equal(await kugou.proxy('url', {
+      source: 'netease',
+      id: 'netease-id',
+      name: '晴天',
+      artist: '周杰伦',
+      br: '320'
+    }), null);
+
+    assert.equal(await new KuwoDirectProvider().url({ source: 'kugou', id: 'hash' }, '320'), null);
+    assert.equal(await new KugouDirectProvider().url({ source: 'kuwo', id: 'rid', name: '晴天' }, '320'), null);
+  });
+
+  it('KugouDirectProvider exposes search and url through proxy', async () => {
+    const p = new KugouDirectProvider();
+    p.search = async () => ([{ id: 'hash', name: '晴天', title: '晴天', artist: '周杰伦', source: 'kugou' }]);
+    p.url = async () => ({ url: 'https://example.test/kugou-via-kuwo.mp3', br: 320, from: 'kugou-via-kuwo' });
+
+    const search = await p.proxy('search', { source: 'kugou', name: '晴天', count: 1 });
+    assert.equal(search.providerName, 'kugou-direct');
+    assert.deepEqual(JSON.parse(search.data), [{ id: 'hash', name: '晴天', title: '晴天', artist: '周杰伦', source: 'kugou' }]);
+
+    const url = await p.proxy('url', { id: 'hash', name: '晴天', artist: '周杰伦', br: '320' });
+    assert.equal(url.providerName, 'kugou-direct');
+    assert.deepEqual(JSON.parse(url.data), { url: 'https://example.test/kugou-via-kuwo.mp3', br: 320, from: 'kugou-via-kuwo' });
+  });
+
+  it('direct source providers only claim matching search sources', async () => {
+    assert.deepEqual(await new KuwoDirectProvider().search('kugou', '晴天', 1), []);
+    assert.deepEqual(await new KugouDirectProvider().search('kuwo', '晴天', 1), []);
   });
 });
 

@@ -70,18 +70,30 @@ class GdstudioProvider extends BaseProvider {
   }
 
   async search(platform, keyword, count = 30) {
-    const response = await axios.get(this.baseUrl, {
-      timeout: this.timeout,
-      params: { types: 'search', source: platform, name: keyword, count },
-      headers: {
-        'User-Agent': this.userAgent,
-        Accept: 'application/json, text/plain, */*',
-        Referer: 'https://music.xcloudv.top/'
-      },
-      httpAgent,
-      httpsAgent
-    });
-    return Array.isArray(response.data) ? response.data : response.data?.data || [];
+    const params = { types: 'search', source: platform, name: keyword, count };
+    const headers = {
+      'User-Agent': this.userAgent,
+      Accept: 'application/json, text/plain, */*',
+      Referer: 'https://music.xcloudv.top/'
+    };
+    const opts = { timeout: this.timeout, headers, httpAgent, httpsAgent };
+
+    try {
+      const response = await axios.get(this.baseUrl, { ...opts, params });
+      return Array.isArray(response.data) ? response.data : response.data?.data || [];
+    } catch (error) {
+      // Single retry for 5xx (server may be temporarily overloaded)
+      if (error.response?.status >= 500) {
+        await new Promise((r) => setTimeout(r, 1000));
+        try {
+          const response = await axios.get(this.baseUrl, { ...opts, params });
+          return Array.isArray(response.data) ? response.data : response.data?.data || [];
+        } catch (retryError) {
+          throw retryError;
+        }
+      }
+      throw error;
+    }
   }
 
   async url(song, quality = '320') {

@@ -55,6 +55,14 @@ module.exports = {
       // Keep disabled by default; UNM can still try its internal migu source.
       enabled: false,
       timeout: 10000
+    },
+    kuwoDirect: {
+      enabled: true,
+      timeout: 10000
+    },
+    kugouDirect: {
+      enabled: true,
+      timeout: 10000
     }
   }
 };
