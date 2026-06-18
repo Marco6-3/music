@@ -36,10 +36,16 @@ const { handleAgentAssistant } = require('./agent-assistant');
 const { startMonitoring } = require('./api-monitor');
 const { OfflineMusicCache, offlineAudioUrl } = require('./offline-cache');
 const { musicSources } = require('../config');
+const {
+  probeAudioUrl,
+  audioMetadataFromContentTypeAndPath,
+  isLosslessRequest,
+  normalizeAudioBitrate
+} = require('./audio-probe');
 
 const projectRoot = path.resolve(__dirname, '../..');
 const webroot = resolveWebroot();
-const MUSIC_API_CACHE_VERSION = 'music-api-v3';
+const MUSIC_API_CACHE_VERSION = 'music-api-v4';
 const AUTH_BODY_LIMIT_BYTES = 32 * 1024;
 const SYNC_BODY_LIMIT_BYTES = 16 * 1024 * 1024;
 const LOGIN_FAILURE_MAX = 6;
@@ -1437,6 +1443,8 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache, optio
         br: track.br || Number(apiQuery.br) || 999,
         size: track.size || 0,
         offline: true,
+        verified_audio: true,
+        content_type: IOS_LOSSLESS_CONTENT_TYPE,
         lossless: true,
         codec: 'alac'
       });
@@ -1449,7 +1457,8 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache, optio
         url: offlineAudioUrl(track),
         br: track.br || Number(apiQuery.br) || 999,
         size: track.size || 0,
-        offline: true
+        offline: true,
+        ...offlineTrackAudioMetadata(track)
       });
       return;
     }
@@ -1501,8 +1510,9 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache, optio
         const params = Object.fromEntries(Object.entries(apiQuery).filter(([key]) => key !== 'types'));
         const result = await dispatcher.proxy(apiQuery.types, params);
         if (result) {
-          const body = typeof result === 'string' ? result : result.data;
+          let body = typeof result === 'string' ? result : result.data;
           const contentType = typeof result === 'string' ? 'application/json' : result.contentType;
+          body = await verifyMusicApiUrlBody(body, apiQuery);
           if (typeof body === 'string' && /^[\[{]/.test(body.trim())) {
             fs.writeFileSync(cacheFile, body, 'utf8');
             memCacheSet(cacheKey, body, cacheTtl);
@@ -1525,7 +1535,7 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache, optio
       transformResponse: [(data) => data]
     });
 
-    const body = response.data;
+    const body = await verifyMusicApiUrlBody(response.data, apiQuery);
     if (typeof body === 'string' && /^[\[{]/.test(body.trim())) {
       fs.writeFileSync(cacheFile, body, 'utf8');
       memCacheSet(cacheKey, body, cacheTtl);
@@ -1553,6 +1563,63 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache, optio
   }
 }
 
+async function verifyMusicApiUrlBody(body, apiQuery) {
+  if (apiQuery.types !== 'url' || typeof body !== 'string') return body;
+
+  const parsed = parseJson(body, null);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return body;
+
+  const payload = musicApiUrlPayload(parsed);
+  const audioUrl = stringValue(payload?.url);
+  if (!payload || !audioUrl) return body;
+
+  const metadata = await probeAudioUrl(audioUrl);
+  applyVerifiedAudioMetadata(payload, apiQuery, metadata);
+
+  return JSON.stringify(parsed);
+}
+
+function musicApiUrlPayload(parsed) {
+  if (parsed.url) return parsed;
+  if (parsed.data && typeof parsed.data === 'object' && !Array.isArray(parsed.data)) {
+    return parsed.data;
+  }
+  return null;
+}
+
+function applyVerifiedAudioMetadata(payload, apiQuery, metadata) {
+  const normalizedBr = normalizeAudioBitrate(payload.br || payload.data?.br || apiQuery.br);
+  const requestedLossless = isLosslessRequest(apiQuery.br);
+  const isLossless = Boolean(metadata.verified && metadata.lossless);
+
+  payload.verified_audio = Boolean(metadata.verified);
+  payload.lossless = isLossless;
+  if (metadata.verified && metadata.codec) payload.codec = metadata.codec;
+  if (metadata.verified && metadata.contentType) payload.content_type = metadata.contentType;
+
+  if (isLossless) {
+    payload.br = normalizedBr && normalizedBr >= 900 ? normalizedBr : 999;
+    return;
+  }
+
+  if (requestedLossless) {
+    payload.br = normalizedBr && normalizedBr < 900 ? normalizedBr : 320;
+    return;
+  }
+
+  if (normalizedBr) payload.br = normalizedBr;
+}
+
+function offlineTrackAudioMetadata(track) {
+  const metadata = audioMetadataFromContentTypeAndPath(track.content_type, track.file_path);
+  return {
+    verified_audio: Boolean(metadata.codec),
+    content_type: track.content_type || metadata.contentType || '',
+    lossless: Boolean(metadata.lossless || isIosIncompatibleLosslessTrack(track)),
+    codec: metadata.codec || ''
+  };
+}
+
 function normalizeMusicApiQuery(req) {
   return { ...req.query };
 }
@@ -1562,12 +1629,6 @@ function shouldPreferIosCompatibleAudio(req) {
   if (!userAgent) return false;
   return /\b(iphone|ipad|ipod)\b/.test(userAgent)
     || (userAgent.includes('macintosh') && userAgent.includes('mobile/'));
-}
-
-function isLosslessRequest(br) {
-  const value = String(br || '').toLowerCase();
-  if (value === 'flac' || value === 'lossless' || value === 'sq') return true;
-  return Number(value || 0) >= 900;
 }
 
 function shouldServeIosLosslessAudio(req, apiQuery, track) {

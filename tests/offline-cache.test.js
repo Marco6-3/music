@@ -212,6 +212,190 @@ test('music API returns local offline URL when the track is downloaded', async (
   }
 });
 
+test('music API downgrades fake lossless metadata when the audio URL is MP3', async () => {
+  const dataDir = createTempDir();
+  const mp3Audio = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(32, 1)]);
+  const audioServer = await startAudioServer({
+    audio: mp3Audio,
+    contentType: 'audio/x-flac',
+    pathname: '/fake-lossless.flac'
+  });
+  let store;
+  let appServer;
+
+  try {
+    store = await createDataStore(dataDir);
+    const app = createExpressApp({
+      store,
+      uploadsDir: path.join(dataDir, 'uploads', 'avatars'),
+      cacheDir: path.join(dataDir, 'cache'),
+      dispatcher: {
+        async proxy(types, params) {
+          assert.equal(types, 'url');
+          assert.equal(params.br, '999');
+          return {
+            data: JSON.stringify({ url: audioServer.url, br: 999 }),
+            contentType: 'application/json',
+            providerName: 'fake-online'
+          };
+        }
+      }
+    });
+    appServer = http.createServer(app);
+    const baseUrl = await listen(appServer);
+
+    const response = await fetch(`${baseUrl}/api.php?types=url&source=netease&id=mp3-song&br=999`);
+    const body = await response.json();
+
+    assert.equal(response.headers.get('x-music-source'), 'fake-online');
+    assert.equal(body.url, audioServer.url);
+    assert.equal(body.verified_audio, true);
+    assert.equal(body.lossless, false);
+    assert.equal(body.codec, 'mp3');
+    assert.equal(body.content_type, 'audio/mpeg');
+    assert.equal(body.br, 320);
+  } finally {
+    if (appServer) appServer.close();
+    if (store) store.close();
+    audioServer.server.close();
+    removeTempDir(dataDir);
+  }
+});
+
+test('music API keeps lossless metadata when the audio URL is FLAC', async () => {
+  const dataDir = createTempDir();
+  const flacAudio = Buffer.concat([Buffer.from('fLaC'), Buffer.alloc(32, 1)]);
+  const audioServer = await startAudioServer({
+    audio: flacAudio,
+    contentType: 'audio/mpeg',
+    pathname: '/wrong-type.mp3'
+  });
+  let store;
+  let appServer;
+
+  try {
+    store = await createDataStore(dataDir);
+    const app = createExpressApp({
+      store,
+      uploadsDir: path.join(dataDir, 'uploads', 'avatars'),
+      cacheDir: path.join(dataDir, 'cache'),
+      dispatcher: {
+        async proxy() {
+          return {
+            data: JSON.stringify({ url: audioServer.url, br: 811 }),
+            contentType: 'application/json',
+            providerName: 'fake-online'
+          };
+        }
+      }
+    });
+    appServer = http.createServer(app);
+    const baseUrl = await listen(appServer);
+
+    const response = await fetch(`${baseUrl}/api.php?types=url&source=netease&id=flac-song&br=999`);
+    const body = await response.json();
+
+    assert.equal(body.url, audioServer.url);
+    assert.equal(body.verified_audio, true);
+    assert.equal(body.lossless, true);
+    assert.equal(body.codec, 'flac');
+    assert.equal(body.content_type, 'audio/x-flac');
+    assert.equal(body.br, 999);
+  } finally {
+    if (appServer) appServer.close();
+    if (store) store.close();
+    audioServer.server.close();
+    removeTempDir(dataDir);
+  }
+});
+
+test('music API annotates nested URL payload metadata', async () => {
+  const dataDir = createTempDir();
+  const flacAudio = Buffer.concat([Buffer.from('fLaC'), Buffer.alloc(32, 1)]);
+  const audioServer = await startAudioServer({
+    audio: flacAudio,
+    contentType: 'audio/x-flac',
+    pathname: '/nested.flac'
+  });
+  let store;
+  let appServer;
+
+  try {
+    store = await createDataStore(dataDir);
+    const app = createExpressApp({
+      store,
+      uploadsDir: path.join(dataDir, 'uploads', 'avatars'),
+      cacheDir: path.join(dataDir, 'cache'),
+      dispatcher: {
+        async proxy() {
+          return {
+            data: JSON.stringify({ data: { url: audioServer.url, br: 999 } }),
+            contentType: 'application/json',
+            providerName: 'fake-online'
+          };
+        }
+      }
+    });
+    appServer = http.createServer(app);
+    const baseUrl = await listen(appServer);
+
+    const response = await fetch(`${baseUrl}/api.php?types=url&source=netease&id=nested-flac&br=999`);
+    const body = await response.json();
+
+    assert.equal(body.data.url, audioServer.url);
+    assert.equal(body.data.verified_audio, true);
+    assert.equal(body.data.lossless, true);
+    assert.equal(body.data.codec, 'flac');
+    assert.equal(body.data.content_type, 'audio/x-flac');
+    assert.equal(body.data.br, 999);
+    assert.equal(body.lossless, undefined);
+  } finally {
+    if (appServer) appServer.close();
+    if (store) store.close();
+    audioServer.server.close();
+    removeTempDir(dataDir);
+  }
+});
+
+test('music API does not trust a FLAC extension when the audio probe fails', async () => {
+  const dataDir = createTempDir();
+  let store;
+  let appServer;
+
+  try {
+    store = await createDataStore(dataDir);
+    const app = createExpressApp({
+      store,
+      uploadsDir: path.join(dataDir, 'uploads', 'avatars'),
+      cacheDir: path.join(dataDir, 'cache'),
+      dispatcher: {
+        async proxy() {
+          return {
+            data: JSON.stringify({ url: 'http://127.0.0.1:9/unreachable.flac', br: 999 }),
+            contentType: 'application/json',
+            providerName: 'fake-online'
+          };
+        }
+      }
+    });
+    appServer = http.createServer(app);
+    const baseUrl = await listen(appServer);
+
+    const response = await fetch(`${baseUrl}/api.php?types=url&source=netease&id=unreachable&br=999`);
+    const body = await response.json();
+
+    assert.equal(body.verified_audio, false);
+    assert.equal(body.lossless, false);
+    assert.equal(body.codec, undefined);
+    assert.equal(body.content_type, undefined);
+    assert.equal(body.br, 320);
+  } finally {
+    if (appServer) appServer.close();
+    if (store) store.close();
+    removeTempDir(dataDir);
+  }
+});
+
 test('server account playlists trigger offline download and are available after login', async () => {
   const dataDir = createTempDir();
   const audioServer = await startAudioServer({

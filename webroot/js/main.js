@@ -970,6 +970,9 @@
     function renderSongCard(song, index, context) {
         const isPlaying = state.currentSong && sameSong(state.currentSong, song);
         const cover = getCoverUrl(song, 120);
+        const playlistButton = context === 'playlist'
+            ? '<button class="icon-btn" data-action="remove-playlist" title="从歌单移除" aria-label="从歌单移除">−</button>'
+            : '<button class="icon-btn" data-action="playlist" title="添加到歌单">≡</button>';
         return `
             <article class="song-card ${isPlaying ? 'playing' : ''}" data-song="${encodeSong(song)}" data-context="${escapeAttr(context)}">
                 ${cover ? `<img class="song-cover" src="${escapeAttr(cover)}" alt="">` : `<div class="song-index">${index + 1}</div>`}
@@ -981,7 +984,7 @@
                     <button class="icon-btn play-icon-btn" data-action="play" title="播放" aria-label="播放"></button>
                     <button class="icon-btn" data-action="queue" title="加入队列">＋</button>
                     <button class="icon-btn" data-action="favorite" title="收藏">${isFavorite(song) ? '♥' : '♡'}</button>
-                    <button class="icon-btn" data-action="playlist" title="添加到歌单">≡</button>
+                    ${playlistButton}
                 </div>
             </article>
         `;
@@ -1124,6 +1127,7 @@
             if (action === 'queue') enqueue(song);
             if (action === 'favorite') toggleFavorite(song);
             if (action === 'playlist') openPlaylistDialog(song);
+            if (action === 'remove-playlist') removeSongFromActivePlaylist(song);
         });
     }
 
@@ -1145,8 +1149,8 @@
 
     function currentPlaylistSongs() {
         if (state.view !== 'playlists') return [];
-        const heading = $('.section-head h2', els.viewRoot);
-        const playlist = state.playlists.find((item) => item.name === heading?.textContent);
+        const playlistName = state.activePlaylistName || $('.section-head h2', els.viewRoot)?.textContent;
+        const playlist = state.playlists.find((item) => item.name === playlistName);
         return playlist ? playlist.songs : [];
     }
 
@@ -2284,6 +2288,38 @@
         if (state.view === 'playlists') renderPlaylists();
     }
 
+    async function removeSongFromActivePlaylist(song) {
+        const playlistName = state.activePlaylistName;
+        const playlist = state.playlists.find((item) => item.name === playlistName);
+        if (!state.currentUser || !playlist) {
+            showToast('当前歌单不存在', 'error');
+            return;
+        }
+
+        try {
+            const idData = await apiPost('php/get_playlist_id.php', {
+                user_id: state.currentUser.id,
+                playlist_name: playlistName
+            });
+            if (!idData.success) throw new Error(idData.message || '歌单不存在');
+
+            const data = await apiPost('php/playlist.php', {
+                action: 'remove_song',
+                user_id: state.currentUser.id,
+                playlist_id: idData.playlist_id,
+                ...songPayload(song)
+            });
+            if (!data.success) throw new Error(data.message || '移除失败');
+
+            playlist.songs = playlist.songs.filter((item) => !sameSong(item, song));
+            updateUserCollections();
+            openPlaylistView(playlistName);
+            showToast('已从歌单移除', 'success');
+        } catch (error) {
+            showToast(error.message || '移除失败', 'error');
+        }
+    }
+
     async function renamePlaylist(oldName, requestedName) {
         const newName = typeof requestedName === 'string'
             ? requestedName
@@ -2645,7 +2681,7 @@
         const size = Number(data?.size || 0);
         const sizeText = size ? ` · ${formatBytes(size)}` : '';
         const offlineText = data?.offline ? ' · 本地' : '';
-        els.expandedQuality.textContent = `${qualityLabel(quality)}${sizeText}${offlineText}`;
+        els.expandedQuality.textContent = `${qualityLabel(quality, data)}${sizeText}${offlineText}`;
     }
 
     function normalizeRequestedQuality(value) {
@@ -2655,8 +2691,24 @@
         return numeric >= 900 ? '999' : '320';
     }
 
-    function qualityLabel(value) {
+    function qualityLabel(value, metadata = null) {
+        const codec = String(metadata?.codec || '').toLowerCase();
         const numeric = Number(value || 0);
+        const hasVerifiedMetadata = metadata && (
+            metadata.verified_audio
+            || codec
+            || typeof metadata.lossless === 'boolean'
+        );
+        if (hasVerifiedMetadata) {
+            if (metadata.lossless === true || (metadata.verified_audio && ['flac', 'wav', 'alac'].includes(codec))) {
+                return `无损 SQ${codec ? ` ${codec.toUpperCase()}` : ''}`;
+            }
+            if (codec === 'mp3') return '极高 HQ MP3';
+            if (codec === 'm4a' || codec === 'aac') return '极高 HQ AAC';
+            if (codec === 'ogg') return '高音质 OGG';
+            if (metadata.lossless === false) return numeric >= 320 ? '极高 HQ' : '标准音质';
+        }
+
         if (numeric >= 900) return '无损 SQ';
         if (numeric >= 800) return `无损 SQ ${numeric}K`;
         if (numeric >= 320) return '极高 HQ';

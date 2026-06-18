@@ -6,10 +6,15 @@ const { BaseProvider } = require('./base');
 const { errorMessage } = require('./dispatcher');
 
 let providerModules;
+let unmSelect; // reference to UNM's internal select.js (reads ENABLE_FLAC at load time)
 
 function loadUnmModules() {
   if (providerModules) return true;
   try {
+    // Must set ENABLE_FLAC BEFORE requiring UNM modules — they read it at load time
+    // via provider/select.js which caches process.env.ENABLE_FLAC as a module-level constant.
+    if (!process.env.ENABLE_FLAC) process.env.ENABLE_FLAC = 'true';
+
     providerModules = {
       kuwo: tryRequire('@unblockneteasemusic/server/src/provider/kuwo'),
       kugou: tryRequire('@unblockneteasemusic/server/src/provider/kugou'),
@@ -17,6 +22,18 @@ function loadUnmModules() {
       bodian: tryRequire('@unblockneteasemusic/server/src/provider/bodian'),
       migu: tryRequire('@unblockneteasemusic/server/src/provider/migu'),
     };
+
+    // Patch select.ENABLE_FLAC directly as a safety net (in case the require order matters)
+    try {
+      const selectPath = require.resolve('@unblockneteasemusic/server/src/provider/select');
+      unmSelect = require(selectPath);
+      if (!unmSelect.ENABLE_FLAC) {
+        unmSelect.ENABLE_FLAC = true;
+      }
+    } catch {
+      // select.js may not exist in all versions — ignore
+    }
+
     return true;
   } catch (error) {
     console.warn('[UnmProvider] failed to load UNM modules:', error.message);
@@ -26,6 +43,7 @@ function loadUnmModules() {
 
 const MIN_SONG_SIZE_BYTES = 500 * 1024; // 500KB — ads/jingles are typically < 200KB
 const SYNTHETIC_SONGS_MAX = 500;
+const LOSSLESS_BR_THRESHOLD = 900; // br >= 900 means lossless request
 
 function headContentLength(url) {
   return new Promise((resolve) => {
@@ -39,6 +57,43 @@ function headContentLength(url) {
     req.on('timeout', () => { req.destroy(); resolve(0); });
     req.end();
   });
+}
+
+// Probe first 8KB of audio to detect actual format via magic bytes.
+function probeAudioFormat(url) {
+  return new Promise((resolve) => {
+    const transport = url.startsWith('https') ? https : http;
+    const req = transport.get(url, {
+      timeout: 6000,
+      headers: { Range: 'bytes=0-8191', 'User-Agent': 'Mozilla/5.0' }
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => { chunks.push(chunk); if (Buffer.concat(chunks).length >= 8192) res.destroy(); });
+      res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        resolve(audioFormatFromBytes(buf));
+      });
+      res.on('error', () => resolve({ codec: '', lossless: false }));
+    });
+    req.on('error', () => resolve({ codec: '', lossless: false }));
+    req.on('timeout', () => { req.destroy(); resolve({ codec: '', lossless: false }); });
+  });
+}
+
+function audioFormatFromBytes(buf) {
+  if (buf.length >= 4) {
+    const magic = buf.toString('ascii', 0, 4);
+    if (magic === 'fLaC') return { codec: 'flac', lossless: true };
+    if (magic.startsWith('RIFF') && buf.length >= 12 && buf.toString('ascii', 8, 12) === 'WAVE') return { codec: 'wav', lossless: true };
+    if (buf[4] === 0x66 && buf[5] === 0x74 && buf[6] === 0x79 && buf[7] === 0x70) {
+      const ascii = buf.toString('ascii').toLowerCase();
+      if (ascii.includes('alac')) return { codec: 'alac', lossless: true };
+      return { codec: 'm4a', lossless: false };
+    }
+    if (magic.startsWith('ID3') || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0)) return { codec: 'mp3', lossless: false };
+    if (magic.startsWith('OggS')) return { codec: 'ogg', lossless: false };
+  }
+  return { codec: '', lossless: false };
 }
 
 function tryRequire(id) {
@@ -143,15 +198,17 @@ class UnmProvider extends BaseProvider {
     }
 
     const source = song.source || 'netease';
+    const isLossless = Number(quality) >= LOSSLESS_BR_THRESHOLD || String(quality).toLowerCase() === 'flac';
 
     const songInfo = {
       keyword: [song.name || song.title, song.artist].filter(Boolean).join(' '),
       duration: Number(song.duration) || 0
     };
 
-    const url = await this._resolveWithValidation(songInfo, source);
+    const url = await this._resolveWithValidation(songInfo, source, isLossless);
     if (url) {
-      return { url, br: Number(quality) * 1000 || 320000 };
+      const br = isLossless ? 999 : (Number(quality) || 320);
+      return { url, br };
     }
     return null;
   }
@@ -190,12 +247,16 @@ class UnmProvider extends BaseProvider {
 
       if (!songInfo.keyword.trim()) return null;
 
+      const br = Number(params.br) || 320;
+      const isLossless = br >= LOSSLESS_BR_THRESHOLD;
+
       try {
-        const url = await this._resolveWithValidation(songInfo, params.source || 'netease');
+        const url = await this._resolveWithValidation(songInfo, params.source || 'netease', isLossless);
         if (url) {
+          const resultBr = isLossless ? 999 : (Number(params.br) || 320);
           return {
             ok: true,
-            data: JSON.stringify({ url, br: Number(params.br) * 1000 || 320000 }),
+            data: JSON.stringify({ url, br: resultBr }),
             contentType: 'application/json',
             providerName: this.name
           };
@@ -234,7 +295,10 @@ class UnmProvider extends BaseProvider {
     return this.sources;
   }
 
-  async _resolveWithValidation(songInfo, requestedSource = 'netease') {
+  async _resolveWithValidation(songInfo, requestedSource = 'netease', requireLossless = false) {
+    let bestLosslessUrl = null;
+    let bestLosslessSize = 0;
+
     for (const sourceName of this._sourcesForUrl(requestedSource)) {
       const mod = providerModules[sourceName];
       if (!mod) continue;
@@ -252,11 +316,33 @@ class UnmProvider extends BaseProvider {
           continue;
         }
 
+        // For lossless requests, probe the actual audio format
+        if (requireLossless) {
+          const probeResult = await probeAudioFormat(url);
+          if (probeResult.lossless) {
+            console.log(`[UnmProvider] lossless verified via ${sourceName}: ${probeResult.codec} (${size > 0 ? (size / 1024).toFixed(0) + 'KB' : 'size unknown'})`);
+            return url;
+          }
+          // Not lossless — remember it as fallback if it's the biggest file so far
+          if (size > bestLosslessSize) {
+            bestLosslessUrl = url;
+            bestLosslessSize = size;
+          }
+          console.log(`[UnmProvider] ${sourceName} returned ${probeResult.codec} (not lossless), trying next source`);
+          continue;
+        }
+
         console.log(`[UnmProvider] resolved via ${sourceName} (${size > 0 ? (size / 1024).toFixed(0) + 'KB' : 'size unknown'})`);
         return url;
       } catch {
         continue;
       }
+    }
+
+    // If lossless was required but none found, return best available as fallback
+    if (requireLossless && bestLosslessUrl) {
+      console.log('[UnmProvider] no lossless source found, returning best available');
+      return bestLosslessUrl;
     }
     return null;
   }

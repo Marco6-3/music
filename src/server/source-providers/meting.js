@@ -26,6 +26,10 @@ class MetingProvider extends BaseProvider {
   constructor(options = {}) {
     super('meting', options);
     this.defaultPlatform = options.defaultPlatform || 'netease';
+    // Filter out empty cookie strings
+    this.cookies = Object.fromEntries(
+      Object.entries(options.cookies || {}).filter(([, v]) => v && v.trim())
+    );
     this.metingByPlatform = new Map();
   }
 
@@ -37,6 +41,11 @@ class MetingProvider extends BaseProvider {
       if (!MetingClass) return null;
       meting = new MetingClass(site);
       meting.format(true);
+      // Set VIP cookie if configured for this platform
+      const cookie = this.cookies[site];
+      if (cookie && typeof meting.cookie === 'function') {
+        meting.cookie(cookie);
+      }
       this.metingByPlatform.set(site, meting);
     }
     return meting;

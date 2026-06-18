@@ -4,6 +4,7 @@ const { BaseProvider } = require('./base');
 const { GdstudioProvider } = require('./gdstudio');
 const { UnmProvider } = require('./unm');
 const { MetingProvider } = require('./meting');
+const { MiguProvider } = require('./migu');
 const { LyricFallbackProvider } = require('./lyric-fallback');
 const { UnmExternalProvider } = require('./unm-external');
 const { LrclibProvider } = require('./lrclib');
@@ -29,6 +30,10 @@ function createDefaultDispatcher(config = {}) {
     }
   }
 
+  if (config.migu && config.migu.enabled) {
+    providers.push(new MiguProvider(config.migu));
+  }
+
   if (config.unmExternal && config.unmExternal.enabled) {
     providers.push(new UnmExternalProvider(config.unmExternal));
   }
@@ -45,6 +50,7 @@ module.exports = {
   GdstudioProvider,
   UnmProvider,
   MetingProvider,
+  MiguProvider,
   LyricFallbackProvider,
   UnmExternalProvider,
   LrclibProvider,

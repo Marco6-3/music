@@ -5,6 +5,19 @@ const COOLDOWN_MS = 5 * 60 * 1000;
 const SCORE_DECAY = 0.5;
 const SCORE_RECOVER = 0.1;
 const PRIORITY_RACE_TIMEOUT = 500;
+const LOSSLESS_BR_THRESHOLD = 900;
+
+let audioProbe;
+function getAudioProbe() {
+  if (!audioProbe) {
+    try {
+      audioProbe = require('../audio-probe');
+    } catch {
+      audioProbe = null;
+    }
+  }
+  return audioProbe;
+}
 
 // Tracks per-provider health for adaptive ordering.
 class ProviderHealth {
@@ -167,11 +180,94 @@ class Dispatcher {
     return this._fallback(method, ...args);
   }
 
+  // For lossless requests: query all healthy providers in parallel, probe each URL,
+  // and return the one with the highest verified bitrate.
+  async _selectBest(method, ...args) {
+    const sorted = this._sortedProviders();
+    const healthy = sorted.filter((p) => this._getHealth(p).isHealthy());
+
+    if (healthy.length === 0) return emptyResult(method);
+
+    // Fire all providers in parallel
+    const settled = await Promise.allSettled(
+      healthy.map(async (provider) => {
+        try {
+          const result = await provider[method](...args);
+          if (!hasProviderResult(method, result, args)) return null;
+          return { provider: provider.name, result, ref: provider };
+        } catch (error) {
+          this._recordFailure(provider);
+          console.warn(`[Dispatcher] ${method} best-of failed on ${provider.name}:`, errorMessage(error));
+          return null;
+        }
+      })
+    );
+
+    const candidates = settled
+      .filter((r) => r.status === 'fulfilled' && r.value)
+      .map((r) => r.value);
+
+    if (candidates.length === 0) return emptyResult(method);
+
+    // Probe each candidate URL to verify actual quality
+    const probe = getAudioProbe();
+    if (!probe || method !== 'url') {
+      // No probe available or not a url request — return first candidate
+      this._recordSuccess(candidates[0].ref);
+      return attachProviderName(method, candidates[0].result, candidates[0].provider);
+    }
+
+    const probed = await Promise.allSettled(
+      candidates.map(async (candidate) => {
+        try {
+          const url = candidate.result?.url || candidate.result?.data?.url;
+          if (!url) return { ...candidate, br: 0, lossless: false };
+          const metadata = await probe.probeAudioUrl(url);
+          const rawBr = extractBitrate(candidate.result);
+          const verifiedLossless = Boolean(metadata.verified && metadata.lossless);
+          const br = verifiedLossless ? 999 : downgradeFakeLosslessBitrate(rawBr);
+          return {
+            ...candidate,
+            br,
+            lossless: verifiedLossless,
+            verified: Boolean(metadata.verified),
+            codec: metadata.codec,
+            contentType: metadata.contentType
+          };
+        } catch {
+          return { ...candidate, br: downgradeFakeLosslessBitrate(extractBitrate(candidate.result)), lossless: false, verified: false };
+        }
+      })
+    );
+
+    const verified = probed
+      .filter((r) => r.status === 'fulfilled' && r.value)
+      .map((r) => r.value)
+      .sort((a, b) => {
+        // Prefer lossless over lossy, then higher bitrate
+        if (a.lossless !== b.lossless) return a.lossless ? -1 : 1;
+        return b.br - a.br;
+      });
+
+    if (verified.length === 0) return emptyResult(method);
+
+    const best = verified[0];
+    console.log(`[Dispatcher] ${method} best-of-all: ${best.provider} (${best.codec || 'unknown'}, lossless=${best.lossless}, br=${best.br})`);
+    this._recordSuccess(best.ref);
+    return attachProviderName(method, annotateUrlResult(best.result, best), best.provider);
+  }
+
   async search(platform, keyword, count) {
     return this._dispatch('search', platform, keyword, count);
   }
 
   async url(song, quality) {
+    // For lossless requests, use best-of-all strategy: query all providers,
+    // probe each result, and pick the highest verified quality.
+    const isLossless = Number(quality) >= LOSSLESS_BR_THRESHOLD || String(quality).toLowerCase() === 'flac';
+    if (isLossless) {
+      return this._selectBest('url', song, quality);
+    }
     return this._dispatch('url', song, quality);
   }
 
@@ -260,6 +356,37 @@ function errorMessage(error) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function extractBitrate(result) {
+  if (!result) return 0;
+  const br = result.br || result.data?.br || 0;
+  const n = Number(br);
+  if (!n || !Number.isFinite(n)) return 0;
+  // Normalize: values like 999000 are in bps, convert to kbps-style for comparison
+  if (n > 5000) return Math.round(n / 1000);
+  return n;
+}
+
+function downgradeFakeLosslessBitrate(br) {
+  return br >= LOSSLESS_BR_THRESHOLD ? 320 : br;
+}
+
+function annotateUrlResult(result, metadata) {
+  if (!result || typeof result !== 'object') return result;
+  const output = { ...result };
+  const payload = output.data && typeof output.data === 'object' && !Array.isArray(output.data)
+    ? { ...output.data }
+    : output;
+
+  payload.br = metadata.br || payload.br;
+  payload.verified_audio = Boolean(metadata.verified);
+  payload.lossless = Boolean(metadata.lossless);
+  if (metadata.codec) payload.codec = metadata.codec;
+  if (metadata.contentType) payload.content_type = metadata.contentType;
+
+  if (payload !== output) output.data = payload;
+  return output;
 }
 
 module.exports = { Dispatcher, ProviderHealth, hasProviderResult, errorMessage };

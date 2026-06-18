@@ -2,6 +2,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const http = require('node:http');
 
 const { LrclibProvider } = require('../src/server/source-providers/lrclib');
 const { Dispatcher } = require('../src/server/source-providers/dispatcher');
@@ -107,6 +108,29 @@ describe('Dispatcher integration', () => {
     assert.equal(result[0].id, 'fast');
     assert.ok(Date.now() - startedAt < 150, 'fallback provider should not wait for slow priority timeout');
   });
+
+  it('should probe a single lossless URL candidate before returning it', async () => {
+    const audioServer = await startAudioServer(Buffer.concat([Buffer.from('ID3'), Buffer.alloc(32, 1)]), 'audio/mpeg');
+    const dispatcher = new Dispatcher([{
+      name: 'fake-url',
+      enabled: true,
+      async url() {
+        return { url: audioServer.url, br: 999000 };
+      }
+    }]);
+
+    try {
+      const result = await dispatcher.url({ id: 'fake-song' }, '999');
+      assert.equal(result.url, audioServer.url);
+      assert.equal(result.br, 320);
+      assert.equal(result.verified_audio, true);
+      assert.equal(result.lossless, false);
+      assert.equal(result.codec, 'mp3');
+      assert.equal(result.content_type, 'audio/mpeg');
+    } finally {
+      audioServer.server.close();
+    }
+  });
 });
 
 describe('Provider error tolerance', () => {
@@ -149,4 +173,21 @@ function fakeProvider(name, delayMs, result) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function startAudioServer(audio, contentType) {
+  const server = http.createServer((req, res) => {
+    res.writeHead(206, {
+      'Content-Type': contentType,
+      'Content-Length': audio.length,
+      'Content-Range': `bytes 0-${audio.length - 1}/${audio.length}`
+    });
+    res.end(audio);
+  });
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      resolve({ server, url: `http://127.0.0.1:${address.port}/audio.flac` });
+    });
+  });
 }
