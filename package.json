@@ -20,6 +20,8 @@
     "sync:export-user": "node scripts/export-user-sync.js",
     "sync:import-user": "node scripts/import-user-sync.js",
     "qa:electron": "node scripts/qa-electron.js",
+    "android:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-debug.ps1",
+    "android:release": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android-release.ps1",
     "pack": "electron-builder --dir",
     "dist": "electron-builder --dir",
     "build": "electron-builder --dir",

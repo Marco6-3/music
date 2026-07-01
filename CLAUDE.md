@@ -4,7 +4,7 @@ This file gives Claude Code repository-specific guidance for this project.
 
 ## Project Overview
 
-`music` is a Windows desktop music player rebuilt with Electron, an Express 5 local backend, and a static frontend/PWA under `webroot/`.
+`music` is a Windows desktop music player rebuilt with Electron, an Express 5 local backend, and a static frontend/PWA under `webroot/`. It also has an Android WebView debug APK under `android/` that can serve bundled `webroot/` assets through a lightweight on-device Java server.
 
 The current backend runs locally and can be started with plain Node. Web/PWA mode should be deployed over HTTPS for iPhone Safari/Home Screen use. Do not reintroduce the old Electron Node wrapper or native SQLite dependency path.
 
@@ -20,6 +20,8 @@ npm run test:pwa
 npm run probe:sources
 npm run probe:backend
 npm run qa:electron
+npm run android:debug
+npm run android:release
 npm run dist
 npm run build
 npm run pack
@@ -76,6 +78,13 @@ Provider code lives in `src/server/source-providers/`.
 - `webroot/manifest.webmanifest`: Web/PWA metadata for standalone installation.
 - `tests/database-persistence.test.js`: `node:test` coverage for `sql.js` persist behavior.
 
+### Android
+
+- `android/`: native Android WebView wrapper. Its default builds serve bundled `webroot/` from a lightweight Java loopback server, use `MusicPlaybackService` for Android foreground media playback/MediaSession controls, and must not embed Node/Express or native SQLite.
+- `scripts/build-android-debug.ps1`: Windows helper for debug APK builds. It prefers Android Studio JBR and copies the APK to `dist/android/music-android-debug.apk`.
+- `scripts/build-android-release.ps1`: Windows helper for signed release APK builds. It creates/uses ignored local signing files and copies the APK to `dist/android/music-android-release.apk`.
+- The default Android URL is `local`, which starts the on-device server and opens `http://127.0.0.1:<port>/?source=android`. It stores auth/favorites/playlists/history locally and uses an Android-side lightweight dispatcher. Android default playback should prefer NetEase/GD-Studio full audio; Kuwo/Kugou are useful for search/fallback but preview-sized playback URLs must be rejected and retried through GD-Studio. Migu code is present but currently marked unreachable in this environment. Use `MUSIC_ANDROID_WEB_URL` or `-PmusicWebUrl=...` only when intentionally testing a remote Web/PWA backend.
+
 ## Database
 
 The project uses `sql.js`, not `better-sqlite3`.
@@ -91,10 +100,12 @@ Tables are created automatically. Core tables include `users`, `favorites`, `pla
 
 - `npm run server` uses plain Node and should work without Electron.
 - `npm run web:start` is the same plain Node Express backend for Web/PWA deployment; use HTTPS and same-origin APIs where possible.
+- `npm run android:debug` builds a debug Android APK; `npm run android:release` builds a locally signed release APK. Both require Android SDK and do not include the Node/Express backend.
 - `scripts/electron-node.js` was removed and should not be restored.
 - `start-music.cmd` is the Windows one-click startup script and installs dependencies on first launch.
 - Verification codes are written to `<dataDir>/email_log.txt`; SMTP is not implemented.
 - `.claude/` is a local Claude Code worktree/cache directory and must not be committed.
+- Android signing material such as `android/signing.properties`, `android/*.jks`, and `android/*.keystore` must stay local and ignored.
 - If architecture, commands, database technology, or provider behavior changes, update both `CLAUDE.md` and `AGENTS.md`.
 
 ## Review Checklist

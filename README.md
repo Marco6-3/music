@@ -191,6 +191,72 @@ npm run qa:electron
 
 该脚本会启动 `dist/win-unpacked/music.exe` 并做基础渲染、搜索、性能和控制台错误检查，因此需要先完成 `npm run dist`。
 
+### Android APK
+
+项目包含 Android Debug APK 工程，源码位于 `android/`。默认构建是手机本地运行版：APK 会打包 `webroot/` 静态前端，并在手机内启动一个 Java 本地 HTTP 服务，WebView 打开的是手机自己的 `http://127.0.0.1:<端口>/?source=android`，不需要电脑或云端 Express 后端。
+
+构建 Debug APK：
+
+```powershell
+npm run android:debug
+```
+
+Debug 输出文件：
+
+```text
+dist/android/music-android-debug.apk
+```
+
+构建 Release 签名 APK：
+
+```powershell
+npm run android:release
+```
+
+Release 输出文件：
+
+```text
+dist/android/music-android-release.apk
+```
+
+首次构建 release 时脚本会生成本地签名文件：
+
+```text
+android/music-release-local.jks
+android/signing.properties
+```
+
+这两个文件被 `.gitignore` 忽略，不要提交。它们决定后续升级签名；如果删除或换签名，手机上已安装的旧包需要先卸载再装。
+
+安装到当前连接的 Android 设备或模拟器：
+
+```powershell
+adb install -r dist/android/music-android-release.apk
+```
+
+Android 本地模式的边界：
+
+- 搜索和播放 URL 默认走 APK 内置的轻量多音源调度。默认播放优先使用网易云/GD-Studio 的完整音频；酷我、酷狗可参与搜索和兜底，但如果返回的是预览级短音频，Android 会拒绝该播放地址并继续换源。
+- 咪咕保留尝试路径，但当前测试环境里 TLS 不可达，会在 Android 本地源状态里标记为不可用。
+- Android 包内置原生前台播放服务和 MediaSession：播放时会显示系统媒体通知，并支持系统/耳机的播放、暂停、上一首、下一首控制。
+- 登录、收藏、歌单和播放历史写入手机本地存储，不依赖桌面端 `sql.js` 数据库。
+- APK 不内嵌 Node/Express，也不启动 `src/server/index.js`。
+- AI 助手和桌面版离线音频缓存仍属于桌面/Express 后端能力，不是当前 Android 本地模式能力。
+
+如果要临时测试远端 Web/PWA 后端，仍可覆盖默认地址：
+
+```powershell
+$env:MUSIC_ANDROID_WEB_URL="https://你的域名/?source=android"
+npm run android:debug
+```
+
+也可以直接使用 Gradle 参数：
+
+```powershell
+cd android
+.\gradlew.bat assembleDebug -PmusicWebUrl="https://你的域名/?source=android"
+```
+
 ## 工程结构
 
 ```text
@@ -202,8 +268,11 @@ music/
 ├─ scripts/
 │  ├─ probe-backend.js
 │  ├─ probe-music-sources.js
+│  ├─ build-android-debug.ps1
+│  ├─ build-android-release.ps1
 │  ├─ qa-electron.js
 │  └─ run-server.js
+├─ android/
 ├─ src/
 │  ├─ main.js
 │  ├─ preload.js
@@ -292,6 +361,8 @@ data/
 | `npm test` | 运行 `node:test` 单元测试 |
 | `npm run probe:sources` | 验证音源 Provider 层 |
 | `npm run probe:backend` | 验证真实 Express 后端 `/api.php` |
+| `npm run android:debug` | 构建 Android WebView Debug APK 到 `dist/android/` |
+| `npm run android:release` | 构建 Android Release 签名 APK 到 `dist/android/` |
 | `npm run dist` | 构建 unpacked Windows 应用目录 |
 | `npm run qa:electron` | 对已打包的 `dist/win-unpacked/music.exe` 做基础 QA |
 | `npm run installer` | 构建安装包 |
@@ -311,6 +382,7 @@ node -c webroot/sw.js
 npm run test:pwa
 npm run probe:backend -- "周杰伦 晴天"
 npm run probe:sources -- "周杰伦 晴天"
+npm run android:debug
 npm run dist
 npm run qa:electron
 ```

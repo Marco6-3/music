@@ -176,6 +176,32 @@ describe('Provider error tolerance', () => {
     assert.deepEqual(JSON.parse(url.data), { url: 'https://example.test/kuwo.mp3', br: 320, from: 'kuwo-direct' });
   });
 
+  it('KuwoDirectProvider parses one blank-line song block without mixing fields', () => {
+    const p = new KuwoDirectProvider();
+    const songs = p._parseSearchResult(`RN=1
+
+ARTIST=周杰伦
+ALBUM=叶惠美
+DURATION=269
+IMG=http://img.example/cover.jpg
+MUSICRID=MUSIC_228908
+SONGNAME=晴天
+
+ARTIST=周杰伦
+ALBUM=Live
+DURATION=249
+MUSICRID=MUSIC_80456317
+SONGNAME=晴天 (Live)
+`);
+
+    assert.equal(songs[0].id, '228908');
+    assert.equal(songs[0].name, '晴天');
+    assert.equal(songs[0].artist, '周杰伦');
+    assert.equal(songs[0].album, '叶惠美');
+    assert.equal(songs[0].pic, 'http://img.example/cover.jpg');
+    assert.equal(songs[1].id, '80456317');
+  });
+
   it('direct source providers do not claim non-matching URL sources', async () => {
     const p = new KuwoDirectProvider();
     p.url = async () => {

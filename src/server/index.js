@@ -1508,7 +1508,24 @@ async function proxyMusicApi(req, res, cacheDir, dispatcher, offlineCache, optio
     if (dispatcher && apiQuery.types) {
       try {
         const params = Object.fromEntries(Object.entries(apiQuery).filter(([key]) => key !== 'types'));
-        const result = await dispatcher.proxy(apiQuery.types, params);
+        let result;
+        if (apiQuery.types === 'search') {
+          const searchResults = await dispatcher.search(
+            params.source || 'netease',
+            params.name || params.keyword || '',
+            Number(params.count) || 30
+          );
+          if (Array.isArray(searchResults) && searchResults.length) {
+            result = {
+              ok: true,
+              data: JSON.stringify(searchResults),
+              contentType: 'application/json',
+              providerName: 'dispatcher-search'
+            };
+          }
+        } else {
+          result = await dispatcher.proxy(apiQuery.types, params);
+        }
         if (result) {
           let body = typeof result === 'string' ? result : result.data;
           const contentType = typeof result === 'string' ? 'application/json' : result.contentType;

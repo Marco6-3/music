@@ -1,0 +1,90 @@
+plugins {
+    id 'com.android.application'
+}
+
+def defaultWebUrl = providers.gradleProperty('musicWebUrl')
+        .orElse('local')
+        .get()
+
+def javaString = { String value ->
+    '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+}
+
+def signingProps = new Properties()
+def signingPropsFile = rootProject.file('signing.properties')
+if (signingPropsFile.exists()) {
+    signingPropsFile.withInputStream { signingProps.load(it) }
+}
+
+def releaseStoreFile = providers.gradleProperty('musicStoreFile')
+        .orElse(signingProps.getProperty('storeFile') ?: '')
+        .get()
+def releaseStorePassword = providers.gradleProperty('musicStorePassword')
+        .orElse(signingProps.getProperty('storePassword') ?: '')
+        .get()
+def releaseKeyAlias = providers.gradleProperty('musicKeyAlias')
+        .orElse(signingProps.getProperty('keyAlias') ?: '')
+        .get()
+def releaseKeyPassword = providers.gradleProperty('musicKeyPassword')
+        .orElse(signingProps.getProperty('keyPassword') ?: '')
+        .get()
+def hasReleaseSigning = releaseStoreFile && releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
+android {
+    namespace 'com.music.music'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.music.music'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+        buildConfigField 'String', 'DEFAULT_WEB_URL', javaString(defaultWebUrl)
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(releaseStoreFile)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main {
+            assets.srcDir "$buildDir/generated/webrootAssets"
+        }
+    }
+}
+
+tasks.register('syncWebrootAssets', Sync) {
+    from(file("$rootDir/../webroot"))
+    into(layout.buildDirectory.dir('generated/webrootAssets/webroot'))
+}
+
+tasks.named('preBuild') {
+    dependsOn(tasks.named('syncWebrootAssets'))
+}

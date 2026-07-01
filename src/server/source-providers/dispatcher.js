@@ -6,6 +6,7 @@ const SCORE_DECAY = 0.5;
 const SCORE_RECOVER = 0.1;
 const PRIORITY_RACE_TIMEOUT = 500;
 const LOSSLESS_BR_THRESHOLD = 900;
+const { isLikelyPreviewUrl, rankSearchResults } = require('./match');
 
 let audioProbe;
 function getAudioProbe() {
@@ -180,6 +181,55 @@ class Dispatcher {
     return this._fallback(method, ...args);
   }
 
+  async _searchMerged(platform, keyword, count) {
+    const sorted = this._sortedProviders();
+    const healthy = sorted.filter((p) => this._getHealth(p).isHealthy());
+    if (healthy.length === 0) return [];
+
+    const settled = await Promise.allSettled(
+      healthy.map(async (provider) => {
+        try {
+          let results = await provider.search(platform, keyword, count);
+          if ((!Array.isArray(results) || results.length === 0) && platform) {
+            results = await provider.search(null, keyword, count);
+          }
+          if (!Array.isArray(results) || results.length === 0) return [];
+          this._recordSuccess(provider);
+          return results.map((song) => ({
+            ...song,
+            providerName: song.providerName || provider.name
+          }));
+        } catch (error) {
+          this._recordFailure(provider);
+          console.warn(`[Dispatcher] search failed on ${provider.name}:`, errorMessage(error));
+          return [];
+        }
+      })
+    );
+
+    const merged = [];
+    const seen = new Set();
+    for (const item of settled) {
+      if (item.status !== 'fulfilled') continue;
+      for (const song of item.value || []) {
+        const key = [
+          song.source || '',
+          song.id || song.url_id || '',
+          normalizeLoose(song.name || song.title || ''),
+          normalizeLoose(song.artist || song.author || '')
+        ].join('|');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(song);
+      }
+    }
+
+    if (!merged.length) return [];
+    const ranked = rankSearchResults(keyword, merged).slice(0, count || merged.length);
+    console.log(`[Dispatcher] search merged: ${ranked.length}/${merged.length} candidates`);
+    return ranked;
+  }
+
   // For lossless requests: query all healthy providers in parallel, probe each URL,
   // and return the one with the highest verified bitrate.
   async _selectBest(method, ...args) {
@@ -258,7 +308,10 @@ class Dispatcher {
   }
 
   async search(platform, keyword, count) {
-    return this._dispatch('search', platform, keyword, count);
+    if (this.strategy === 'race') {
+      return this._dispatch('search', platform, keyword, count);
+    }
+    return this._searchMerged(platform, keyword, count);
   }
 
   async url(song, quality) {
@@ -314,7 +367,9 @@ function hasProviderResult(method, result, args = []) {
   if (result == null) return false;
 
   if (method === 'url' || method === 'pic') {
-    return Boolean(result.url);
+    if (!result.url) return false;
+    if (method === 'url' && isLikelyPreviewUrl(result.url)) return false;
+    return true;
   }
   if (method === 'lyric') {
     return Boolean(result.lyric || result.tlyric);
@@ -332,7 +387,10 @@ function hasProviderResult(method, result, args = []) {
     const parsed = JSON.parse(text);
     if (Array.isArray(parsed)) return parsed.length > 0;
     if (!parsed || typeof parsed !== 'object') return true;
-    if (types === 'url') return Boolean(parsed.url);
+    if (types === 'url') {
+      const url = parsed.url || parsed.data?.url;
+      return Boolean(url) && !isLikelyPreviewUrl(url);
+    }
     if (types === 'lyric') return Boolean(parsed.lyric || parsed.tlyric);
     if (types === 'pic') return Boolean(parsed.url);
     if (types === 'search' && Array.isArray(parsed.data)) return parsed.data.length > 0;
@@ -356,6 +414,10 @@ function errorMessage(error) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeLoose(value) {
+  return String(value || '').toLowerCase().replace(/\s+/g, '').trim();
 }
 
 function extractBitrate(result) {

@@ -2,6 +2,13 @@ node_modules/
 dist/
 out/
 data/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/signing.properties
+android/*.jks
+android/*.keystore
 output/
 webroot/data/
 webroot/uploads/

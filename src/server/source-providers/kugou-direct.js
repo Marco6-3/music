@@ -4,6 +4,8 @@ const http = require('node:http');
 const https = require('node:https');
 const axios = require('axios');
 const { BaseProvider } = require('./base');
+const { KuwoDirectProvider } = require('./kuwo-direct');
+const { selectBestSongCandidate } = require('./match');
 
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10 });
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10 });
@@ -20,6 +22,7 @@ class KugouDirectProvider extends BaseProvider {
     super('kugou-direct', options);
     this.timeout = options.timeout || 10_000;
     this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+    this.kuwoFallback = new KuwoDirectProvider({ timeout: this.timeout });
   }
 
   async search(platform, keyword, count = 30) {
@@ -85,57 +88,19 @@ class KugouDirectProvider extends BaseProvider {
     const keyword = artist ? `${artist} ${title}` : title;
 
     try {
-      // Search on kuwo using the same API as KuwoDirectProvider
-      const response = await axios.get('https://search.kuwo.cn/r.s', {
-        timeout: this.timeout,
-        params: {
-          all: keyword,
-          ft: 'music',
-          rn: 3,
-          pn: 0,
-          vipver: 'MUSIC_9.1.1.2_BCS2',
-          newsearch: 1,
-          alflac: 1,
-          encoding: 'utf8',
-        },
-        headers: {
-          'User-Agent': this.userAgent,
-          Referer: 'https://www.kuwo.cn/',
-          Accept: '*/*',
-        },
-        httpAgent,
-        httpsAgent,
-      });
+      const candidates = await this.kuwoFallback.search('kuwo', keyword, 8);
+      const best = selectBestSongCandidate(song, candidates, { minScore: artist ? 58 : 44 });
+      if (!best) return null;
 
-      const body = typeof response.data === 'string' ? response.data : '';
-      const rid = this._extractKuwoRid(body);
-      if (!rid) return null;
-
-      // Get playback URL from kuwo antiserver
-      const urlResp = await axios.get('https://antiserver.kuwo.cn/anti.s', {
-        timeout: this.timeout,
-        params: {
-          type: 'convert_url3',
-          rid,
-          format: 'mp3',
-          br: '320k',
-          response: 'url',
-        },
-        headers: {
-          'User-Agent': this.userAgent,
-          Referer: 'https://www.kuwo.cn/',
-        },
-        httpAgent,
-        httpsAgent,
-        maxRedirects: 0,
-        validateStatus: (status) => status < 400,
-      });
-
-      const data = urlResp.data;
-      const url = typeof data === 'string' ? data.trim() : data?.url || data?.data?.url || '';
-
-      if (url && url.startsWith('http')) {
-        return { url, br: 320, from: 'kugou-via-kuwo' };
+      const result = await this.kuwoFallback.url(best, quality);
+      if (result?.url) {
+        return {
+          ...result,
+          from: 'kugou-via-kuwo',
+          matched_source: 'kuwo',
+          matched_id: best.id,
+          match_score: best.matchScore
+        };
       }
       return null;
     } catch {

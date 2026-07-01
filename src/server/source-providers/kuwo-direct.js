@@ -4,6 +4,7 @@ const http = require('node:http');
 const https = require('node:https');
 const axios = require('axios');
 const { BaseProvider } = require('./base');
+const { hasPlayableLength } = require('./match');
 
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10 });
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10 });
@@ -60,29 +61,28 @@ class KuwoDirectProvider extends BaseProvider {
   }
 
   // Kuwo search returns key-value pairs separated by newlines.
-  // Songs are delimited by SONGNAME appearing multiple times.
+  // Songs are separated by blank-line blocks. Do not use SONGNAME as the only
+  // delimiter: many useful fields (MUSICRID/IMG/ALBUM) appear before SONGNAME,
+  // so a SONGNAME-based parser can accidentally mix the previous title with
+  // the next song id.
   _parseSearchResult(body) {
     const songs = [];
-    let current = {};
+    for (const section of body.split(/\r?\n\s*\r?\n/g)) {
+      const current = {};
+      for (const line of section.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
 
-    for (const line of body.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx <= 0) continue;
 
-      const eqIdx = trimmed.indexOf('=');
-      if (eqIdx <= 0) continue;
-
-      const key = trimmed.substring(0, eqIdx);
-      const val = trimmed.substring(eqIdx + 1);
-
-      if (key === 'SONGNAME' && current.SONGNAME !== undefined) {
-        if (current.MUSICRID) songs.push(this._buildSong(current));
-        current = {};
+        const key = trimmed.substring(0, eqIdx);
+        const val = trimmed.substring(eqIdx + 1);
+        current[key] = val;
       }
-      current[key] = val;
-    }
-    if (current.SONGNAME !== undefined && current.MUSICRID) {
-      songs.push(this._buildSong(current));
+      if (current.SONGNAME !== undefined && current.MUSICRID) {
+        songs.push(this._buildSong(current));
+      }
     }
 
     return songs.filter((s) => s.id && s.title);
@@ -102,6 +102,7 @@ class KuwoDirectProvider extends BaseProvider {
       album: this._decodeHtmlEntity(item.ALBUM || ''),
       source: 'kuwo',
       duration: Number(item.DURATION || 0) * 1000,
+      pic: item.IMG || item.hts_MVPIC || (item.web_albumpic_short ? `https://img4.kuwo.cn/star/albumcover/${item.web_albumpic_short}` : ''),
     };
   }
 
@@ -162,6 +163,14 @@ class KuwoDirectProvider extends BaseProvider {
       const url = typeof data === 'string' ? data.trim() : data?.url || data?.data?.url || '';
 
       if (url && url.startsWith('http')) {
+        const playable = await hasPlayableLength(axios, url, {
+          timeout: this.timeout,
+          userAgent: this.userAgent,
+          referer: 'https://www.kuwo.cn/',
+          httpAgent,
+          httpsAgent
+        });
+        if (!playable) return null;
         return {
           url,
           br: br || 320,

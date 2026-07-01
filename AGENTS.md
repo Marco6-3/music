@@ -9,12 +9,13 @@
 ## Current Project State
 
 - Project name: `music`.
-- Platform: Windows desktop music player.
-- Stack: Electron + Express 5 + static frontend/PWA under `webroot/`.
+- Platform: Windows desktop music player, plus Android local WebView APK.
+- Stack: Electron + Express 5 + static frontend/PWA under `webroot/`, with `android/` bundling `webroot/` into a native WebView shell.
 - Local backend default port: `41731`.
 - The backend can run with plain Node. It does not need the old Electron Node wrapper.
 - Database: `sql.js` WASM SQLite. Do not restore `better-sqlite3`, native SQLite rebuilds, or Electron ABI workarounds.
 - Web/PWA mode must use HTTPS deployment for iPhone; keep Electron APIs behind feature detection and out of browser-only paths.
+- Android APK builds do not embed the Node/Express backend. The default local build starts a lightweight Java local server on phone loopback, serves bundled `webroot/`, stores auth/favorites/playlists/history locally, and uses an Android-side lightweight dispatcher. Default Android playback should prefer NetEase/GD-Studio full audio; Kuwo/Kugou are useful for search/fallback but preview-sized playback URLs must be rejected and retried through GD-Studio. Migu code is present but currently marked unreachable in this environment. `MUSIC_ANDROID_WEB_URL` / `-PmusicWebUrl=...` can still override this for remote Web/PWA testing.
 
 ## Cloud Server Notes
 
@@ -36,6 +37,8 @@ npm run test:pwa
 npm run probe:sources
 npm run probe:backend
 npm run qa:electron
+npm run android:debug
+npm run android:release
 npm run dist
 ```
 
@@ -63,12 +66,16 @@ npm run probe:sources -- --disable-lrclib
 - `webroot/js/pwa.js`: PWA registration, standalone detection, install/update/network prompts.
 - `webroot/sw.js`: Service Worker app shell cache; do not cache music audio URLs or third-party music API responses.
 - `webroot/manifest.webmanifest`: iPhone/standalone PWA metadata.
+- `android/`: native Android WebView wrapper project for debug/release APK builds. It serves bundled `webroot/` through `LocalMusicServer`, includes `MusicPlaybackService` for foreground media playback/MediaSession controls, and must stay lightweight without embedded Node/Express or native SQLite.
+- `scripts/build-android-debug.ps1`: Windows helper that uses Android Studio JBR/Android SDK when present and copies the debug APK to `dist/android/music-android-debug.apk`.
+- `scripts/build-android-release.ps1`: Windows helper that creates/uses ignored local signing files and copies the signed release APK to `dist/android/music-android-release.apk`.
 - `tests/database-persistence.test.js`: `node:test` coverage for `sql.js` persist behavior.
 - `start-music.cmd`: Windows one-click startup script with first-run dependency install.
 
 ## Change Rules
 
 - Do not commit `.claude/`; it is Claude Code local worktree/cache state.
+- Do not commit Android signing material such as `android/signing.properties`, `android/*.jks`, or `android/*.keystore`.
 - If runtime architecture, startup commands, database technology, or provider structure changes, update both `AGENTS.md` and `CLAUDE.md` in the same change.
 - Before merging Claude worktree changes, run:
 

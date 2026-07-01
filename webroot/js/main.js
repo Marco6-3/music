@@ -328,6 +328,7 @@
             updateMediaSessionMetadata({ afterPlaybackStart: true });
             updateMediaSessionPlaybackState();
             updateMediaSessionPositionState({ force: true });
+            notifyAndroidPlayback('playing');
             renderPwaDiagnostics();
         });
         audio.addEventListener('pause', () => {
@@ -337,6 +338,7 @@
             updatePlayButtons();
             updateMediaSessionPlaybackState();
             updateMediaSessionPositionState({ force: true });
+            notifyAndroidPlayback(state.currentSong ? 'paused' : 'stopped');
             renderPwaDiagnostics();
         });
         audio.addEventListener('timeupdate', () => {
@@ -358,6 +360,7 @@
             musiqRuntime.markAudioError?.(audio.error?.code || '');
             setPlayerStatus('播放失败');
             updateMediaSessionPlaybackState();
+            notifyAndroidPlayback('stopped');
             renderPwaDiagnostics();
             showToast('播放失败，音乐源暂时不可用', 'error');
         });
@@ -1321,6 +1324,7 @@
             }
             setPlayerStatus('播放失败');
             updateMediaSessionPlaybackState();
+            notifyAndroidPlayback('stopped');
             showToast(message, 'error');
         }
     }
@@ -1421,6 +1425,50 @@
             audio.pause();
         }
     }
+
+    function notifyAndroidPlayback(playbackState) {
+        const bridge = window.MusicAndroid;
+        if (!bridge || typeof bridge.updatePlayback !== 'function') return;
+        const song = state.currentSong || {};
+        try {
+            bridge.updatePlayback(
+                playbackState,
+                String(song.name || 'music'),
+                String(formatArtists(song.artist) || song.artist || '正在播放')
+            );
+        } catch {}
+    }
+
+    function handleAndroidMediaCommand(command) {
+        if (command === 'play') {
+            if (audio.paused) togglePlay();
+            return;
+        }
+        if (command === 'pause') {
+            if (!audio.paused) audio.pause();
+            return;
+        }
+        if (command === 'next') {
+            playNext({ fromMediaSession: true });
+            return;
+        }
+        if (command === 'previous') {
+            playPrevious();
+            return;
+        }
+        if (command === 'stop') {
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
+            setPlayerStatus('准备就绪');
+            updatePlayButtons();
+            clearOrDegradeMediaSession('android-stop');
+            notifyAndroidPlayback('stopped');
+            renderPwaDiagnostics();
+        }
+    }
+
+    window.musicAndroidHandleCommand = handleAndroidMediaCommand;
 
     async function resumeCurrentPlayback({ fromMediaSession = false } = {}) {
         if (guardPlaybackForRuntime()) {
@@ -1656,6 +1704,7 @@
             playNext({ autoAdvance: true });
         } else {
             clearOrDegradeMediaSession('ended');
+            notifyAndroidPlayback('stopped');
         }
     }
 
@@ -3268,6 +3317,7 @@
         }
         return {
             apiBaseUrl: normalizeApiBaseUrl(globalConfig.apiBaseUrl || globalConfig.api_base_url || metaApiBase),
+            musicApiBaseUrl: normalizeApiBaseUrl(globalConfig.musicApiBaseUrl || globalConfig.music_api_base_url || ''),
             credentials: globalConfig.credentials || 'same-origin'
         };
     }
@@ -3279,11 +3329,14 @@
     function buildApiUrl(path, params = {}) {
         const cleanPath = String(path || '').replace(/^\/+/, '');
         const query = new URLSearchParams(params).toString();
-        if (!runtimeConfig.apiBaseUrl) return query ? `${cleanPath}?${query}` : cleanPath;
+        const baseUrl = cleanPath === 'api.php' && runtimeConfig.musicApiBaseUrl
+            ? runtimeConfig.musicApiBaseUrl
+            : runtimeConfig.apiBaseUrl;
+        if (!baseUrl) return query ? `${cleanPath}?${query}` : cleanPath;
 
-        const base = runtimeConfig.apiBaseUrl.endsWith('/')
-            ? runtimeConfig.apiBaseUrl
-            : `${runtimeConfig.apiBaseUrl}/`;
+        const base = baseUrl.endsWith('/')
+            ? baseUrl
+            : `${baseUrl}/`;
         const url = new URL(cleanPath, base);
         if (query) url.search = query;
         return url.toString();

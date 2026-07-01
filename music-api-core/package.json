@@ -1,0 +1,15 @@
+{
+  "name": "music-api-core",
+  "version": "1.0.0",
+  "description": "Standalone music API for NetEase, QQ Music, Kuwo, Kugou, Migu - VIP song playback",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node test.js",
+    "demo": "node demo.js"
+  },
+  "dependencies": {
+    "@meting/core": "^1.6.1",
+    "@unblockneteasemusic/server": "^0.28.0",
+    "axios": "^1.7.0"
+  }
+}
