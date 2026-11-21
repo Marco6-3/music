@@ -24,8 +24,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build for iPhone
         run: |
-          brew install xcodegen
-          xcodegen generate --spec project.yml
+          curl -fsSL --retry 2 --max-time 60 \
+            https://github.com/yonaskolb/XcodeGen/releases/download/2.47.0/xcodegen.zip \
+            -o "$RUNNER_TEMP/xcodegen.zip"
+          echo "6ef12a3ef5327c2c713397f46d9160550f8b1cdc5c925cd884d65c77c9f696cd  $RUNNER_TEMP/xcodegen.zip" \
+            | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/xcodegen.zip" -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/xcodegen/bin/xcodegen" generate --spec project.yml
           xcodebuild -project Music.xcodeproj -scheme Music -configuration Release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO build
