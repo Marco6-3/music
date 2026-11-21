@@ -34,7 +34,7 @@ jobs:
           mkdir -p Payload
           ditto build/Build/Products/Release-iphoneos/Music.app Payload/Music.app
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' Payload/Music.app/Info.plist
-          lipo -verify_arch arm64 Payload/Music.app/Music
+          lipo Payload/Music.app/Music -verify_arch arm64
           zip -qry music-ios-unsigned.ipa Payload
           unzip -tq music-ios-unsigned.ipa
       - uses: actions/upload-artifact@v4
