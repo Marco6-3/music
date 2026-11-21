@@ -1,0 +1,45 @@
+name: Build music for iPhone
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/ios-build]
+    paths:
+      - '.github/workflows/build-ios.yml'
+      - 'ios/project.yml'
+      - 'ios/Sources/**'
+      - 'ios/Resources/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build for iPhone
+        run: |
+          brew install xcodegen
+          xcodegen generate --spec project.yml
+          xcodebuild -project Music.xcodeproj -scheme Music -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned app
+        run: |
+          mkdir -p Payload
+          ditto build/Build/Products/Release-iphoneos/Music.app Payload/Music.app
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' Payload/Music.app/Info.plist
+          lipo -verify_arch arm64 Payload/Music.app/Music
+          zip -qry music-ios-unsigned.ipa Payload
+          unzip -tq music-ios-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: music-ios-unsigned
+          path: ios/music-ios-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 1
